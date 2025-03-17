@@ -27,4 +27,4 @@ export const ICE_SERVER_URL = `${PROTOCOL}://${FATPAPER_DOMAIN}${
 
 export const MYSQL_PORT = 3306;
 export const MYSQL_USERNAME = "root";
-export const MYSQL_PASSWORD = "root";
+export const MYSQL_PASSWORD = "Fergus5211";
