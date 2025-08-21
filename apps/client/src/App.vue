@@ -26,7 +26,7 @@ const isMusicPlayerVisiable = computed(() => router.name !== "login");
 		</template>
 	</TitleBar>
 	<div class="main-container">
-		<FullScreenMask v-if="isMobile" />
+		<!-- <FullScreenMask v-if="isMobile" /> -->
 		<Chat v-if="canChat" />
 		<DanmakuContainer v-if="canChat" />
 		<Background v-if="!isInGame" />
@@ -38,7 +38,7 @@ const isMusicPlayerVisiable = computed(() => router.name !== "login");
 </template>
 
 <style lang="scss" scoped>
-.main-container{
+.main-container {
 	flex: 1;
 	position: relative;
 }

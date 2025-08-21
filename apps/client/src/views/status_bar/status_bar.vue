@@ -13,7 +13,7 @@ const canChat = computed(() => router.name === "room" || router.name === "game")
 <template>
 	<div class="status-bar">
 		<Ping v-if="canChat" />
-		<FullScreenButton />
+		<!-- <FullScreenButton /> -->
 		<Help />
 		<SettingButton />
 	</div>
