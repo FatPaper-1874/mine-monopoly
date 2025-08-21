@@ -1,0 +1,85 @@
+.login-page {
+  --color-text: #16a853;
+  --color-primary: #689F38;
+  --color-primary-110: #558B2F;
+  --color-second: #8BC34A;
+  --color-third: #AED581;
+  --color-bg: #DCEDC8;
+  --color-bg-light: #fff8e1;
+  --color-bg-disable: #c8c9cc;
+  --color-bg-success: #e1f3d8;
+  --color-bg-warning: #faecd8;
+  --color-bg-error: #fde2e2;
+  --color-bg-message: #cedfff;
+
+
+  --color-border-success: #d1edc4;
+  --color-border-warning: #f8e3c5;
+  --color-border-error: #fcd3d3;
+  --color-border-message: #a8d4ff;
+
+
+  --color-text-primary: #1B5E20;
+  --color-text-second: #303030;
+  --color-text-white: #ffffff;
+  --color-text-disable: #909399;
+  --color-text-success: #67C23A;
+  --color-text-warning: #E6A23C;
+  --color-text-error: #F56C6C;
+  --color-text-message: #095fce;
+
+  --box-shadow: 0px 0px 12px rgba(0, 0, 0, .12);
+  --box-shadow-dark: 0px 0px 12px rgba(0, 0, 0, .22);
+  --text-shadow: 3px 3px 2px rgba(0, 0, 0, 0.15);
+  --text-shadow-light: 3px 3px 2px rgba(255, 255, 255, 1);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  background-color: var(--color-bg-light);
+}
+
+/*定义滚动条轨道：内阴影+圆角*/
+::-webkit-scrollbar-track {
+  background-color: var(--color-bg-light);
+}
+
+/*定义滑块：内阴影+圆角*/
+::-webkit-scrollbar-thumb {
+  border-radius: 3px;
+  background-color: var(--color-bg);
+}
+
+.loading {
+  &:after {
+    width: 100%;
+    height: 100%;
+    background-color: rgba($color: #000000, $alpha: .55);
+  }
+}
+
+#app {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+}
+
+// .fp-button {
+//   margin: auto;
+//   padding: 10px 20px;
+//   border: 0;
+//   color: #ffb05c;
+//   font-size: 1em;
+//   background-color: #ffffff;
+//   box-shadow: 3px 3px 3px #ffb05c;
+//   border-radius: 10px;
+
+//   &:hover {
+//     color: #ffffff;
+//     cursor: pointer;
+//     background-color: #ffb05c;
+//   }
+// }

@@ -1,0 +1,20 @@
+@font-face {
+  font-family: 'TitleFont';
+  src: url('https://fatpaper-1304992673.cos.ap-guangzhou.myqcloud.com/monopoly/static/TitleFont.ttf');
+  font-weight: normal;
+  font-style: normal;
+}
+/*
+@font-face {
+  font-family: 'ContentFont';
+  src: url('./ContentFont.ttf');
+  font-weight: normal;
+  font-style: normal;
+} */
+
+@font-face {
+  font-family: "ContentFont";
+  src: url("https://fatpaper-1304992673.cos.ap-guangzhou.myqcloud.com/monopoly/static/ContentFont.woff2") format("woff");
+  font-style: normal;
+  font-weight: normal;
+}

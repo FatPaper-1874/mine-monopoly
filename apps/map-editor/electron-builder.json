@@ -1,0 +1,32 @@
+{
+	"appId": "YourAppID",
+	"asar": true,
+	"productName": "FatPaper-Map-Editor",
+	"directories": {
+		"output": "dist/electron/${version}"
+	},
+	"files": ["dist/frontend", "dist-electron"],
+	"mac": {
+		"target": ["dmg"],
+		"artifactName": "${productName}-Mac-${version}-Installer.${ext}"
+	},
+	"win": {
+		"target": [
+			{
+				"target": "nsis",
+				"arch": ["x64"]
+			}
+		],
+		"artifactName": "${productName}-Windows-${version}-Setup.${ext}"
+	},
+	"nsis": {
+		"oneClick": false,
+		"perMachine": false,
+		"allowToChangeInstallationDirectory": true,
+		"deleteAppDataOnUninstall": false
+	},
+	"linux": {
+		"target": ["AppImage"],
+		"artifactName": "${productName}-Linux-${version}.${ext}"
+	}
+}

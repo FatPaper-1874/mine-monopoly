@@ -1,0 +1,22 @@
+{
+	"name": "@fatpaper-monopoly/map-editor",
+	"version": "1.0.0",
+	"private": true,
+	"type": "module",
+	"main": "dist-electron/main.js",
+	"scripts": {
+		"dev": "vite",
+		"build": "vite build && electron-builder",
+		"electron": "electron .",
+		"preview": "vite preview"
+	},
+	"dependencies": {
+		"@fatpaper-monopoly/utils": "workspace:*",
+		"@fatpaper-monopoly/types": "workspace:*",
+		"@fatpaper-monopoly/ui": "workspace:*",
+		"dts-bundle-generator":"9.5.1"
+	},
+	"devDependencies": {
+		"ts-morph": "26.0.0"
+	}
+}

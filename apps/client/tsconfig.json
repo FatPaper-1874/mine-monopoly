@@ -1,0 +1,16 @@
+{
+	"extends": "../../tsconfig.json",
+	"compilerOptions": {
+		"useDefineForClassFields": true,
+		"strict": true,
+		"jsx": "preserve",
+		"resolveJsonModule": true,
+		"isolatedModules": true,
+		"lib": ["ESNext", "DOM"],
+		"noEmit": true,
+		"baseUrl": "./",
+		"paths": {
+			"@src/*": ["src/*"]
+		}
+	}
+}

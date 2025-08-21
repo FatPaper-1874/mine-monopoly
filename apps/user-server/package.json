@@ -1,0 +1,38 @@
+{
+	"name": "@fatpaper-monopoly/user-server",
+	"version": "1.0.0",
+	"main": "index.js",
+	"license": "MIT",
+	"scripts": {
+		"dev": "nodemon -r --exec ts-node ./app.ts",
+		"start": "tsc && node dist/fatpaper-user-server/app.js --omit=dev"
+	},
+	"dependencies": {
+		"body-parser": "^1.20.1",
+		"chalk": "4.1.2",
+		"cors": "^2.8.5",
+		"cos-nodejs-sdk-v5": "^2.13.5",
+		"express-jwt": "^8.2.0",
+		"jsencrypt-node": "^1.0.4",
+		"jsonwebtoken": "^9.0.0",
+		"multer": "^1.4.5-lts.1",
+		"mysql": "^2.18.1",
+		"node-jsencrypt": "^1.0.0",
+		"node-vibrant": "^3.2.1-alpha.1",
+		"nodemon": "^2.0.20",
+		"path-to-regexp": "^6.2.1",
+		"redis": "^4.6.10",
+		"reflect-metadata": "^0.1.13",
+		"typeorm": "^0.3.20",
+		"winston": "^3.8.2"
+	},
+	"devDependencies": {
+		"@types/body-parser": "^1.19.2",
+		"@types/cors": "^2.8.13",
+		"@types/express-jwt": "^7.4.2",
+		"@types/jsonwebtoken": "^8.5.9",
+		"@types/multer": "^1.4.7",
+		"@types/winston": "^2.4.4",
+		"ts-node": "^10.9.1"
+	}
+}

@@ -1,0 +1,262 @@
+<script setup lang="ts">
+import CodeEditor from "@src/components/code-editor/index.vue";
+import EditorLib from "./editor-lib.d.ts?raw";
+import TemplateText from "./template-text?raw";
+import { computed, ref } from "vue";
+import { useMapDataStore } from "@src/stores";
+import { GamePhaseInfo } from "@fatpaper-monopoly/types";
+import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
+
+const model = defineModel({ default: false });
+const mapDataStore = useMapDataStore();
+
+const phases = computed(() => mapDataStore.phases);
+
+type PhaseGroupKey = keyof typeof mapDataStore.phases;
+
+// 当前选中的分组 & 索引
+const currentGroupKey = ref<PhaseGroupKey>("gameRoundStart");
+const currentIndex = ref(0);
+
+// 当前正在编辑的 phase，双向绑定
+const currentPhase = computed<GamePhaseInfo | null>({
+	get: () => {
+		const list = phases.value[currentGroupKey.value];
+		return list?.[currentIndex.value] ?? null;
+	},
+	set: (val) => {
+		if (val) {
+			mapDataStore.phases[currentGroupKey.value][currentIndex.value] = val;
+		}
+	},
+});
+
+function addPhase(group: PhaseGroupKey, insertIndex: number) {
+	const newPhase: GamePhaseInfo = {
+		id: crypto.randomUUID(),
+		name: "新阶段",
+		description: "新阶段",
+		from: "系统",
+		initEventCode: `return (async (context, next) => {
+	
+}) as Middleware<GameContext>;`,
+	};
+	mapDataStore.phases[group].splice(insertIndex + 1, 0, newPhase);
+	currentGroupKey.value = group;
+	currentIndex.value = insertIndex + 1;
+}
+
+function removePhase(group: PhaseGroupKey, id: string) {
+	const deleteIndex = mapDataStore.phases[group].findIndex((p) => p.id === id);
+	mapDataStore.phases[group].splice(deleteIndex, 1);
+}
+</script>
+
+<template>
+	<a-modal
+		wrap-class-name="process-manager-container"
+		width="100%"
+		v-model:open="model"
+		:footer="null"
+		title="流程编辑"
+	>
+		<div class="process-container">
+			<!-- 轮次开始阶段 -->
+			<h4>轮次开始阶段</h4>
+			<div class="phase-container">
+				<div class="phase-item" v-for="(phase, index) in phases.gameRoundStart">
+					<a-card
+						:key="phase.id"
+						class="process-card"
+						hoverable
+						:class="{ selected: currentGroupKey === 'gameRoundStart' && index === currentIndex }"
+						@click="
+							currentGroupKey = 'gameRoundStart';
+							currentIndex = index;
+						"
+						size="small"
+						:title="phase.name"
+					>
+						<template v-if="phase.mark == undefined" #extra>
+							<a-button size="small" type="link" danger @click="removePhase('gameRoundStart', phase.id)">删除</a-button>
+						</template>
+						{{ phase.description }}
+					</a-card>
+					<a-button type="dashed" @click="addPhase('gameRoundStart', index)" class="add-phase-button">
+						<FontAwesomeIcon :icon="['fas', 'plus']" />
+					</a-button>
+				</div>
+			</div>
+
+			<!-- 玩家回合阶段 -->
+			<h4>玩家回合阶段(遍历每个玩家)</h4>
+			<div class="phase-container player-phase">
+				<a-button type="dashed" @click="addPhase('playerRound', -1)" class="add-phase-button">
+					<FontAwesomeIcon :icon="['fas', 'plus']" />
+				</a-button>
+				<div class="phase-item" v-for="(phase, index) in phases.playerRound">
+					<a-card
+						:key="phase.id"
+						class="process-card"
+						hoverable
+						:class="{ selected: currentGroupKey === 'playerRound' && index === currentIndex }"
+						@click="
+							currentGroupKey = 'playerRound';
+							currentIndex = index;
+						"
+						size="small"
+						:title="phase.name"
+					>
+						<template v-if="phase.mark == undefined" #extra>
+							<a-button size="small" type="link" danger @click="removePhase('playerRound', phase.id)">删除</a-button>
+						</template>
+						{{ phase.description }}
+					</a-card>
+					<a-button type="dashed" class="add-phase-button" @click="addPhase('playerRound', index)">
+						<FontAwesomeIcon :icon="['fas', 'plus']" />
+					</a-button>
+				</div>
+			</div>
+
+			<!-- 轮次结束阶段 -->
+			<h4>轮次结束阶段</h4>
+			<div class="phase-container">
+				<div class="phase-item" v-for="(phase, index) in phases.gameRoundEnd">
+					<a-button type="dashed" class="add-phase-button" @click="addPhase('gameRoundEnd', index - 1)">
+						<FontAwesomeIcon :icon="['fas', 'plus']" />
+					</a-button>
+					<a-card
+						:key="phase.id"
+						class="process-card"
+						hoverable
+						:class="{ selected: currentGroupKey === 'gameRoundEnd' && index === currentIndex }"
+						@click="
+							currentGroupKey = 'gameRoundEnd';
+							currentIndex = index;
+						"
+						size="small"
+						:title="phase.name"
+					>
+						<template v-if="phase.mark == undefined" #extra>
+							<a-button size="small" type="link" danger @click="removePhase('gameRoundEnd', phase.id)">删除</a-button>
+						</template>
+						{{ phase.description }}
+					</a-card>
+				</div>
+			</div>
+		</div>
+
+		<div class="editor-container">
+			<div class="phase-form">
+				<a-form v-if="currentPhase" :model="currentPhase" name="phase" layout="inline">
+					<a-form-item label="阶段名称" name="name" :rules="[{ required: true, message: '输入阶段名称' }]">
+						<a-input v-model:value="currentPhase.name" />
+					</a-form-item>
+
+					<a-form-item label="阶段描述" name="description" :rules="[{ required: true, message: '输入阶段描述' }]">
+						<a-input v-model:value="currentPhase.description" />
+					</a-form-item>
+
+					<a-form-item>
+						<a-button type="primary" html-type="submit">保存</a-button>
+					</a-form-item>
+				</a-form>
+			</div>
+			<a-alert
+				message="此处编写的是游戏阶段的初始代码，在游戏初始化时会注册这些代码到响应的游戏阶段，游戏进行到相应阶段就会运行下面的代码；你可以点击左边“+”号按钮添加任意阶段"
+				type="info"
+				show-icon
+			/>
+			<CodeEditor
+				v-if="currentPhase"
+				v-model="currentPhase.initEventCode"
+				:extra-libs="[EditorLib]"
+				:template-text="TemplateText"
+			/>
+		</div>
+	</a-modal>
+</template>
+
+<style lang="scss">
+.process-manager-container {
+	.ant-modal {
+		max-width: 96vw;
+		top: 10vh;
+		left: 2vw;
+		padding-bottom: 0;
+		margin: 0;
+	}
+	.ant-modal-content {
+		display: flex;
+		flex-direction: column;
+		height: calc(85vh);
+	}
+	.ant-modal-body {
+		flex: 1;
+		display: flex;
+		height: 40vh;
+	}
+
+	.process-container {
+		width: 30vw;
+		height: 100%;
+		overflow-y: scroll;
+		padding: 10px 0;
+		box-sizing: border-box;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		margin-right: 10px;
+
+		h4 {
+			margin: 10px 0 5px;
+			color: #555;
+		}
+
+		.phase-container {
+			width: 100%;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			gap: 10px;
+			margin: 5px 0;
+		}
+
+		.phase-container.player-phase {
+			width: fit-content;
+			border: 2px dashed #93c0ff;
+			border-radius: 10px;
+			padding: 10px;
+		}
+	}
+
+	.phase-item {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 10px;
+	}
+
+	.process-card {
+		box-sizing: border-box;
+		width: 20vw;
+		font-size: 0.8em;
+		border: 2px solid #c2c2c2;
+
+		&.selected {
+			border: 2px solid #1677ff;
+		}
+	}
+	.add-phase-button {
+		width: 100%;
+	}
+
+	.editor-container {
+		height: 100%;
+		flex: 1;
+		gap: 10px;
+		display: flex;
+		flex-direction: column;
+	}
+}
+</style>

@@ -1,0 +1,20 @@
+{
+	"name": "@fatpaper-monopoly/client",
+	"private": true,
+	"version": "1.0.0",
+	"updateMessage": "欢迎来到1.0版本",
+	"type": "module",
+	"scripts": {
+		"dev": "vite --host",
+		"build": "vite build",
+		"preview": "vite preview"
+	},
+	"dependencies": {
+		"eventemitter3": "^5.0.0",
+		"peerjs": "^1.5.4",
+		"@fatpaper-monopoly/config": "workspace:*",
+		"@fatpaper-monopoly/ui": "workspace:*",
+		"@fatpaper-monopoly/login": "workspace:*"
+	},
+	"devDependencies": {}
+}

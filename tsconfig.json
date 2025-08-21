@@ -1,0 +1,24 @@
+{
+	"compilerOptions": {
+		"target": "ESNext",
+		"module": "ESNext",
+		"moduleResolution": "Node",
+		"strict": true,
+		"jsx": "preserve",
+		"esModuleInterop": true,
+		"skipLibCheck": true,
+		"forceConsistentCasingInFileNames": true,
+		"baseUrl": ".",
+		"paths": {
+			"@G/*": ["./*"],
+			"@fatpaper-monopoly/types": ["packages/types/index.ts"],
+			"@fatpaper-monopoly/types/*": ["packages/types/*"]
+		},
+
+		"types": ["node", "vite/client"],
+		"noEmit": true,
+		"lib": ["ESNext", "DOM"]
+	},
+	"include": ["apps/**/*", "packages/**/*"],
+	"exclude": ["node_modules", "dist", "**/*.test.ts"]
+}

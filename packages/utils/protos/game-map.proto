@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+message GameMap {
+  string id = 1;
+  string jsonData = 2;
+  repeated ModelItem modelFiles = 3;
+  repeated ImageItem imageFiles = 4;
+}
+
+message ModelItem {
+  string id = 1;
+  string name = 2;
+  string filetype = 3;
+  bytes content = 4;
+}
+
+message ImageItem {
+  string id = 1;
+  string name = 2;
+  string filetype = 3;
+  bytes content = 4;
+}
