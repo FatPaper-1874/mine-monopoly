@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ResourcesType } from "@src/stores";
+import { ResourcesType, useResourceStore } from "@src/stores";
 import { ModelPreviewerRenderer } from "@src/utils/three/ModelPreviewerRenderer";
+import { message } from "ant-design-vue";
 import { onBeforeUnmount, onMounted, watch } from "vue";
 
 const props = defineProps<{ model: ResourcesType }>();
@@ -24,6 +25,15 @@ watch(
 	}
 );
 
+function handleDelete() {
+	try {
+		useResourceStore().removeModel(props.model.id);
+		message.success(`删除模型 "${props.model.name}" 成功`);
+	} catch (e: any) {
+		message.error(e.message);
+	}
+}
+
 onBeforeUnmount(() => {
 	modelPreviewer?.destroy();
 	modelPreviewer = null;
@@ -34,7 +44,14 @@ onBeforeUnmount(() => {
 	<a-card class="model-previewer" size="small" :title="props.model.name" :bodyStyle="{ flex: '1' }">
 		<template #extra>
 			<a-button size="small" type="link" primary>编辑</a-button>
-			<a-button size="small" type="link" danger>删除</a-button>
+			<a-popconfirm
+				title="你确定删除这个模型吗, 和它相关的MapItem会一并删除"
+				ok-text="确定"
+				cancel-text="取消"
+				@confirm="handleDelete"
+			>
+				<a-button size="small" type="link" danger>删除</a-button>
+			</a-popconfirm>
 		</template>
 		<div :id="props.model.id" class="model-preview-canvas-container"></div>
 	</a-card>

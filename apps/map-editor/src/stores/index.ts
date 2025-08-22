@@ -39,12 +39,19 @@ export const useMapDataStore = defineStore("MapData", {
 		addMapItem(mapItem: MapItem) {
 			this.mapItems.push(mapItem);
 		},
-		deleteMapItem(id: string) {
+		removeMapItem(id: string) {
+			console.log("🚀 ~ removeMapItem ~ id:", id);
 			const index = this.mapItems.findIndex((m) => m.id === id);
 			if (index === -1) throw Error("寻找MapItem失败");
 			this.unLinkMapItem(id);
+			//级联删除Property
+			const property = this.mapItems[index].property;
+			if (property) {
+				this.reomveProperty(property.id);
+			}
 			this.mapItems.splice(index, 1);
 			eventBus.emit("map-item-deleted", id);
+			this.updateMapIndex([]);
 		},
 		findMapItemById(id: string) {
 			return this.mapItems.find((m) => m.id === id);
@@ -88,6 +95,16 @@ export const useMapDataStore = defineStore("MapData", {
 		},
 		findMapItemTypeById(id: string) {
 			return this.mapItemTypes.find((m) => m.id === id);
+		},
+		removeMapItemType(id: string) {
+			const index = this.mapItemTypes.findIndex((s) => s.id === id);
+			if (index < 0) throw Error("找不到目标MapItem类型");
+			const mapItemIds = this.mapItems.filter((m) => m.type.id === id).map((m) => m.id);
+			//级联删除MapItem
+			mapItemIds.forEach((mapItemId) => {
+				this.removeMapItem(mapItemId);
+			});
+			this.mapItemTypes.splice(index, 1);
 		},
 
 		// Street
@@ -193,7 +210,6 @@ export const useMapDataStore = defineStore("MapData", {
 
 		//mapIndex
 		updateMapIndex(indexs: string[]) {
-			console.log("🚀 ~ updateMapIndex ~ indexs:", indexs);
 			this.mapIndex = indexs;
 			eventBus.emit("map-index-update", indexs);
 		},
@@ -222,6 +238,14 @@ export const useResourceStore = defineStore("Resources", {
 		removeModel(id: string) {
 			const deleteIndex = this.models.findIndex((m) => m.id === id);
 			if (deleteIndex < 0) throw Error("找不到目标模型资源");
+			//级联删除MapItemType
+			const mapItemTypeIds = useMapDataStore()
+				.mapItemTypes.filter((m) => m.modelId === id)
+				.map((m) => m.id);
+			console.log("🚀 ~ removeModel ~ mapItemTypeIds:", mapItemTypeIds);
+			mapItemTypeIds.forEach((mapItemTypeId) => {
+				useMapDataStore().removeMapItemType(mapItemTypeId);
+			});
 			this.models.splice(deleteIndex, 1);
 		},
 		removeImage(id: string) {

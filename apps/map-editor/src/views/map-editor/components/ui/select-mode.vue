@@ -57,7 +57,7 @@ function handleUnLink() {
 function handleMapItemDelete() {
 	if (currentMapItemId.value) {
 		try {
-			useMapDataStore().deleteMapItem(currentMapItemId.value);
+			useMapDataStore().removeMapItem(currentMapItemId.value);
 			message.success("删除成功", 1);
 		} catch (e: any) {
 			message.error(e.message, 1);
