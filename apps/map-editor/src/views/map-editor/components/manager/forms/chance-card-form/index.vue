@@ -46,15 +46,12 @@ const chanceCardForm = reactive<ChanceCard>(props.chanceCard || getInitForm());
 async function handleAddChanceCard() {
 	try {
 		const mapDataStore = useMapDataStore();
-		const resourceStore = useResourceStore();
 		const iconId = await handleNewImage(iconUrl.value, chanceCardForm.name);
-		if (props.chanceCard) {
-			resourceStore.removeImage(props.chanceCard.iconId);
 			chanceCardForm.iconId = iconId;
+		if (props.chanceCard) {
 			mapDataStore.editChanceCard(chanceCardForm);
 			message.success(`修改 "${chanceCardForm.name}" 成功`);
 		} else {
-			chanceCardForm.iconId = iconId;
 			mapDataStore.addChanceCard(chanceCardForm);
 			message.success(`添加 "${chanceCardForm.name}" 成功`);
 		}

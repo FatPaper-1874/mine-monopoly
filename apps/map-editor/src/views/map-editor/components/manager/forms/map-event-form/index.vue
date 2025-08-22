@@ -45,15 +45,12 @@ const mapEventForm = reactive<MapEvent>(props.mapEvent || getInitForm());
 async function handleAddMapEvent() {
 	try {
 		const mapDataStore = useMapDataStore();
-		const resourceStore = useResourceStore();
 		const iconId = await handleNewImage(iconUrl.value, mapEventForm.name);
+		mapEventForm.iconId = iconId;
 		if (props.mapEvent) {
-			resourceStore.removeImage(props.mapEvent.iconId);
-			mapEventForm.iconId = iconId;
 			mapDataStore.editMapEvent(mapEventForm);
 			message.success(`修改 "${mapEventForm.name}" 成功`);
 		} else {
-			mapEventForm.iconId = iconId;
 			mapDataStore.addMapEvent(mapEventForm);
 			message.success(`添加 "${mapEventForm.name}" 成功`);
 		}
@@ -91,7 +88,13 @@ const iconRule = async (_rule: Rule, value: string) => {
 
 <template>
 	<div class="map-event-form-container">
-		<a-form class="map-event-form" @finish="handleAddMapEvent" :model="mapEventForm" name="map-event" autocomplete="off">
+		<a-form
+			class="map-event-form"
+			@finish="handleAddMapEvent"
+			:model="mapEventForm"
+			name="map-event"
+			autocomplete="off"
+		>
 			<a-form-item label="ID">
 				<a-alert style="word-break: break-all" :message="mapEventForm.id" type="info" />
 			</a-form-item>

@@ -111,6 +111,8 @@ export const useMapDataStore = defineStore("MapData", {
 		editMapEvent(mapEvent: MapEvent) {
 			const index = this.mapEvents.findIndex((s) => s.id === mapEvent.id);
 			if (index < 0) throw Error("找不到目标地图事件");
+			const old = this.mapEvents[index];
+			useResourceStore().removeImage(old.iconId);
 			Object.assign(this.mapEvents[index], mapEvent);
 		},
 		reomveMapEvent(id: string) {
@@ -140,6 +142,8 @@ export const useMapDataStore = defineStore("MapData", {
 		editChanceCard(chanceCard: ChanceCard) {
 			const index = this.chanceCards.findIndex((s) => s.id === chanceCard.id);
 			if (index < 0) throw Error("找不到目标机会卡");
+			const old = this.chanceCards[index];
+			useResourceStore().removeImage(old.iconId);
 			Object.assign(this.chanceCards[index], chanceCard);
 		},
 		reomveChanceCard(id: string) {
