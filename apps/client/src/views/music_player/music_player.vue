@@ -39,7 +39,7 @@ function selectMusic(id: string) {
 		//   currentMusic.value = musicToPlay;
 		//   isPlaying.value = true;
 		// }
-		_musicPlayerEl.src = `${__PROTOCOL__}://${musicToPlay.url}`;
+		_musicPlayerEl.src = `${musicToPlay.url}`;
 
 		nextTick(() => {
 			_musicPlayerEl.play().catch(() => {});
@@ -109,7 +109,7 @@ function handleMusicEnded() {
 
 async function loadMusicList() {
 	isLoadingMusicList.value = true;
-	const { musicList } = await getMusicList(1, 1000);
+	const { musicList } = await getMusicList();
 	isLoadingMusicList.value = false;
 	return musicList;
 }
@@ -142,7 +142,7 @@ onBeforeUnmount(() => {
 			@pause="handleAudioStateChange(false)"
 			@ended="handleMusicEnded"
 			ref="musicPlayerEl"
-			:src="currentMusic ? `${__PROTOCOL__}://${currentMusic.url}` : ''"
+			:src="currentMusic ? `${currentMusic.url}` : ''"
 			:volume="settingStore.musicVolume"
 			autoplay
 			loop
