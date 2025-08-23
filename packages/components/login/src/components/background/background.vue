@@ -28,6 +28,7 @@ const isRoll = ref(true);
 	width: 100%;
 	height: 100%;
 	position: absolute;
+	overflow: hidden;
 	filter: blur(1px);
 
 	.rool-button {

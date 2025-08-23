@@ -23,7 +23,6 @@ _axios.interceptors.request.use(
 // 响应拦截器
 _axios.interceptors.response.use(
 	async function (response) {
-		console.log("🚀 ~ response:", response)
 		const msg = response.data.msg;
 		if (msg) {
 			const status = response.data.status;
@@ -50,7 +49,6 @@ _axios.interceptors.response.use(
 		return response.data;
 	},
 	async function (error) {
-		console.log("🚀 ~ error:", error)
 		let message = "";
 		switch (error.response.status) {
 			case 400:
@@ -89,11 +87,9 @@ _axios.interceptors.response.use(
 			default:
 				message = `连接出错(${error.response.status})!`;
 		}
-		console.log(error);
-
 		FPMessage({
 			type: "error",
-			message: `${error.response.data.msg || message}: ${error.message || ""}`,
+			message: `${error.response.data.msg || message}`,
 		});
 		return Promise.reject(error);
 	}

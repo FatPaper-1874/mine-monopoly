@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onBeforeMount, onBeforeUnmount, reactive, onMounted, nextTick, h } from "vue";
 import router from "@src/router";
-import { __LOGINPAGEURL__, __PROTOCOL__ } from "@src/../global.config";
+import { __PROTOCOL__ } from "@src/../global.config";
 import { getUserByToken } from "@src/utils/api/user";
 import { createLoginIframeOnBody, exitFullScreen, randomString, setTimeOutAsync } from "@src/utils";
 import { FPMessage } from "@fatpaper-monopoly/ui";
@@ -41,13 +41,14 @@ function handleFirstClick() {
 	}
 }
 
-async function doLogin() {
+function doLogin() {
 	showUserLogin.value = true;
-	// const token = await toLogin();
-	// if (token) {
-	// 	localStorage.setItem("token", token);
-	// 	getUserInfoToRoomList();
-	// }
+}
+
+function handleLoginSuccess(token: string) {
+	showUserLogin.value = false;
+	localStorage.setItem("token", token);
+	getUserInfoToRoomList();
 }
 
 onBeforeUnmount(() => {
@@ -183,7 +184,12 @@ function toRoomList() {
 			</FpDialog>
 		</div>
 
-		<Login v-if="showUserLogin" class="user-login" />
+		<div v-if="showUserLogin" class="user-login">
+			<div @click="showUserLogin = false" class="close-button">
+				<font-awesome-icon :icon="['fas', 'xmark']" />
+			</div>
+			<Login @success="handleLoginSuccess" />
+		</div>
 
 		<div class="dice-container" v-show="showDice">
 			<canvas id="dice-canvas" class="dice"></canvas>
@@ -203,11 +209,36 @@ function toRoomList() {
 .user-login {
 	position: fixed;
 	width: 80vw;
-	height: 90vh;
+	height: 85vh;
 	top: 50%;
 	left: 50%;
+	border: 0.3rem solid rgba(255, 255, 255, 0.65);
+	border-radius: 1.5rem;
 	transform: translate(-50%, -50%);
 	z-index: 1000;
+	overflow: hidden;
+
+	.close-button {
+		position: absolute;
+		width: 2rem;
+		height: 2rem;
+		top: 0.3rem;
+		right: 0.3rem;
+		border-radius: 50%;
+		z-index: 1001;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		background-color: #689f38;
+		color: #ffffff;
+		text-align: center;
+		font-size: 1.3rem;
+		cursor: pointer;
+
+		&:hover{
+			background-color: #558b2f;
+		}
+	}
 }
 
 .front-cover,

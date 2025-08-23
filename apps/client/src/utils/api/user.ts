@@ -1,4 +1,4 @@
-import { __USERSERVER__ } from "@src/../global.config";
+import { __MONOPOLYSERVER__ } from "@src/../global.config";
 import axios from "axios";
 
 interface UserInfo {
@@ -11,6 +11,6 @@ interface UserInfo {
 2;
 
 export async function getUserByToken(token: string) {
-	const res = await axios.get(`${__USERSERVER__}/user/info`, { data: { token } });
+	const res = await axios.get(`${__MONOPOLYSERVER__}/user/info`, { data: { token } });
 	return res.data as UserInfo;
 }
