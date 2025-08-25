@@ -149,9 +149,11 @@ export class MapRenderer {
 
 	private initEventListeners() {
 		eventBus.on("map-loaded", async (mapData) => {
-			console.log("🚀 ~ MapRenderer ~ initEventListeners ~ mapData:", mapData);
-			//TODO
 			await this.loadMap(mapData);
+		});
+
+		eventBus.on("map-background-update", () => {
+			this.loadMapBackground();
 		});
 
 		eventBus.on("change-operation-mode", (newMode) => {
@@ -517,11 +519,23 @@ export class MapRenderer {
 			await this.addMapEventIcon(mapItem);
 		}
 
+		this.loadMapBackground();
 		//加载索引路径
 		this.updateMapIndex(mapData.mapIndex);
 		//TODO
 		useEditorStore().setLoading(false);
 		this.lookAtCenter();
+	}
+
+	private async loadMapBackground() {
+		const imageResourceId = useMapDataStore().info.backgroundImageId;
+		const imageResource = useResourceStore().findImageById(imageResourceId);
+		if (!imageResource) return;
+		const imageUrl = imageResource.url;
+		const textureLoader = new THREE.TextureLoader();
+		const texture = await textureLoader.loadAsync(imageUrl);
+		texture.colorSpace = THREE.SRGBColorSpace;
+		this.scene.background = texture;
 	}
 
 	private handleMapItemLink(id: string) {
@@ -607,6 +621,7 @@ export class MapRenderer {
 		const imageInfo = useResourceStore().findImageById(mapEvent.iconId);
 		if (!imageInfo) throw Error(`没找到事件 "${mapEvent.name}" 的icon资源`);
 		const texture = await textureLoader.loadAsync(imageInfo.url);
+		texture.colorSpace = THREE.SRGBColorSpace;
 		const planeGeometry = new THREE.PlaneGeometry(1, 1);
 		const planeMaterial = new THREE.MeshBasicMaterial({
 			map: texture,

@@ -9,17 +9,21 @@ import {
 	ChanceCard,
 	IProperty,
 	Role,
+	GameMapInfo,
+	SemVer,
 } from "@fatpaper-monopoly/types/interfaces/game/item";
 import { eventBus } from "@src/utils/event-bus";
-import { message } from "ant-design-vue";
 import { getInitPhase } from "./utils/init-phase";
-import { computed, ComputedRef } from "vue";
 
 export const useMapDataStore = defineStore("MapData", {
 	state: (): GameMap => ({
 		id: crypto.randomUUID(),
-		name: "",
-		background: "",
+		info: {
+			name: "",
+			version: "0.0.0",
+			backgroundImageId: "",
+			coverImageId: "",
+		},
 		mapItems: [],
 		properties: [],
 		chanceCards: [],
@@ -35,6 +39,26 @@ export const useMapDataStore = defineStore("MapData", {
 		houseModel_lv2_id: "",
 	}),
 	actions: {
+		// MapInfo
+		updateMapInfo(info: { name: string; version: SemVer }) {
+			Object.assign(this.info, info);
+		},
+
+		setBackgroundImageId(id: string) {
+			if (this.info.backgroundImageId) {
+				useResourceStore().removeImage(this.info.backgroundImageId);
+			}
+			this.info.backgroundImageId = id;
+			eventBus.emit("map-background-update");
+		},
+
+		setCoverImageId(id: string) {
+			if (this.info.coverImageId) {
+				useResourceStore().removeImage(this.info.coverImageId);
+			}
+			this.info.coverImageId = id;
+		},
+
 		// MapItem
 		addMapItem(mapItem: MapItem) {
 			this.mapItems.push(mapItem);
@@ -279,6 +303,21 @@ type EditorAlert = {
 };
 
 const alertList: EditorAlert[] = [
+	{
+		type: "warning",
+		message: "没有设置地图背景",
+		visible: () => useMapDataStore().info.backgroundImageId === "",
+	},
+	{
+		type: "warning",
+		message: "没有设置地图封面",
+		visible: () => useMapDataStore().info.coverImageId === "",
+	},
+	{
+		type: "error",
+		message: "没有设置地图名称",
+		visible: () => useMapDataStore().info.name === "",
+	},
 	{
 		type: "error",
 		message: "没有设置地图索引路径",

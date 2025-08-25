@@ -18,6 +18,7 @@ type Events = {
 	"map-event-link": string;
 	"map-event-unlink": string;
 	"map-index-update": string[];
+	"map-background-update": void;
 };
 
 export const eventBus = mitt<Events>();

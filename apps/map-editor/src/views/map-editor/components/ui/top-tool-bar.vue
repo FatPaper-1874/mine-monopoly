@@ -3,16 +3,18 @@ import { CameraMode, OperationMode } from "@src/enums";
 import { RadioChangeEvent } from "ant-design-vue";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { message } from "ant-design-vue";
-import { useEditorStore } from "@src/stores";
+import { useEditorStore, useMapDataStore, useResourceStore } from "@src/stores";
 import { ref } from "vue";
+import MapInfoForm from "../manager/map-info-form.vue";
 import MapIndexCreator from "../common/map-index-creator.vue";
 import processManager from "../manager/process-manager/process-manager.vue";
 import ModelManager from "../manager/model-manager.vue";
 import EventManager from "../manager/event-manager.vue";
 import ChanceCardManager from "../manager/chancecard-manager.vue";
-import streetManager from "../manager/street-manager.vue";
+import StreetManager from "../manager/street-manager.vue";
 import RoleManager from "../manager/role-manager.vue";
 import { eventBus } from "@src/utils/event-bus";
+import { handleNewImage } from "@src/utils/file";
 
 const editorStore = useEditorStore();
 
@@ -43,6 +45,18 @@ type ButtonConifg = {
 };
 
 const buttonConfigs: ButtonConifg[] = [
+	{
+		text: "地图背景",
+		icon: "fas fa-image",
+		onClick: seleteMapBackgroundImage,
+	},
+	{
+		text: "地图信息",
+		icon: "fas fa-circle-info",
+		onClick: () => {
+			mapInfoFormVisible.value = true;
+		},
+	},
 	{
 		text: "角色",
 		icon: "fas fa-mask",
@@ -94,6 +108,17 @@ const buttonConfigs: ButtonConifg[] = [
 	},
 ];
 
+async function seleteMapBackgroundImage() {
+	const res = await window.electronAPI.showOpenDialog({
+		title: "选择地图背景",
+		filters: [{ name: "图片", extensions: ["png", "jpg", "jpeg"] }],
+	});
+	const filePath = res.filePaths[0];
+	const id = await handleNewImage(filePath, "Background");
+	useMapDataStore().setBackgroundImageId(id);
+}
+
+const mapInfoFormVisible = ref(false);
 const roleManagerVisible = ref(false);
 const mapIndexCreatorVisible = ref(false);
 const processManagerVisible = ref(false);
@@ -166,6 +191,7 @@ const chanceCardManagerVisible = ref(false);
 			</a-space>
 		</div>
 
+		<map-info-form v-model="mapInfoFormVisible" />
 		<role-manager v-model="roleManagerVisible" />
 		<map-index-creator v-model="mapIndexCreatorVisible" />
 		<process-manager v-model="processManagerVisible" />

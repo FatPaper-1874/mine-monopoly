@@ -10,7 +10,7 @@ interface FormState {
 	color: string;
 	fileUrl: string;
 }
-const createRoleFrom = reactive<FormState>({
+const createRoleForm = reactive<FormState>({
 	name: "",
 	color: "#000000",
 	fileUrl: "",
@@ -21,11 +21,11 @@ let rolePreviewer: RolePreviewerRenderer | null;
 
 async function handleCreateRole() {
 	try {
-		const imageId = await handleNewImage(createRoleFrom.fileUrl, createRoleFrom.name);
+		const imageId = await handleNewImage(createRoleForm.fileUrl, createRoleForm.name);
 		const role = {
 			id: `role-${crypto.randomUUID()}`,
-			name: createRoleFrom.name,
-			color: createRoleFrom.color,
+			name: createRoleForm.name,
+			color: createRoleForm.color,
 			imageId,
 		};
 		useMapDataStore().addRole(role);
@@ -44,20 +44,20 @@ async function handleAddRole() {
 		properties: ["openFile"],
 	});
 	if (res.filePaths.length > 0) {
-		createRoleFrom.fileUrl = res.filePaths[0];
+		createRoleForm.fileUrl = res.filePaths[0];
 		if (!rolePreviewer) {
 			const canvasContainer = document.querySelector("#form-preview-canvas-container") as HTMLDivElement;
 			rolePreviewer = new RolePreviewerRenderer(canvasContainer);
 		}
-		await rolePreviewer.loadRole(createRoleFrom.fileUrl);
+		await rolePreviewer.loadRole(createRoleForm.fileUrl);
 	} else {
-		createRoleFrom.fileUrl = "";
+		createRoleForm.fileUrl = "";
 	}
 }
 
 function handleClose() {
-	createRoleFrom.name = "";
-	createRoleFrom.fileUrl = "";
+	createRoleForm.name = "";
+	createRoleForm.fileUrl = "";
 	rolePreviewer?.destroy();
 	rolePreviewer = null;
 }
@@ -65,16 +65,16 @@ function handleClose() {
 
 <template>
 	<a-modal destroyOnClose @cancel="handleClose" :footer="null" width="30%" v-model:open="visible" title="添加角色">
-		<a-form @finish="handleCreateRole" :model="createRoleFrom" name="basic" autocomplete="off">
+		<a-form @finish="handleCreateRole" :model="createRoleForm" name="basic" autocomplete="off">
 			<a-form-item label="角色名称" name="name" :rules="[{ required: true, message: '请输入角色名称' }]">
-				<a-input v-model:value="createRoleFrom.name" />
+				<a-input v-model:value="createRoleForm.name" />
 			</a-form-item>
 			<a-form-item label="代表颜色" name="color" :rules="[{ required: true, message: '请输入代表颜色' }]">
-				<input type="color" v-model="createRoleFrom.color" />
+				<input type="color" v-model="createRoleForm.color" />
 			</a-form-item>
 
 			<a-form-item label="角色预览" name="fileUrl" :rules="[{ required: true, message: '请选择角色图片' }]">
-				<span class="role-image-url" v-if="createRoleFrom.fileUrl">{{ createRoleFrom.fileUrl }}</span>
+				<span class="role-image-url" v-if="createRoleForm.fileUrl">{{ createRoleForm.fileUrl }}</span>
 				<div id="form-preview-canvas-container" class="model-preview-canvas-container"></div>
 				<a-button @click="handleAddRole" type="primary">添加纸片人图片</a-button>
 			</a-form-item>

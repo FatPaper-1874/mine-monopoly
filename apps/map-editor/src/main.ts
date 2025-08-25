@@ -34,6 +34,8 @@ import {
 	faWindowMinimize,
 	faCubes,
 	faMask,
+	faCircleInfo,
+	faImage,
 } from "@fortawesome/free-solid-svg-icons";
 import { eventBus } from "./utils/event-bus";
 import { loadMapDataFromPath } from "@src/utils/file";
@@ -59,7 +61,9 @@ library.add(
 	faCompress,
 	faWindowMinimize,
 	faCubes,
-	faMask
+	faMask,
+	faCircleInfo,
+	faImage
 );
 
 eventBus.on("renderer-ready", () => {

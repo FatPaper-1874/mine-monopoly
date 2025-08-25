@@ -1,10 +1,9 @@
 import { GamePhaseInfo } from "./game-process";
-import { MapItem, IProperty, ChanceCard, MapItemType, Street, Role, MapEvent } from "./item";
+import { MapItem, IProperty, ChanceCard, MapItemType, Street, Role, MapEvent, GameMapInfo } from "./item";
 
 export interface GameMap {
 	id: string;
-	name: string;
-	background: string;
+	info: GameMapInfo;
 	mapItems: MapItem[];
 	properties: IProperty[];
 	chanceCards: ChanceCard[];

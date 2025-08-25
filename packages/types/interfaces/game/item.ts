@@ -1,6 +1,15 @@
 import { ChanceCardType, MapEventType } from "../../enums/game/game";
 import { IPlayer, PlayerInfo } from "./game-process";
 
+export type SemVer = `${number}.${number}.${number}`;
+
+export interface GameMapInfo {
+	name: string;
+	version: SemVer;
+	backgroundImageId: string;
+	coverImageId: string;
+}
+
 export interface MapItem {
 	id: string;
 	type: MapItemType;
