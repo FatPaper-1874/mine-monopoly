@@ -1,12 +1,12 @@
 import { GameMap } from "@src/interfaces/game";
 import axios from "axios";
 
-export const getMapsList = async (page: number, size: number) => {
-	const { total, mapsList, current } = (await axios.get("/map/list", { params: { page, size } })).data as any;
-	return { total, mapsList, current };
+export const getGameMapList = async (page: number, size: number) => {
+	const { total, gameMapList, current } = (await axios.get("/game-map/list", { params: { page, size } })).data as any;
+	return { total, gameMapList, current };
 };
 
-export const getMapById = async (mapId: string) => {
-	const data = (await axios.get("/map/info", { params: { id: mapId } })).data as any;
+export const getGameMapById = async (mapId: string) => {
+	const data = (await axios.get("/game-map/info", { params: { id: mapId } })).data as any;
 	return data as GameMap;
 };

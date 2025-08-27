@@ -8,7 +8,7 @@ import { GameSetting } from "@src/interfaces/bace";
 import router from "@src/router";
 import { useLoading, useRoomInfo } from "@src/store";
 import { useUserInfo } from "@src/store";
-import { getMapsList } from "@src/utils/api/map";
+import { getGameMapList } from "@src/utils/api/map";
 import { GameMap } from "@src/interfaces/game";
 import { MapPreviewerRenderer } from "@src/views/room/utils/MapPreviewerRenderer";
 import { MonopolyClient, useMonopolyClient } from "@src/classes/monopoly-client/MonopolyClient";
@@ -16,11 +16,11 @@ import { computed, onBeforeMount, onBeforeUnmount, onMounted, reactive, ref, toR
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { copyToClipboard } from "@src/utils";
 import { setRoomPrivate } from "@src/utils/api/room-router";
+import { GameMapInDb } from "@fatpaper-monopoly/types";
+import { PROTOCOL } from "@fatpaper-monopoly/config";
 
 const roomInfoStore = useRoomInfo();
 const userInfoStore = useUserInfo();
-
-let mapPreview: MapPreviewerRenderer;
 
 const playerList = computed(() => roomInfoStore.userList);
 const ownerName = computed(() => roomInfoStore.ownerName);
@@ -32,13 +32,14 @@ const isPrivate = ref(true);
 const isOwner = computed(() => userInfoStore.userId === roomInfoStore.ownerId);
 const isReady = computed(() => roomInfoStore.userList.find((user) => user.userId === userInfoStore.userId)?.isReady);
 
-const _mapList = ref<GameMap[]>([]);
+const _mapList = ref<GameMapInDb[]>([]);
 const gameSetting = computed(() => roomInfoStore.gameSetting);
 const _tempMapSelectedId = ref<string>(gameSetting.value.mapId || "");
 
 const _tempGameSettingFrom = ref<GameSetting>(JSON.parse(JSON.stringify(roomInfoStore.gameSetting)));
 
-const _currentMap = ref<GameMap>();
+const _currentMap = ref<GameMapInDb>();
+const coverImageUrl = computed(() => (_currentMap.value ? `${PROTOCOL}://${_currentMap.value.coverUrl}` : ""));
 
 const mapSelectorVisible = ref(false);
 
@@ -59,8 +60,6 @@ watch(
 		if (map) {
 			map;
 			_currentMap.value = map;
-			await mapPreview.loadModels(map.itemTypes);
-			await mapPreview.reloadMapItems(map.mapItems);
 		}
 		_tempGameSettingFrom.value = JSON.parse(JSON.stringify(roomInfoStore.gameSetting));
 	},
@@ -69,22 +68,9 @@ watch(
 
 onMounted(async () => {
 	socketClient = useMonopolyClient();
-	const { mapsList } = await getMapsList(1, 1000);
-	_mapList.value = mapsList;
+	const { gameMapList } = await getGameMapList(1, 1000);
+	_mapList.value = gameMapList;
 	_currentMap.value = _mapList.value.find((_item) => _item.id === gameSetting.value.mapId);
-	const threeCanvas = document.getElementById("map-preview__canvas_inroom") as HTMLCanvasElement;
-	if (threeCanvas) {
-		mapPreview = new MapPreviewerRenderer(threeCanvas);
-		if (_currentMap.value) {
-			await mapPreview.loadModels(_currentMap.value.itemTypes);
-			await mapPreview.loadMapItems(_currentMap.value.mapItems);
-		}
-		mapPreview.lockCamera(true);
-	}
-});
-
-onBeforeUnmount(() => {
-	if (mapPreview) mapPreview.destroy();
 });
 
 let socketClient: MonopolyClient;
@@ -146,7 +132,7 @@ function handleUpdateGameSetting() {
 				<span style="flex: 1; text-align: center">{{ ownerName }}的房间</span>
 			</div>
 
-			<div class="room-Id">
+			<div class="room-id">
 				<button v-if="isOwner" class="set-private-button" @click="handleSetPrivate">
 					{{ isPrivate ? "点击公开" : "点击隐藏" }}
 				</button>
@@ -156,7 +142,9 @@ function handleUpdateGameSetting() {
 			</div>
 
 			<div class="map-preview-inroom">
-				<canvas id="map-preview__canvas_inroom"></canvas>
+				<div class="map-cover-image">
+					<img v-if="coverImageUrl" :src="coverImageUrl" />
+				</div>
 				<button
 					class="select-map-button"
 					:class="{ nomap: !Boolean(_tempGameSettingFrom.mapId) }"
@@ -338,7 +326,7 @@ function handleUpdateGameSetting() {
 	}
 }
 
-.room-Id {
+.room-id {
 	width: 100%;
 	display: flex;
 	justify-content: center;
@@ -348,8 +336,8 @@ function handleUpdateGameSetting() {
 	padding: 0.3rem;
 
 	& > .set-private-button {
-		height: 90%;
-		min-height: 2.5rem;
+		height: 2rem;
+		// min-height: 1.5rem;
 		margin-left: 0.3rem;
 		border-radius: 0.4rem;
 	}
@@ -420,11 +408,19 @@ function handleUpdateGameSetting() {
 		}
 	}
 
-	& > #map-preview__canvas_inroom {
-		display: block;
-		border-radius: 0.6rem;
+	& > .map-cover-image {
 		width: 100%;
 		height: 100%;
+		border-radius: 0.6rem;
+		overflow: hidden;
+		background-color: #ddd;
+
+		img {
+			width: 100%;
+			height: 100%;
+			display: block;
+			object-fit: contain;
+		}
 	}
 }
 

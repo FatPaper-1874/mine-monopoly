@@ -1,23 +1,12 @@
 <script setup lang="ts">
-import { GameMap } from "@src/interfaces/game";
-import { onMounted, onUnmounted } from "vue";
+import { computed, onMounted, onUnmounted } from "vue";
 import { MapPreviewerRenderer } from "@src/views/room/utils/MapPreviewerRenderer";
+import { GameMapInDb } from "@fatpaper-monopoly/types";
+import { PROTOCOL } from "@fatpaper-monopoly/config";
 
-const { map } = defineProps<{ map: GameMap }>();
+const { map } = defineProps<{ map: GameMapInDb }>();
 
-let mapPreview: MapPreviewerRenderer;
-
-onMounted(async () => {
-	const threeCanvas = document.getElementById(map.id) as HTMLCanvasElement;
-	mapPreview = new MapPreviewerRenderer(threeCanvas);
-	await mapPreview.loadModels(map.itemTypes);
-	await mapPreview.loadMapItems(map.mapItems);
-	mapPreview.lockCamera(true);
-});
-
-onUnmounted(() => {
-	if (mapPreview) mapPreview.destroy();
-});
+const coverImageUrl = computed(()=> `${PROTOCOL}://${map.coverUrl}`)
 </script>
 
 <template>
@@ -25,7 +14,7 @@ onUnmounted(() => {
 		<div class="map-info">
 			<div class="name">{{ map.name }}</div>
 		</div>
-		<canvas class="map-preview__canvas" :id="map.id"></canvas>
+		<img class="map-cover" :src="coverImageUrl"></img>
 	</div>
 </template>
 
@@ -55,9 +44,11 @@ onUnmounted(() => {
 		color: var(--color-text-white);
 	}
 }
-.map-preview__canvas {
+.map-cover {
 	display: block;
 	width: 100%;
 	height: 100%;
+	object-fit: contain;
+		background-color: #ddd;
 }
 </style>

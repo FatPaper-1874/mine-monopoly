@@ -6,7 +6,7 @@ import { debounce, randomString } from "@src/utils";
 import GameProcessWorker from "@src/classes/worker/GameProcessWorker?worker";
 import { WorkerCommMsg } from "@src/interfaces/worker";
 import { WorkerCommType } from "@src/enums/worker";
-import { getMapById, getMapsList } from "@src/utils/api/map";
+import { getGameMapById } from "@src/utils/api/map";
 import { deleteRoom, emitRoomHeart, setRoomStarted } from "@src/utils/api/room-router";
 import { asyncMission } from "@src/utils/async-mission-queue";
 import { __ICE_SERVER_PATH__, __PROTOCOL__ } from "@src/../global.config";
@@ -719,7 +719,7 @@ class Room {
 		const handleWorkerReady = async () => {
 			if (!this.gameSetting.mapId || !this.gameProcess) return;
 			useLoading().showLoading("正在向服务器获取地图信息...");
-			const mapInfo = await getMapById(this.gameSetting.mapId);
+			const mapInfo = await getGameMapById(this.gameSetting.mapId);
 			useLoading().showLoading("正在加载地图...");
 			this.gameProcess.postMessage(<WorkerCommMsg>{
 				type: WorkerCommType.LoadGameInfo,
