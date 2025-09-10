@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useGameData } from "@src/store";
+import { useGameData } from "@src/store/game";
 import { App, computed, createApp, onMounted, ref } from "vue";
 import PlayerCard from "./player-card.vue";
 import { GameEventType, PlayerInfo } from "@fatpaper-monopoly/types";

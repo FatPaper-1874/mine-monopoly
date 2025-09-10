@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import FpDialog from "@src/components/utils/fp-dialog/fp-dialog.vue";
-import { ChanceCardInfo } from "@src/interfaces/game";
-import { useMapData } from "@src/store";
+import { ChanceCardInfo } from "@fatpaper-monopoly/types";
+import { useMapData } from "@src/store/game";
 import { ref } from "vue";
 
 const props = defineProps<{ chanceCard: ChanceCardInfo }>();

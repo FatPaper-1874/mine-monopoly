@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { MapItem, PlayerInfo } from "@src/interfaces/game";
-import { useGameData, useMapData } from "@src/store";
+import { MapItem, PlayerInfo } from "@fatpaper-monopoly/types";
+import { useGameData, useMapData } from "@src/store/game";
 import { onMounted, nextTick, computed, toRaw } from "vue";
 
 const mapDataStore = useMapData();

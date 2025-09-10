@@ -6,7 +6,7 @@ import { FPMessage } from "@fatpaper-monopoly/ui";
 import ItemSelector from "@src/components/utils/item-selector/item-selector.vue";
 import { GameSetting, RoleInRoom } from "@src/interfaces/bace";
 import router from "@src/router";
-import { useLoading, useMapData, useResourceStore, useRoomInfo } from "@src/store";
+import { useLoading, useRoomInfo } from "@src/store";
 import { useUserInfo } from "@src/store";
 import { getGameMapById, getGameMapList } from "@src/utils/api/map";
 import { MonopolyClient, useMonopolyClient } from "@src/core/monopoly-client/MonopolyClient";
@@ -16,8 +16,9 @@ import { copyToClipboard } from "@src/utils";
 import { setRoomPrivate } from "@src/utils/api/room-router";
 import { GameMapInDb } from "@fatpaper-monopoly/types";
 import { PROTOCOL } from "@fatpaper-monopoly/config";
-import { getGameMap } from "@src/utils/file/game-map";
+import { getGameMap, loadGameMap } from "@src/utils/file/game-map";
 import RolePreviewer from "./components/role-previewer.vue";
+import { useResourceStore } from "@src/store/game";
 
 let socketClient: MonopolyClient;
 
@@ -51,41 +52,19 @@ watch(
 	() => roomInfoStore.mapId,
 	async (newId, oldId) => {
 		if (newId && newId !== oldId) {
-			useLoading().showLoading("地图更换——正在向服务器获取地图信息...");
-			const mapInfo = await getGameMapById(newId);
-			if (mapInfo) {
-				useLoading().showLoading("地图更换——正在读取地图...");
-				const { mapData, gameInfo } = await getGameMap(mapInfo);
-				useMapData().$patch(gameInfo);
-				const roles = gameInfo.roles;
-				useLoading().showLoading("地图更换——正在读取角色信息...");
-				const resourceStore = useResourceStore();
-				resourceStore.clear();
-				const tempRoleList: RoleInRoom[] = [];
-				for (const role of roles) {
-					const imageId = role.imageId;
-					const imageResource = mapData.imageFiles.find((i) => i.id === imageId);
-					if (!imageResource) {
-						useLoading().hideLoading();
-						throw Error("读取角色资源失败");
-					}
-					const blob = new Blob([imageResource.buffer as BlobPart], { type: `image/${imageResource.filetype}` });
-					const roleImageUrl = URL.createObjectURL(blob);
-					tempRoleList.push({ ...role, imageUrl: roleImageUrl });
-					//添加到资源仓库
-					resourceStore.add({
-						id: imageResource.id,
-						name: imageResource.name,
-						fileType: imageResource.filetype,
-						url: roleImageUrl,
-					});
-				}
-				roleList.value = tempRoleList;
-				// 初始随机选择一个角色
-				socketClient && socketClient.changeRole(roles[Math.floor(Math.random() * roles.length)].id);
-				currentMap.value = mapInfo;
+			const { gameMap, mapInfo } = await loadGameMap(newId);
+			const tempRoleList: RoleInRoom[] = [];
+			const roles = gameMap.roles;
+			const resourceStore = useResourceStore();
+			for (const role of roles) {
+				const imageResource = resourceStore.getRecourceById(role.imageId);
+				if (!imageResource) throw Error("获取角色资源错误");
+				tempRoleList.push({ ...role, imageUrl: imageResource.url });
 			}
-			useLoading().hideLoading();
+			roleList.value = tempRoleList;
+			// 初始随机选择一个角色
+			socketClient && socketClient.changeRole(roles[Math.floor(Math.random() * roles.length)].id);
+			currentMap.value = mapInfo;
 		}
 	}
 );

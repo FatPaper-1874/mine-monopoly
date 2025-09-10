@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { useGameData, useRoomInfo } from "@src/store";
 import { lightenColor } from "@src/utils";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { __PROTOCOL__ } from "@src/../global.config";
+import { useRoomInfo } from "@src/store";
+import { useGameData } from "@src/store/game";
 
 const playerList = computed(() => useGameData().playersList);
 const overMoney = computed(() => useRoomInfo().gameSetting.overMoney);

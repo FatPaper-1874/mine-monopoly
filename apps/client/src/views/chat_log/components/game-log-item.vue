@@ -5,9 +5,10 @@ import propertyInfoCard from "@src/views/game/utils/components/property-info-car
 import chanceCard from "@src/views/game/components/chance-card.vue";
 import arrivedEventCard from "@src/views/game/utils/components/arrived-event-card.vue";
 import { GameLogLinkItem } from "@fatpaper-monopoly/types";
-import { useDeviceStatus, useGameData, useMapData } from "@src/store";
+import { useDeviceStatus } from "@src/store";
 import { App, Component, computed, createApp, h, ref, render, toRaw } from "vue";
 import { MapEvent, ChanceCardInfo, PlayerInfo, PropertyInfo } from "@fatpaper-monopoly/types";
+import { useGameData, useMapData } from "@src/store/game";
 
 const props = defineProps<{ gameLog: GameLog }>();
 const gameInfoStore = useGameData();

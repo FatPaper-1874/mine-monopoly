@@ -30,7 +30,7 @@ import {
 import gsap from "gsap";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { ChanceCardInfo, MapItemType, MapItem, PlayerInfo, PropertyInfo } from "@fatpaper-monopoly/types";
-import { useDeviceStatus, useGameData, useLoading, useMapData, useSettig, useUserInfo } from "@src/store";
+import { useDeviceStatus, useLoading, useSettig, useUserInfo } from "@src/store";
 import { Component, ComponentPublicInstance, createApp, toRaw, watch, WatchStopHandle } from "vue";
 import { loadItemTypeModules } from "@src/utils/three/itemtype-loader";
 import { useMonopolyClient } from "@src/core/monopoly-client/MonopolyClient";
@@ -51,6 +51,7 @@ import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass";
 import { storeToRefs } from "pinia";
 import { __PROTOCOL__ } from "@src/../global.config";
 import { TextSprite } from "../three/TextSprite";
+import { useGameData, useMapData } from "@src/store/game";
 
 const BLOCK_HEIGHT = 0.09;
 const PLAY_MODEL_SIZE = 0.7;

@@ -3,13 +3,13 @@ import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { lightenColor, randomString } from "@src/utils";
 import { computed, ref, reactive, onMounted, watch, nextTick, onBeforeUnmount } from "vue";
 import { UserInRoomInfo } from "@src/interfaces/bace";
-import { useMapData, useRoomInfo, useUserInfo } from "@src/store";
 import { ChangeRoleOperate } from "@fatpaper-monopoly/types";
 import { useMonopolyClient } from "@src/core/monopoly-client/MonopolyClient";
 import { RolePreviewer } from "@src/views/room/utils/RolePreviewer";
 import { __PROTOCOL__ } from "@src/../global.config";
 import { PROTOCOL } from "@fatpaper-monopoly/config";
-import { useResourceStore } from "@src/store";
+import { useUserInfo, useRoomInfo } from "@src/store";
+import { useMapData, useResourceStore } from "@src/store/game";
 
 const props = defineProps<{ user: UserInRoomInfo | undefined }>();
 const emits = defineEmits(["role-select"]);

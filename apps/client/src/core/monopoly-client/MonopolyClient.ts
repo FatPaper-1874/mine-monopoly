@@ -1,5 +1,5 @@
 import { FPMessage } from "@fatpaper-monopoly/ui";
-import { useChat, useGameData, useGameLog, useLoading, useRoomInfo, useUserInfo, useUtil } from "@src/store";
+import { useChat, useGameLog, useLoading, useRoomInfo, useUserInfo, useUtil } from "@src/store";
 import { emitHostPeerId, joinRoomApi } from "@src/utils/api/room-router";
 import { PeerClient } from "./PeerClient";
 import { DataConnection } from "peerjs";
@@ -10,6 +10,7 @@ import { handleServerSocketMessage } from "./host-message-handlers";
 import { useRouter } from "vue-router";
 import router from "@src/router";
 import { debounce } from "@src/utils";
+import { useGameData } from "@src/store/game";
 
 type MonopolyClientOptions = {
 	iceServer: {

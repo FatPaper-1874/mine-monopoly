@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { useGameData } from "@src/store/index";
 import { computed } from "vue";
 import playerCard from "./player-card.vue";
 import { useRouter } from "vue-router";
+import { useGameData } from "@src/store/game";
 
 const router = useRouter();
 const isGameOver = computed(() => useGameData().isGameOver);

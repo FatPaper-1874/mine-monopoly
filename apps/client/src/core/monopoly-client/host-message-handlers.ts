@@ -3,10 +3,8 @@ import { MonopolyClient } from "./MonopolyClient";
 import { GameEventType, OperateType, PlayerInfo, PropertyInfo, SocketMsgType } from "@fatpaper-monopoly/types";
 import {
 	useChat,
-	useGameData,
 	useGameLog,
 	useLoading,
-	useMapData,
 	useRoomInfo,
 	useRoomList,
 	useUserInfo,
@@ -21,6 +19,7 @@ import router from "@src/router";
 import useEventBus from "@src/utils/event-bus";
 import { createVNode } from "vue";
 import PropertyInfoVue from "@src/components/common/property-card.vue";
+import { useGameData } from "@src/store/game";
 
 type ServerMessageHandler<T extends SocketMsgType> = (
 	msg: SocketMessage<T, SocketMsgSource.Server>,
@@ -149,6 +148,9 @@ const handleLeaveRoomReply: ServerMessageHandler<SocketMsgType.LeaveRoom> = (msg
 
 const handleKickOutReply: ServerMessageHandler<SocketMsgType.KickOut> = (msg, client) => {
 	FPMessage({ type: "error", message: "你已被踢出房间" });
+	useRoomInfo().$reset();
+	useChat().$reset();
+	useGameLog().$reset();
 	client.destory();
 	router.replace({ name: "room-router" });
 };

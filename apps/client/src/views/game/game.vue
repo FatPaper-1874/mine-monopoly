@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, computed, onUnmounted, ref, onBeforeMount, onBeforeUnmount } from "vue";
 import { GameRenderer } from "@src/core/game/GameRenderer";
-import { useLoading, useMapData, useRoomInfo, useGameData, useUtil } from "@src/store";
+import { useLoading, useRoomInfo, useUtil } from "@src/store";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import router from "@src/router/index";
 import { MonopolyClient, useMonopolyClient } from "@src/core/monopoly-client/MonopolyClient";
@@ -59,6 +59,10 @@ onBeforeUnmount(() => {
 	if (gameRenderer) gameRenderer.destroy();
 	gameRenderer = null;
 });
+
+function useGameData() {
+	throw new Error("Function not implemented.");
+}
 </script>
 
 <template>

@@ -12,6 +12,7 @@ import FpPopover from "@src/components/utils/fp-popover/fp-popover.vue";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { getRandomPublicRoom } from "@src/utils/api/room-router";
 import { throttle } from "@src/utils";
+import { useResourceStore } from "@src/store/game";
 
 const userInfoStore = useUserInfo();
 const userListStore = useUserList();
@@ -21,6 +22,8 @@ const user = computed(() => userInfoStore);
 const roomId = ref("");
 
 onMounted(async () => {
+	// 清除缓存
+	useResourceStore().clear();
 	roomListStore.$reset();
 	if (!userInfoStore.hasUserInfo()) {
 		useLoading().showLoading("读取用户信息中");

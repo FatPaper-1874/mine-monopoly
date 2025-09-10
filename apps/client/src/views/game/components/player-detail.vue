@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { PlayerInfo } from "@src/interfaces/game";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { __PROTOCOL__ } from "@src/../global.config";
 import { computed } from "vue";
 import ChanceCard from "./chance-card.vue";
 import BuffItem from "./buff-item.vue";
-import { useGameData, useRoomInfo } from "@src/store";
 import { PropertyLevel } from "@src/utils/var";
+import { PlayerInfo } from "@fatpaper-monopoly/types";
+import { useRoomInfo } from "@src/store";
+import { useGameData } from "@src/store/game";
 
 const props = defineProps<{
 	player: PlayerInfo;

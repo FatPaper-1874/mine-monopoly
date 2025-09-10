@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { useGameData } from "@src/store";
 import PlayerCard from "@src/views/game/components/player-card.vue";
+import { useGameData } from "@src/store/game";
 
 const gameInfoStore = useGameData();
 

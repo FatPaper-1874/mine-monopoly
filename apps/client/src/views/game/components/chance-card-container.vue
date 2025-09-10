@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { useGameData, useSettig, useUserInfo } from "@src/store";
+import { useSettig, useUserInfo } from "@src/store";
 import { computed, provide, ref, watch, toRaw } from "vue";
 import ChanceCard from "./chance-card.vue";
 import { useUtil } from "@src/store";
+import { useGameData } from "@src/store/game";
 
 const gameInfoStore = useGameData();
 const userInfoStore = useUserInfo();

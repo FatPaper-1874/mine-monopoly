@@ -22,6 +22,8 @@ function createWindow() {
 	win = new BrowserWindow({
 		width: 1200,
 		height: 860,
+		minWidth: 1080,
+		minHeight: 720,
 		webPreferences: {
 			nodeIntegration: true,
 			nodeIntegrationInWorker: false,
@@ -137,7 +139,7 @@ ipcMain.handle("map-cache:load", async (_event, mapId: string, hash: string) => 
 	const filePath = path.join(cacheDir, `${mapId}-${hash}.bin`);
 	try {
 		const buf = await fs.readFile(filePath);
-		console.log("🚀 ~ buf:", buf)
+		console.log("🚀 ~ buf:", buf);
 		return buf.buffer;
 	} catch {
 		return undefined;

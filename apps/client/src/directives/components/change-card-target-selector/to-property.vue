@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import FpDialog from "@src/components/utils/fp-dialog/fp-dialog.vue";
-import { ChanceCardInfo } from "@src/interfaces/game";
-import { useGameData, useMapData } from "@src/store";
+import { ChanceCardInfo } from "@fatpaper-monopoly/types";
+import { useGameData, useMapData } from "@src/store/game";
 import { computed, onBeforeMount, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import ChanceCard from "@src/views/game/components/chance-card.vue";
 import MiniMap from "./mini-map.vue";
