@@ -16,7 +16,7 @@ import { copyToClipboard } from "@src/utils";
 import { setRoomPrivate } from "@src/utils/api/room-router";
 import { GameMapInDb } from "@fatpaper-monopoly/types";
 import { PROTOCOL } from "@fatpaper-monopoly/config";
-import { getGameMap, loadGameMap } from "@src/utils/file/game-map";
+import { loadGameMap } from "@src/utils/file/game-map";
 import RolePreviewer from "./components/role-previewer.vue";
 import { useResourceStore } from "@src/store/game";
 
@@ -52,19 +52,25 @@ watch(
 	() => roomInfoStore.mapId,
 	async (newId, oldId) => {
 		if (newId && newId !== oldId) {
+			useLoading().showLoading("地图更换, 加载中...");
 			const { gameMap, mapInfo } = await loadGameMap(newId);
 			const tempRoleList: RoleInRoom[] = [];
 			const roles = gameMap.roles;
 			const resourceStore = useResourceStore();
 			for (const role of roles) {
 				const imageResource = resourceStore.getRecourceById(role.imageId);
-				if (!imageResource) throw Error("获取角色资源错误");
+				if (!imageResource) {
+					useLoading().hideLoading();
+					FPMessage({ type: "error", message: "获取角色资源错误" });
+					throw Error("获取角色资源错误");
+				}
 				tempRoleList.push({ ...role, imageUrl: imageResource.url });
 			}
 			roleList.value = tempRoleList;
 			// 初始随机选择一个角色
 			socketClient && socketClient.changeRole(roles[Math.floor(Math.random() * roles.length)].id);
 			currentMap.value = mapInfo;
+			useLoading().hideLoading();
 		}
 	}
 );

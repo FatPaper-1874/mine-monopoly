@@ -7,7 +7,7 @@ import {
 	Street,
 	MapEvent,
 	ChanceCard,
-	IProperty,
+	PropertyInfo,
 	Role,
 	GameMapInfo,
 	SemVer,
@@ -188,12 +188,12 @@ export const useMapDataStore = defineStore("MapData", {
 		},
 
 		// Property
-		addProperty(mapItemId: string, property: IProperty) {
+		addProperty(mapItemId: string, property: PropertyInfo) {
 			const mapItem = this.mapItems.find((m) => m.id === mapItemId);
 			if (!mapItem) throw Error("找不到目标地块");
 			mapItem.property = property;
 		},
-		editProperty(mapItemId: string, property: IProperty) {
+		editProperty(mapItemId: string, property: PropertyInfo) {
 			const mapItem = this.mapItems.find((m) => m.id === mapItemId);
 			if (!mapItem) throw Error("找不到目标地块");
 			mapItem.property = property;

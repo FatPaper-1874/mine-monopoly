@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { FormInstance, Rule } from "ant-design-vue/es/form";
 import { reactive, ref, toRaw, computed, watch, onMounted, createVNode } from "vue";
-import { IProperty, MapItem } from "@fatpaper-monopoly/types/interfaces/game/item";
+import { PropertyInfo, MapItem } from "@fatpaper-monopoly/types/interfaces/game/item";
 import { useEditorStore, useMapDataStore } from "@src/stores";
 import { message } from "ant-design-vue";
 import EffectEditor from "./effect-editor.vue";
@@ -17,7 +17,7 @@ const streetList = computed(() => useMapDataStore().streets);
 const propertyId = ref("");
 
 // 表单数据
-const propertyForm = reactive<Omit<IProperty, "id">>({
+const propertyForm = reactive<Omit<PropertyInfo, "id">>({
 	name: "",
 	sellCost: 100,
 	buildCost: 100,

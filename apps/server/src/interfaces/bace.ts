@@ -37,11 +37,6 @@ export interface User {
     color: string;
 }
 
-export interface UserInRoom extends User {
-    role: Role;
-    isReady: boolean;
-}
-
 export interface Role {
     id: string;
     baseUrl: string;

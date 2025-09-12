@@ -1,12 +1,10 @@
-import { ChanceCardType } from "@src/enums/game";
-import { User } from "@src/interfaces/bace";
-import { Buff, ChanceCardInfo, PlayerInfo, PropertyInfo } from "@src/interfaces/game";
+import { Buff, ChanceCardInfo, ChanceCardType, PlayerInfo, PropertyInfo, User } from "@fatpaper-monopoly/types";
 import { GameProcess } from "../GameProcessWorker";
 import { PlayerEvents } from "../enums/game";
 
 export interface PlayerEventsCallback {
-	[PlayerEvents.GetPropertiesList]: () => PropertyInterface[];
-	[PlayerEvents.GetCardsList]: () => ChanceCardInterface[];
+	[PlayerEvents.GetPropertiesList]: () => IProperty[];
+	[PlayerEvents.GetCardsList]: () => IChanceCard[];
 	[PlayerEvents.GetMoney]: () => number;
 	[PlayerEvents.GetStop]: () => number;
 	[PlayerEvents.GetIsBankrupted]: () => boolean;
@@ -14,8 +12,8 @@ export interface PlayerEventsCallback {
 	[PlayerEvents.Walk]: (walkValue: number) => Promise<number>;
 	[PlayerEvents.Tp]: (tpValue: number) => Promise<number>;
 
-	[PlayerEvents.BeforeSetPropertiesList]: (newPropertiesList: PropertyInterface[]) => PropertyInterface[] | undefined;
-	[PlayerEvents.AfterSetPropertiesList]: (newPropertiesList: PropertyInterface[]) => undefined;
+	[PlayerEvents.BeforeSetPropertiesList]: (newPropertiesList: IProperty[]) => IProperty[] | undefined;
+	[PlayerEvents.AfterSetPropertiesList]: (newPropertiesList: IProperty[]) => undefined;
 
 	[PlayerEvents.BeforeRound]: (
 		player: PlayerInterface
@@ -23,39 +21,29 @@ export interface PlayerEventsCallback {
 	[PlayerEvents.AfterRound]: (player: PlayerInterface) => Promise<PlayerInterface | undefined | void> | void;
 
 	[PlayerEvents.BeforeGainProperty]: (
-		newProperty: PropertyInterface
-	) => Promise<PropertyInterface | undefined | void> | PropertyInterface | undefined | void;
-	[PlayerEvents.AfterGainProperty]: (
-		newProperty: PropertyInterface
-	) => Promise<PropertyInterface | undefined | void> | void;
+		newProperty: IProperty
+	) => Promise<IProperty | undefined | void> | IProperty | undefined | void;
+	[PlayerEvents.AfterGainProperty]: (newProperty: IProperty) => Promise<IProperty | undefined | void> | void;
 
 	[PlayerEvents.BeforeLoseProperty]: (
-		lostProperty: PropertyInterface
-	) => Promise<PropertyInterface | undefined | void> | PropertyInterface | undefined | void;
-	[PlayerEvents.AfterLoseProperty]: (
-		lostProperty: PropertyInterface
-	) => Promise<PropertyInterface | undefined | void> | void;
+		lostProperty: IProperty
+	) => Promise<IProperty | undefined | void> | IProperty | undefined | void;
+	[PlayerEvents.AfterLoseProperty]: (lostProperty: IProperty) => Promise<IProperty | undefined | void> | void;
 
 	[PlayerEvents.BeforeSetCardsList]: (
-		newCardList: ChanceCardInterface[]
-	) => Promise<ChanceCardInterface[] | undefined | void> | ChanceCardInterface[] | undefined | void;
-	[PlayerEvents.AfterSetCardsList]: (
-		newCardList: ChanceCardInterface[]
-	) => Promise<ChanceCardInterface[] | undefined | void> | void;
+		newCardList: IChanceCard[]
+	) => Promise<IChanceCard[] | undefined | void> | IChanceCard[] | undefined | void;
+	[PlayerEvents.AfterSetCardsList]: (newCardList: IChanceCard[]) => Promise<IChanceCard[] | undefined | void> | void;
 
 	[PlayerEvents.BeforeGainCard]: (
-		gainCard: ChanceCardInterface
-	) => Promise<ChanceCardInterface | undefined | void> | ChanceCardInterface | undefined | void;
-	[PlayerEvents.AfterGainCard]: (
-		gainCard: ChanceCardInterface
-	) => Promise<ChanceCardInterface | undefined | void> | void;
+		gainCard: IChanceCard
+	) => Promise<IChanceCard | undefined | void> | IChanceCard | undefined | void;
+	[PlayerEvents.AfterGainCard]: (gainCard: IChanceCard) => Promise<IChanceCard | undefined | void> | void;
 
 	[PlayerEvents.BeforeLoseCard]: (
-		lostCard: ChanceCardInterface
-	) => Promise<ChanceCardInterface | undefined | void> | ChanceCardInterface | undefined | void;
-	[PlayerEvents.AfterLoseCard]: (
-		lostCard: ChanceCardInterface
-	) => Promise<ChanceCardInterface | undefined | void> | void;
+		lostCard: IChanceCard
+	) => Promise<IChanceCard | undefined | void> | IChanceCard | undefined | void;
+	[PlayerEvents.AfterLoseCard]: (lostCard: IChanceCard) => Promise<IChanceCard | undefined | void> | void;
 
 	[PlayerEvents.BeforeSetMoney]: (moneyValue: number) => Promise<number | undefined | void> | number | undefined | void;
 	[PlayerEvents.AfterSetMoney]: (moneyValue: number) => Promise<number | undefined | void> | void;
@@ -85,7 +73,7 @@ export interface PlayerEventsCallback {
 	[PlayerEvents.AfterSetBankrupted]: (isBankrupted: boolean) => Promise<boolean | undefined | void> | void;
 }
 
-export interface PropertyInterface {
+export interface IProperty {
 	//房产信息
 	getId: () => string;
 	getName: () => string;
@@ -115,16 +103,16 @@ export interface PlayerInterface {
 	getName: () => string;
 
 	//地产相关
-	getPropertiesList: () => PropertyInterface[];
-	setPropertiesList: (newPropertiesList: PropertyInterface[]) => void;
-	gainProperty: (property: PropertyInterface) => Promise<void>;
-	loseProperty: (property: PropertyInterface) => Promise<void>;
+	getPropertiesList: () => IProperty[];
+	setPropertiesList: (newPropertiesList: IProperty[]) => void;
+	gainProperty: (property: IProperty) => Promise<void>;
+	loseProperty: (property: IProperty) => Promise<void>;
 
 	//机会卡相关
-	getCardsList: () => ChanceCardInterface[];
-	setCardsList: (newChanceCardList: ChanceCardInterface[]) => void;
-	getCardById: (cardId: string) => ChanceCardInterface | undefined;
-	gainCard: (gainCard: ChanceCardInterface) => void;
+	getCardsList: () => IChanceCard[];
+	setCardsList: (newChanceCardList: IChanceCard[]) => void;
+	getCardById: (cardId: string) => IChanceCard | undefined;
+	gainCard: (gainCard: IChanceCard) => void;
 	loseCard: (cardId: string) => void;
 
 	//钱相关
@@ -154,7 +142,7 @@ export interface PlayerInterface {
 	getPlayerInfo: () => PlayerInfo;
 }
 
-export interface ChanceCardInterface {
+export interface IChanceCard {
 	getId: () => string;
 	getSourceId: () => string;
 	getName: () => string;
@@ -165,7 +153,7 @@ export interface ChanceCardInterface {
 	getEffectCode: () => string;
 	use: (
 		sourcePlayer: PlayerInterface,
-		target: PlayerInterface | PropertyInterface | PlayerInterface[] | PropertyInterface[],
+		target: PlayerInterface | IProperty | PlayerInterface[] | IProperty[],
 		gameProcess: GameProcess
 	) => Promise<void>;
 

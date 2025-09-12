@@ -1,10 +1,16 @@
-import { ChanceCardType } from "@src/enums/game";
-import { ChanceCard as ChanceCardFromDB, ChanceCardInfo, ChanceCardInstanceInfo } from "@src/interfaces/game";
-import { ChanceCardInterface, PlayerInterface, PropertyInterface } from "../interfaces/game";
+import {
+	ChanceCardInfo,
+	ChanceCardInstanceInfo,
+	ChanceCardType,
+	IChanceCard,
+	IGameProcess,
+	IPlayer,
+	IProperty,
+} from "@fatpaper-monopoly/types";
 import { GameProcess } from "../GameProcessWorker";
 import { randomString } from "@src/utils";
 
-export class ChanceCard implements ChanceCardInterface {
+export class ChanceCard implements IChanceCard {
 	private id: string;
 	private sourceId: string;
 	private name: string;
@@ -15,14 +21,14 @@ export class ChanceCard implements ChanceCardInterface {
 	private effectCode: string;
 	private effectFunction: Function;
 
-	constructor(chanceCard: ChanceCardFromDB) {
+	constructor(chanceCard: ChanceCardInfo) {
 		this.id = randomString(16);
 		this.sourceId = chanceCard.id;
 		this.name = chanceCard.name;
-		this.describe = chanceCard.describe;
+		this.describe = chanceCard.description;
 		this.type = chanceCard.type;
 		this.color = chanceCard.color;
-		this.icon = chanceCard.icon;
+		this.icon = chanceCard.iconId;
 		this.effectCode = chanceCard.effectCode;
 		const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
 		this.effectFunction = new AsyncFunction("sourcePlayer", "target", "gameProcess", this.effectCode);
@@ -38,9 +44,9 @@ export class ChanceCard implements ChanceCardInterface {
 	public getEffectCode = () => this.effectCode;
 
 	public async use(
-		sourcePlayer: PlayerInterface,
-		target: PlayerInterface | PropertyInterface | PlayerInterface[] | PropertyInterface[] | null,
-		gameProcess: GameProcess
+		sourcePlayer: IPlayer,
+		target: IPlayer | IProperty | IPlayer[] | IProperty[],
+		gameProcess: IGameProcess
 	) {
 		try {
 			await this.effectFunction(sourcePlayer, target, gameProcess);
@@ -54,10 +60,10 @@ export class ChanceCard implements ChanceCardInterface {
 			id: this.id,
 			sourceId: this.sourceId,
 			name: this.name,
-			describe: this.describe,
+			description: this.describe,
 			color: this.color,
 			type: this.type,
-			icon: this.icon,
+			iconId: this.icon,
 		};
 		return chanceCardInfo;
 	}

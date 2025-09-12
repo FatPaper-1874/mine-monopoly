@@ -6,15 +6,15 @@ import {
 	ChangeRoleOperate,
 	OperateType,
 	SocketMsgSource,
+	UserInRoomInfo,
+	User,
 } from "@fatpaper-monopoly/types";
 import { WorkerCommType } from "@src/enums/worker";
 import {
 	GameSetting,
-	UserInRoomInfo,
 	ChatMessage,
 	SocketMessage,
 	RoomInfo,
-	User,
 	RoleInRoom,
 	SocketMessageDataType,
 	ServerSocketMessage,
@@ -27,6 +27,8 @@ import { setRoomStarted } from "@src/utils/api/room-router";
 import { DataConnection } from "peerjs";
 import GameProcessWorker from "@src/core/worker/GameProcessWorker?worker";
 import { getGameMap } from "@src/utils/file/game-map";
+import { useMapData } from "@src/store/game";
+import { FPMessage } from "@fatpaper-monopoly/ui";
 
 interface UserInRoom extends UserInRoomInfo {
 	socketClient: DataConnection;
@@ -296,6 +298,8 @@ export class Room {
 	}
 
 	public changeMap(id: string) {
+		//换地图取消所有玩家准备状态
+		this.userList.forEach((u) => (u.isReady = false));
 		this.mapId = id;
 		this.roomBroadcast({
 			type: SocketMsgType.MsgNotify,
@@ -376,15 +380,19 @@ export class Room {
 
 		const handleWorkerReady = async () => {
 			if (!this.mapId || !this.gameProcess) return;
-			useLoading().showLoading("正在向服务器获取地图信息...");
-			const mapInfo = await getGameMapById(this.mapId);
-			const { gameInfo } = await getGameMap(mapInfo);
+			useLoading().showLoading("正在获取地图信息...");
+			const mapData = useMapData().$state;
+			console.log("🚀 ~ Room ~ handleWorkerReady ~ mapData:", mapData)
+			console.log("🚀 ~ Room ~ handleWorkerReady ~ this.mapId:", this.mapId)
+			if (this.mapId !== mapData.id) {
+				FPMessage({ type: "error", message: "地图缓存与游戏地图不符" });
+			}
 			useLoading().showLoading("正在加载地图...");
 			this.gameProcess.postMessage(<WorkerCommMsg>{
 				type: WorkerCommType.LoadGameInfo,
 				data: {
 					setting: this.gameSetting,
-					mapInfo: gameInfo,
+					mapInfo: mapData,
 					userList: Array.from(this.userList.values()).map((u) => {
 						const { socketClient, ...userInfo } = u;
 						return userInfo;

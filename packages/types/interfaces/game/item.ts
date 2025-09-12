@@ -1,5 +1,5 @@
 import { ChanceCardType, MapEventType } from "../../enums/game/game";
-import { IPlayer, PlayerInfo } from "./game-process";
+import { IPlayer, PlayerInfo, PropertyInfo } from "./game-process";
 
 export type SemVer = `${number}.${number}.${number}`;
 
@@ -8,6 +8,18 @@ export interface GameMapInfo {
 	version: SemVer;
 	backgroundImageId: string;
 	coverImageId: string;
+}
+
+export interface User {
+	userId: string;
+	username: string;
+	isReady: boolean;
+	avatar: string;
+	color: string;
+}
+
+export interface UserInRoomInfo extends User {
+	roleId: string;
 }
 
 export interface MapItem {
@@ -19,20 +31,7 @@ export interface MapItem {
 	mapEventId?: string;
 	linkto?: string;
 	beLinked?: string;
-	property?: IProperty;
-}
-
-export interface IProperty {
-	id: string;
-	name: string;
-	sellCost: number;
-	buildCost: number;
-	cost_lv0: number;
-	cost_lv1: number;
-	cost_lv2: number;
-	buildingModelIdList?: string[];
-	effectCode?: string;
-	streetId: string;
+	property?: PropertyInfo;
 }
 
 export interface Role {
@@ -50,29 +49,6 @@ export interface Street {
 	description: string;
 	effectCode: string;
 	properties: string[];
-}
-
-export interface IChanceCard extends ChanceCard {
-	sourceId: string;
-}
-
-export interface ChanceCard {
-	id: string;
-	name: string;
-	description: string;
-	iconId: string;
-	color: string;
-	effectCode: string;
-	type: ChanceCardType;
-}
-
-export interface Buff {
-	id: string;
-	name: string;
-	describe: string;
-	source: string;
-	triggerTiming: string; //TODO
-	triggerTimes: number;
 }
 
 export interface MapItemType {

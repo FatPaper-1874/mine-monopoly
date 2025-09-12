@@ -1,32 +1,32 @@
-import { Property as PropertyFromDB, PropertyInfo } from "@src/interfaces/game";
-import { Player } from "./Player";
-import { PlayerInterface, PropertyInterface } from "../interfaces/game";
+import { IPlayer, IProperty, PropertyInfo } from "@fatpaper-monopoly/types";
 
-export class Property implements PropertyInterface {
+export class Property implements IProperty {
 	private id: string;
 	private name: string;
 	private buildCost: number;
-	private buildingLevel: number;
+	private level: number;
 	private sellCost: number;
 	private cost_lv0: number;
 	private cost_lv1: number;
 	private cost_lv2: number;
-	private owner: PlayerInterface | undefined = undefined;
+	private streetId: string;
+	private owner: IPlayer | undefined = undefined;
 
-	constructor(property: PropertyFromDB) {
+	constructor(property: PropertyInfo) {
 		this.id = property.id;
 		this.name = property.name;
-		this.buildingLevel = 0;
+		this.level = 0;
 		this.buildCost = property.buildCost;
 		this.sellCost = property.sellCost;
 		this.cost_lv0 = property.cost_lv0;
 		this.cost_lv1 = property.cost_lv1;
 		this.cost_lv2 = property.cost_lv2;
+		this.streetId = property.streetId;
 	}
 
 	public getId = () => this.id;
 	public getName = () => this.name;
-	public getBuildingLevel = () => this.buildingLevel;
+	public getBuildingLevel = () => this.level;
 	public getBuildCost = () => this.buildCost;
 	public getSellCost = () => this.sellCost;
 	public getCost_lv0 = () => this.cost_lv0;
@@ -35,16 +35,16 @@ export class Property implements PropertyInterface {
 	public getOwner = () => this.owner;
 
 	public buildUp() {
-		if (this.buildingLevel < 2) {
-			this.buildingLevel++;
+		if (this.level < 2) {
+			this.level++;
 		}
 	}
 
-	public setBuildingLevel(level: 0 | 1 | 2) {
-		this.buildingLevel = level;
+	public setBuildingLevel(level: number) {
+		this.level = level;
 	}
 
-	public setOwner = async (player: PlayerInterface | undefined) => {
+	public async setOwner(player: IPlayer | undefined) {
 		//如果原本有主人
 		if (this.owner) {
 			await this.owner.loseProperty(this);
@@ -53,10 +53,10 @@ export class Property implements PropertyInterface {
 		if (this.owner) {
 			this.owner.gainProperty(this);
 		}
-	};
+	}
 
 	public getPassCost(): number {
-		switch (this.buildingLevel) {
+		switch (this.level) {
 			case 1:
 				return this.cost_lv1;
 				break;
@@ -73,15 +73,14 @@ export class Property implements PropertyInterface {
 		const propertyInfo: PropertyInfo = {
 			id: this.id,
 			name: this.name,
-			buildingLevel: this.buildingLevel,
+			level: this.level,
 			buildCost: this.buildCost,
 			sellCost: this.sellCost,
 			cost_lv0: this.cost_lv0,
 			cost_lv1: this.cost_lv1,
 			cost_lv2: this.cost_lv2,
-			owner: owner
-				? { id: owner.getId(), name: owner.getName(), color: owner.getUser().color, avatar: owner.getUser().avatar }
-				: undefined,
+			streetId: this.streetId,
+			owner: owner ? owner.getUser() : undefined,
 		};
 		return propertyInfo;
 	}

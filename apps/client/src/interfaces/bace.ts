@@ -11,6 +11,7 @@ import {
 	Role,
 	SocketMsgSource,
 	SocketMsgType,
+	User,
 } from "@fatpaper-monopoly/types";
 import { ChatMessageType, MonopolyWebSocketMsgType } from "@fatpaper-monopoly/types";
 import { DataConnection } from "peerjs";
@@ -213,18 +214,6 @@ export interface SocketMessageDataType {
 		client: undefined;
 		server: undefined;
 	};
-}
-
-export interface User {
-	userId: string;
-	username: string;
-	isReady: boolean;
-	avatar: string;
-	color: string;
-}
-
-export interface UserInRoomInfo extends User {
-	roleId: string;
 }
 
 export interface Room {

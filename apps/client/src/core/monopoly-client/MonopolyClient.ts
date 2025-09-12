@@ -3,8 +3,8 @@ import { useChat, useGameLog, useLoading, useRoomInfo, useUserInfo, useUtil } fr
 import { emitHostPeerId, joinRoomApi } from "@src/utils/api/room-router";
 import { PeerClient } from "./PeerClient";
 import { DataConnection } from "peerjs";
-import { GameSetting, ServerSocketMessage, SocketMessage, SocketMessageDataType, User } from "@src/interfaces/bace";
-import { ChangeRoleOperate, OperateType, Role, SocketMsgSource, SocketMsgType } from "@fatpaper-monopoly/types";
+import { GameSetting, ServerSocketMessage, SocketMessage, SocketMessageDataType } from "@src/interfaces/bace";
+import { ChangeRoleOperate, OperateType, Role, SocketMsgSource, SocketMsgType, User } from "@fatpaper-monopoly/types";
 import { MonopolyHost } from "../monopoly-host/MonopolyHost";
 import { handleServerSocketMessage } from "./host-message-handlers";
 import { useRouter } from "vue-router";

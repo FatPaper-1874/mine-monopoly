@@ -7,5 +7,5 @@ export type {
 	ArrivedEventContext,
 	PlayerRoundEndContext,
 	GameRoundEndContext,
-	GameEvent as Middleware,
+	GameEvent,
 } from "@fatpaper-monopoly/types";

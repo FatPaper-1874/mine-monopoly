@@ -31,7 +31,7 @@ export const useResourceStore = defineStore("temp-resource", {
 });
 
 export const useMapData = defineStore("map-data", {
-	state: (): GameMap => ({
+	state: (): Omit<GameMap, 'phases'> => ({
 		id: crypto.randomUUID(),
 		info: {
 			name: "",
@@ -47,11 +47,6 @@ export const useMapData = defineStore("map-data", {
 		roles: [],
 		inUse: false,
 		mapEvents: [],
-		phases: {
-			gameRoundStart: [],
-			playerRound: [],
-			gameRoundEnd: [],
-		},
 		buildingModelIdList: ["", "", ""],
 	}),
 	actions: {

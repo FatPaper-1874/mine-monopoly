@@ -114,7 +114,10 @@ const handleChangeRole: ClientMessageHandler<SocketMsgType.ChangeRole> = (conn, 
 const handleChangeGameSetting: ClientMessageHandler<SocketMsgType.ChangeGameSetting> = (conn, msg, host, clientId) => {
 	host.getRoom().changeGameSetting(msg.data);
 };
-const handleGameStart: ClientMessageHandler<SocketMsgType.GameStart> = (conn, msg, host, clientId) => {};
+const handleGameStart: ClientMessageHandler<SocketMsgType.GameStart> = (conn, msg, host, clientId) => {
+	console.log("🚀 ~ handleGameStart ~ msg:", msg);
+	host.getRoom().startGame();
+};
 const handleGameInitFinished: ClientMessageHandler<SocketMsgType.GameInitFinished> = (conn, msg, host, clientId) => {};
 const handleRollDiceResult: ClientMessageHandler<SocketMsgType.RollDiceResult> = (conn, msg, host, clientId) => {};
 const handleUseChanceCard: ClientMessageHandler<SocketMsgType.UseChanceCard> = (conn, msg, host, clientId) => {};
