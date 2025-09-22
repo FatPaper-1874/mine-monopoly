@@ -305,7 +305,7 @@ importers:
         version: 4.6.2
       jsencrypt:
         specifier: ^3.3.2
-        version: 3.3.2
+        version: 3.5.4
 
   packages/components/ui: {}
 
@@ -2409,9 +2409,6 @@ packages:
 
   jsbn@1.1.0:
     resolution: {integrity: sha512-4bYVV3aAMtDTTu4+xsDYa6sy9GyJ69/amsu9sYF2zqjiEoZA5xJi3BrfX3uY+/IekIu7MwdObdbDWpoZdBv3/A==}
-
-  jsencrypt@3.3.2:
-    resolution: {integrity: sha512-arQR1R1ESGdAxY7ZheWr12wCaF2yF47v5qpB76TtV64H1pyGudk9Hvw8Y9tb/FiTIaaTRUyaSnm5T/Y53Ghm/A==}
 
   jsencrypt@3.5.4:
     resolution: {integrity: sha512-kNjfYEMNASxrDGsmcSQh/rUTmcoRfSUkxnAz+MMywM8jtGu+fFEZ3nJjHM58zscVnwR0fYmG9sGkTDjqUdpiwA==}
@@ -6377,8 +6374,6 @@ snapshots:
   jsbn@0.1.1: {}
 
   jsbn@1.1.0: {}
-
-  jsencrypt@3.3.2: {}
 
   jsencrypt@3.5.4: {}
 

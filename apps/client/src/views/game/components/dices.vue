@@ -2,7 +2,7 @@
 import { ref, computed, watch, onMounted } from "vue";
 import { useUtil } from "@src/store/index";
 import { DiceRenderer } from "@src/core/three/DiceRenderer";
-import { useRoomInfo } from "../../../store/index";
+import { useRoomInfo } from "@src/store/index";
 
 const utilStore = useUtil();
 const rollDiceResult = computed(() => utilStore.rollDiceResult);

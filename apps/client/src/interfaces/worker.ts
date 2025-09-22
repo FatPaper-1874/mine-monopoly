@@ -1,6 +1,5 @@
 import { WorkerCommType } from "@src/enums/worker";
-import { GameSetting, ServerSocketMessage, SocketMessage } from "./bace";
-import {GameMap, PlayerOperationResult, UserInRoomInfo} from "@fatpaper-monopoly/types";
+import {GameMap, GameSetting, PlayerOperationResult, ServerSocketMessage, UserInRoomInfo} from "@fatpaper-monopoly/types";
 import { OperateType } from "@fatpaper-monopoly/types";
 
 export type WorkerCommMsg = {

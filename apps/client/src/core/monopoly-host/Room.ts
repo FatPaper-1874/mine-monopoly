@@ -8,17 +8,14 @@ import {
 	SocketMsgSource,
 	UserInRoomInfo,
 	User,
+	ChatMessage,
+	GameSetting,
+	RoomInfo,
+	ServerSocketMessage,
+	SocketMessage,
+	SocketMessageDataType,
 } from "@fatpaper-monopoly/types";
 import { WorkerCommType } from "@src/enums/worker";
-import {
-	GameSetting,
-	ChatMessage,
-	SocketMessage,
-	RoomInfo,
-	RoleInRoom,
-	SocketMessageDataType,
-	ServerSocketMessage,
-} from "@src/interfaces/bace";
 import { WorkerCommMsg } from "@src/interfaces/worker";
 import { useLoading, useDeviceStatus } from "@src/store";
 import { randomString } from "@src/utils";
@@ -453,7 +450,7 @@ export class Room {
 		return this.userList.has(userId);
 	}
 
-	public emitOperationToWorker(userId: string, operateType: OperateType | string, ...data: any) {
+	public emitOperationToWorker<T extends OperateType>(userId: string, operateType: T, ...data: any) {
 		if (!this.gameProcessWorker) throw Error("在worker还没创建时给worker发信息");
 		this.gameProcessWorker.postMessage(<WorkerCommMsg>{
 			type: WorkerCommType.EmitOperation,

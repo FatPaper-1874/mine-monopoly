@@ -1,11 +1,12 @@
 import { EventTiggerTime, GamePhaseMark, PlayerEvents } from "../../enums/game/game-process";
 import { UserInRoomInfo } from "./item";
-import { ChanceCardType, OperateType, PlayerMoveType } from "../../enums/game/game";
+import { ChanceCardType, GameLinkItem, OperateType, PlayerMoveType } from "../../enums/game/game";
 import { GameMap } from "../game/map";
+import { IDice, IRoundTimeTimer } from "./util";
+import { ServerSocketMessage } from "./socket";
 
 // 客户端
 export interface GameData {
-	ping: number;
 	currentPlayerIdInRound: string;
 	currentRound: number;
 	currentMultiplier: number;
@@ -28,18 +29,42 @@ export interface IGameProcess {
 	currentRoundPlayer: IPlayer | null;
 	currentRound: number;
 	gameRuntimeStack: IGameRuntimeStack<GameContext>;
+	roundTimeTimer: IRoundTimeTimer; //倒计时
+	diceUtil: IDice;
 
-	onPlayerOperation<T extends OperateType>(playerId: string, operationType: T): Promise<PlayerOperationResult[T]>;
+	handlePlayerRollDice(playerId: string): void;
+	handleArriveEvent(arrivedPlayer: IPlayer): void;
+	handleUseChanceCard(sourcePlayer: IPlayer, chanceCardId: string, targetIdList: string[]): void;
 
+	emitPlayerOperation<T extends OperateType>(playerId: string, operationType: T, data: PlayerOperationResult[T]): void;
+	oncePlayerOperationAsync<T extends OperateType>(
+		playerId: string,
+		operationType: T
+	): Promise<PlayerOperationResult[T]>;
+	onPlayerOperationAsync<T extends OperateType>(playerId: string, operationType: T): Promise<PlayerOperationResult[T]>;
+	oncePlayerOperation<T extends OperateType>(
+		playerId: string,
+		operationType: T,
+		callback: (res: PlayerOperationResult[T]) => void
+	): void;
+	onPlayerOperation<T extends OperateType>(
+		playerId: string,
+		operationType: T,
+		callback: (res: PlayerOperationResult[T]) => void
+	): void;
 	pushEventToStack(gameEvent: GameEvent<GameContext>): void;
 
-	start(): Promise<void>;
+	createGameLinkItem(type: GameLinkItem, id: string): void;
+	gameInfoBroadcast(): void;
+	gameMsgNotifyBroadcast(type: "success" | "warning" | "error" | "info", msg: string): void;
+	gameLogBroadcast(log: string): void;
+	gameBroadcast(msg: ServerSocketMessage): void;
 }
 
 export interface IGameRuntimeStack<Context extends GameContext> {
 	stack: GameEvent<Context>[];
 
-	run(): Promise<void>;
+	run(context: Context, gameProcess: IGameProcess): Promise<void>;
 
 	isEmpty(): boolean;
 
@@ -48,7 +73,7 @@ export interface IGameRuntimeStack<Context extends GameContext> {
 	pop(): GameEvent<Context> | undefined;
 }
 
-export type GameEventFunction<Context extends GameContext> = (ctx: Context) => Promise<void>;
+export type GameEventFunction<Context extends GameContext> = (ctx: Context, gameProcess: IGameProcess) => Promise<void>;
 
 // 游戏事件--游戏循环中的最基础的单位
 export type GameEvent<Context extends GameContext> = {
@@ -83,20 +108,20 @@ export interface PlayerRoundContext extends GameContext {
 
 export interface PlayerRoundStartContext extends PlayerRoundContext {}
 
-export interface RollDiceContext extends PlayerRoundContext {
+export interface RollDiceContext extends PlayerRoundStartContext {
 	dice: number[];
 }
 
-export interface PlayerMoveContext extends PlayerRoundContext {
+export interface PlayerMoveContext extends RollDiceContext {
 	type: PlayerMoveType;
 	targetIndex: number;
 }
 
-export interface ArrivedEventContext extends PlayerRoundContext {
+export interface ArrivedEventContext extends PlayerMoveContext {
 	arrivedProperty: PropertyInfo;
 }
 
-export interface PlayerRoundEndContext extends PlayerRoundContext {}
+export interface PlayerRoundEndContext extends ArrivedEventContext {}
 
 export interface GameRoundEndContext extends GameContext {}
 
@@ -158,7 +183,8 @@ export interface IProperty {
 	getPassCost: () => number;
 
 	//设置房产信息
-	setOwner: (player: IPlayer | undefined) => Promise<void>;
+	buildUp: () => void;
+	setOwner: (player: IPlayer | undefined) => void;
 	setBuildingLevel: (level: number) => void;
 
 	getPropertyInfo: () => PropertyInfo;

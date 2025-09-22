@@ -122,7 +122,7 @@ function handleShowPlayerDetail(player: PlayerInfo) {
 <template>
 	<FpDialog :style="'width: 70%; height: 70%;'" v-model:visible="playerDetailVisiable">
 		<template #title>
-			<div class="title">{{ currentPlayer?.user.name }}的底细</div>
+			<div class="title">{{ currentPlayer?.user.username }}的底细</div>
 		</template>
 
 		<PlayerDetail #default v-if="currentPlayer" :player="currentPlayer" />

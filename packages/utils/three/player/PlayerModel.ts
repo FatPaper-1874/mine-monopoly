@@ -1,30 +1,32 @@
 import * as THREE from "three";
+import { GIFTexture } from "./libs/three-gif-texture";
 
-export class Animated2DBase {
-	protected readonly baseUrl;
-	protected readonly name;
-	public readonly size;
-	public model: THREE.Group;
+export class PlayerModel {
+	public model: THREE.Group = new THREE.Group();
 
-	protected lastFrameTime = Date.now() / 1000;
+	constructor() {}
 
-	constructor(size: number, baseUrl: string, fileNameWithoutType: string) {
-		this.size = size;
-		this.baseUrl = baseUrl;
-		this.name = fileNameWithoutType;
-		this.model = new THREE.Group();
-	}
-
-	public async load() {
-		this.model = await loadRoleModel(this.baseUrl, this.name);
+	public async load(url: string, fileType: string) {
+		this.model = await loadRoleModel(url, fileType);
 		return this.model;
 	}
 }
 
-async function loadRoleModel(baseUrl: string, fileNameWithType: string): Promise<THREE.Group> {
-	const textureLoader = new THREE.TextureLoader();
-	const texture = await textureLoader.loadAsync(`${baseUrl}/${fileNameWithType}`);
-	texture.repeat.set(1, 1);
+async function loadRoleModel(url: string, fileType: string): Promise<THREE.Group> {
+	let texture: THREE.Texture;
+
+	if (fileType.includes("gif")) {
+		// GIF 用 GIFTexture
+		texture = await new Promise((resolve, reject) => {
+			new GIFTexture(url, "autoDraw", (map: THREE.Texture) => resolve(map));
+		});
+		texture.repeat.set(1, 1);
+	} else {
+		// 普通图片用 TextureLoader
+		const textureLoader = new THREE.TextureLoader();
+		texture = await textureLoader.loadAsync(url);
+		texture.repeat.set(1, 1);
+	}
 	texture.colorSpace = THREE.SRGBColorSpace;
 
 	// 创建一个基础材质
@@ -32,13 +34,12 @@ async function loadRoleModel(baseUrl: string, fileNameWithType: string): Promise
 		map: texture,
 		transparent: true,
 		side: THREE.DoubleSide,
-		depthWrite: true,
 		alphaTest: 0.5,
 	});
 	const planeGeometry = new THREE.PlaneGeometry(1, 1);
 	const planeMesh = new THREE.Mesh(planeGeometry, planeMaterial);
-	const group = new THREE.Group();
 	planeMesh.position.y = 0.5;
+	const group = new THREE.Group();
 	group.add(planeMesh);
 
 	// 缩放到单位大小

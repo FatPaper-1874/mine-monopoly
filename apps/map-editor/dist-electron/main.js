@@ -21,7 +21,8 @@ function createWindow() {
       nodeIntegrationInWorker: false,
       preload: path.join(__dirname, "preload.mjs"),
       devTools: true,
-      webSecurity: false
+      webSecurity: false,
+      zoomFactor: 1
     },
     frame: false
   });

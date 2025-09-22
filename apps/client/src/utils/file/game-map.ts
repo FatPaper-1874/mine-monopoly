@@ -1,10 +1,11 @@
 import { PROTOCOL } from "@fatpaper-monopoly/config";
 import { GameMap, GameMapInDb, Role } from "@fatpaper-monopoly/types";
 import { loadFromProto } from "@fatpaper-monopoly/utils";
-import { RoleInRoom } from "@src/interfaces/bace";
 import { useLoading } from "@src/store";
 import { getGameMapById } from "../api/map";
 import { useMapData, useResourceStore } from "@src/store/game";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
+import { getDracoLoader } from "../draco/draco";
 
 export async function getGameMap(gameMapInfo: GameMapInDb) {
 	let mapCache = await window.mapCacheLoader.load(gameMapInfo.id, gameMapInfo.hash);
@@ -57,4 +58,12 @@ export async function loadGameMap(mapId: string) {
 		useLoading().hideLoading();
 		throw Error("向服务器获取地图信息失败");
 	}
+}
+
+export async function getModelById(modelId: string) {
+	const loader = new GLTFLoader();
+	const modelInfo = useResourceStore().getRecourceById(modelId);
+	if (!modelInfo) throw Error(`找不到id为 ${modelId} 的模型资源`);
+	loader.setDRACOLoader(getDracoLoader());
+	return (await loader.loadAsync(modelInfo.url)).scene;
 }

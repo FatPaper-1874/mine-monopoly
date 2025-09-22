@@ -1,35 +1,8 @@
-import {
-	AmbientLight,
-	Box3,
-	BoxHelper,
-	Color,
-	DirectionalLight,
-	DoubleSide,
-	Group,
-	HemisphereLight,
-	MathUtils,
-	Mesh,
-	MeshBasicMaterial,
-	MeshStandardMaterial,
-	Object3D,
-	PerspectiveCamera,
-	PlaneGeometry,
-	Quaternion,
-	Raycaster,
-	Scene,
-	Sprite,
-	SpriteMaterial,
-	SRGBColorSpace,
-	Texture,
-	TextureLoader,
-	Vector2,
-	Vector3,
-	WebGLRenderer,
-} from "three";
+import * as THREE from "three";
 
 import gsap from "gsap";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
-import { ChanceCardInfo, MapItemType, MapItem, PlayerInfo, PropertyInfo } from "@fatpaper-monopoly/types";
+import { ChanceCardInfo, MapItemType, MapItem, PlayerInfo, PropertyInfo, GameMap } from "@fatpaper-monopoly/types";
 import { useDeviceStatus, useLoading, useSettig, useUserInfo } from "@src/store";
 import { Component, ComponentPublicInstance, createApp, toRaw, watch, WatchStopHandle } from "vue";
 import { loadItemTypeModules } from "@src/utils/three/itemtype-loader";
@@ -44,41 +17,44 @@ import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass";
 import { OutlinePass } from "three/examples/jsm/postprocessing/OutlinePass";
 import { ChanceCardOperateType, ChanceCardType, GameEvent, RoleAnimations } from "@fatpaper-monopoly/types";
-import { PlayerEntity } from "@src/core/game/PlayerEntity";
 import useEventBus from "@src/utils/event-bus";
 import { GammaCorrectionShader } from "three/examples/jsm/shaders/GammaCorrectionShader";
 import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass";
 import { storeToRefs } from "pinia";
 import { __PROTOCOL__ } from "@src/../global.config";
 import { TextSprite } from "../three/TextSprite";
-import { useGameData, useMapData } from "@src/store/game";
+import { useGameData, useMapData, useResourceStore } from "@src/store/game";
+import { getModelById } from "@src/utils/file/game-map";
+import { PlayerModel } from "@fatpaper-monopoly/utils";
 
 const BLOCK_HEIGHT = 0.09;
 const PLAY_MODEL_SIZE = 0.7;
 const loadingMask = useLoading();
 
 export class GameRenderer {
+	private mapData: GameMap;
 	private canvas: HTMLCanvasElement;
-	private renderer: WebGLRenderer;
+	private renderer: THREE.WebGLRenderer;
 	private popElementRenderer: CSS2DRenderer;
-	private scene: Scene;
-	private camera: PerspectiveCamera;
+	private scene: THREE.Scene;
+	private camera: THREE.PerspectiveCamera;
 	private composer: EffectComposer;
 	private renderPass: RenderPass;
 	private chanceCardTargetOutlinePass: OutlinePass;
 	private playerInRoundOutlinePass: OutlinePass;
 	private controls: OrbitControls;
 
-	private mapContainer: Group = new Group();
-	private mapModules: Map<string, Group> = new Map<string, Group>();
-	private mapItems: Map<string, Group> = new Map<string, Group>();
-	private playerEntities: Map<string, PlayerEntity> = new Map<string, PlayerEntity>();
-	private housesModules: Map<string, Group> = new Map<string, Group>();
-	private housesItems: Map<string, { group: Group; textSprite: TextSprite }> = new Map<
+	private mapContainer: THREE.Group = new THREE.Group();
+	private mapModules: Map<string, THREE.Group> = new Map<string, THREE.Group>();
+	private mapItemsInScene: Map<string, THREE.Group> = new Map<string, THREE.Group>();
+
+	private playerEntities: Map<string, PlayerModel> = new Map<string, PlayerModel>();
+	private housesModules: Map<string, THREE.Group> = new Map<string, THREE.Group>();
+	private housesItems: Map<string, { group: THREE.Group; textSprite: TextSprite }> = new Map<
 		string,
-		{ group: Group; textSprite: TextSprite }
+		{ group: THREE.Group; textSprite: TextSprite }
 	>();
-	private arrivedEventIcons: Map<string, Mesh> = new Map<string, Mesh>();
+	private arrivedEventIcons: Map<string, THREE.Mesh> = new Map<string, THREE.Mesh>();
 	private playerPosition: Map<string, number> = new Map<string, number>();
 	private requestAnimationFrameId: number = -1;
 
@@ -95,7 +71,7 @@ export class GameRenderer {
 	private isLockingRole: boolean = false;
 	private isLockingRoleFromSetting: boolean = useSettig().lockRole;
 
-	private currentFocusModule: Object3D | null = null;
+	private currentFocusModule: THREE.Object3D | null = null;
 
 	private propertyInfoLabel: CSS2DObject;
 	private propertyInfoLabelInstance: ComponentPublicInstance;
@@ -103,23 +79,24 @@ export class GameRenderer {
 	private arrivedEventInfoLabel: CSS2DObject;
 	private arrivedEventInfoLabelInstance: ComponentPublicInstance;
 
-	constructor(canvas: HTMLCanvasElement, container: HTMLDivElement) {
+	constructor(canvas: HTMLCanvasElement, container: HTMLDivElement, mapData: GameMap) {
+		this.mapData = mapData;
 		this.canvas = canvas;
-		this.renderer = new WebGLRenderer({ canvas, antialias: true });
-		this.renderer.outputColorSpace = SRGBColorSpace;
+		this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+		this.renderer.outputColorSpace = THREE.SRGBColorSpace;
 		this.renderer.setPixelRatio(window.devicePixelRatio);
 
-		this.scene = new Scene();
-		this.camera = new PerspectiveCamera(45, canvas.width / canvas.height, 0.1, 1000);
+		this.scene = new THREE.Scene();
+		this.camera = new THREE.PerspectiveCamera(45, canvas.width / canvas.height, 0.1, 1000);
 		this.composer = new EffectComposer(this.renderer);
 		this.renderPass = new RenderPass(this.scene, this.camera);
 		this.chanceCardTargetOutlinePass = new OutlinePass(
-			new Vector2(canvas.clientWidth, canvas.clientHeight),
+			new THREE.Vector2(canvas.clientWidth, canvas.clientHeight),
 			this.scene,
 			this.camera
 		);
 		this.playerInRoundOutlinePass = new OutlinePass(
-			new Vector2(canvas.clientWidth, canvas.clientHeight),
+			new THREE.Vector2(canvas.clientWidth, canvas.clientHeight),
 			this.scene,
 			this.camera
 		);
@@ -186,7 +163,7 @@ export class GameRenderer {
 		);
 	}
 
-	public async init(mapFileUrl: string) {
+	public async init() {
 		loadingMask.loading = true;
 		loadingMask.text = "正在进行初始化加载：地图数据";
 		//加载地图
@@ -213,9 +190,9 @@ export class GameRenderer {
 		const userInfoStore = useUserInfo();
 
 		//添加光线投射用于选择对象
-		const propertyRaycaster = new Raycaster();
-		const arrivedEventRaycaster = new Raycaster();
-		const pointer = new Vector2();
+		const propertyRaycaster = new THREE.Raycaster();
+		const arrivedEventRaycaster = new THREE.Raycaster();
+		const pointer = new THREE.Vector2();
 
 		// 创建轨道控制器
 
@@ -259,36 +236,62 @@ export class GameRenderer {
 	}
 
 	private initBackground() {
-		const bgTextureLoader = new TextureLoader();
-		const mapData = useMapData();
+		const bgTextureLoader = new THREE.TextureLoader();
+		const bgResource = useResourceStore().getRecourceById(this.mapData.info.coverImageId);
+		if (!bgResource) return;
 
-		const bgTexture = bgTextureLoader.load(`${__PROTOCOL__}://${mapData.info.backgroundImageId}`);
+		const bgTexture = bgTextureLoader.load(bgResource.url);
 
 		this.scene.background = bgTexture;
 		this.scene.add(this.mapContainer);
 	}
 
-	private async initMap() {}
+	private async initMap() {
+		await this.initMapItem();
+	}
 
-	private async initPlayer() {}
+	private async initMapItem() {
+		const itemTypes = this.mapData.mapItemTypes;
+		for (const itemType of itemTypes) {
+			this.mapModules.set(itemType.id, await getModelById(itemType.modelId));
+		}
+		const mapItems = this.mapData.mapItems;
+		for (const mapItem of mapItems) {
+			const model = this.mapModules.get(mapItem.type.id);
+			if (!model) throw Error("加载MapItem时找不到模型");
+			const mapItemModel = new THREE.Group().copy(model);
+			mapItemModel.scale.set(0.5, 0.5, 0.5);
+			mapItemModel.userData["position"] = { x: mapItem.x, y: mapItem.y };
+			mapItemModel.userData["rotation"] = mapItem.rotation;
+			mapItemModel.userData["id"] = mapItem.id;
+			this.setItemPositionOnMap(mapItemModel, mapItem.x, mapItem.y, mapItem.rotation);
+			this.mapItemsInScene.set(mapItem.id, mapItemModel);
+			this.mapContainer.add(mapItemModel);
+		}
+	}
+
+	private async initPlayer() {
+		const playersList = useGameData().playersList;
+		await this.loadPlayersModules(playersList);
+	}
 
 	private initChanceCard() {}
 
 	private initLight() {
 		//创建灯光
-		const ambientLight = new AmbientLight(0xffffff, 2); // soft white light
+		const ambientLight = new THREE.AmbientLight(0xffffff, 2); // soft white light
 		this.scene.add(ambientLight);
-		// const ambienLight2 = new AmbientLight(0xffffff, 0.7); // soft white light
+		// const ambienLight2 = new THREE.AmbientLight(0xffffff, 0.7); // soft white light
 		// this.scene.add(ambienLight2);
 
-		const hemisphereLight = new HemisphereLight(0xf3f3f3, 0xfff1e2, 2);
+		const hemisphereLight = new THREE.HemisphereLight(0xf3f3f3, 0xfff1e2, 2);
 		hemisphereLight.color.setHSL(0.6, 1, 0.6);
 		hemisphereLight.groundColor.setHSL(0.095, 1, 0.75);
 		hemisphereLight.position.copy(this.getGroupCenter(this.mapContainer));
 		hemisphereLight.position.setY(20);
 		this.scene.add(hemisphereLight);
 
-		const dirLight = new DirectionalLight(0xffffff, 3);
+		const dirLight = new THREE.DirectionalLight(0xffffff, 3);
 		dirLight.color.setHSL(0.1, 1, 0.95);
 		dirLight.position.set(-1, 20, -1);
 		dirLight.position.multiplyScalar(30);
@@ -313,18 +316,18 @@ export class GameRenderer {
 
 	private initOutlinePass() {}
 
-	private handlePropertyRaycaster(raycaster: Raycaster, pointer: Vector2) {
+	private handlePropertyRaycaster(raycaster: THREE.Raycaster, pointer: THREE.Vector2) {
 		// 通过摄像机和鼠标位置更新射线
 		raycaster.setFromCamera(pointer, this.camera);
 
 		const intersects = raycaster.intersectObjects(Array.from(this.housesItems.values()).map((h) => h.group));
 		if (intersects.length > 0) {
 			const intersect = intersects[0];
-			const target = intersect.object.parent as Group;
+			const target = intersect.object.parent as THREE.Group;
 			const propertyInfo = target.userData as any;
 			if (propertyInfo.isProperty) {
 				this.propertyInfoLabel.position.copy(target.position);
-				this.propertyInfoLabel.position.y += new Box3().setFromObject(target).max.y;
+				this.propertyInfoLabel.position.y += new THREE.Box3().setFromObject(target).max.y;
 				//@ts-ignore
 				this.propertyInfoLabelInstance.updateProperty(propertyInfo);
 			}
@@ -334,14 +337,14 @@ export class GameRenderer {
 		}
 	}
 
-	private handleArrivedEventRaycaster(raycaster: Raycaster, pointer: Vector2) {
+	private handleArrivedEventRaycaster(raycaster: THREE.Raycaster, pointer: THREE.Vector2) {
 		// 通过摄像机和鼠标位置更新射线
 		raycaster.setFromCamera(pointer, this.camera);
 
-		const intersects = raycaster.intersectObjects(Array.from(this.mapItems.values()));
+		const intersects = raycaster.intersectObjects(Array.from(this.mapItemsInScene.values()));
 		if (intersects.length > 0) {
 			const firstInstance = intersects[0];
-			let target: Object3D | null = firstInstance.object;
+			let target: THREE.Object3D | null = firstInstance.object;
 			while (target) {
 				if (target.userData.isMapItem) {
 					break;
@@ -377,18 +380,52 @@ export class GameRenderer {
 		this.commonWatchers.forEach((f) => f());
 	}
 
-	private updateCamera(controls: OrbitControls, targetObject: Object3D, followDistance: number, followAngleY: number) {
+	private async loadPlayersModules(playerList: Array<PlayerInfo>) {
+		console.log("🚀 ~ GameRenderer ~ loadPlayersModules ~ playerList:", playerList)
+		for await (const playerInfo of playerList) {
+			try {
+				this.playerPosition.set(playerInfo.id, toRaw(playerInfo.positionIndex));
+				const role = useMapData().findRoleById(playerInfo.user.roleId);
+				if (!role) throw Error("初始化玩家模型时: 找不到角色信息");
+				const modelResource = useResourceStore().getRecourceById(role.imageId);
+				if (!modelResource) throw Error("初始化玩家模型时: 找不到模型文件");
+				const playerEntity = new PlayerModel();
+				await playerEntity.load(modelResource.url, modelResource.fileType);
+				this.playerEntities.set(playerInfo.id, playerEntity);
+				const textSprite = new TextSprite(
+					`${playerInfo.user.username}${playerInfo.user.userId === useUserInfo().userId ? " (你)" : ""}`,
+					32,
+					playerInfo.user.color,
+					5,
+					0
+				);
+				const nameSprite = textSprite.getSprite();
+				nameSprite.position.set(0, PLAY_MODEL_SIZE + 0.05, 0);
+				playerEntity.model.add(nameSprite);
+				this.scene.add(playerEntity.model);
+			} catch (e) {
+				console.error("🚀 ~ GameRenderer ~ loadPlayersModules ~ e:", e);
+			}
+		}
+	}
+
+	private updateCamera(
+		controls: OrbitControls,
+		targetObject: THREE.Object3D,
+		followDistance: number,
+		followAngleY: number
+	) {
 		if (!targetObject) return;
 		controls.enabled = false;
 		const targetPos = targetObject.position;
-		const followPos = new Vector3();
-		const cameraFaceVector = controls.object.getWorldDirection(new Vector3());
+		const followPos = new THREE.Vector3();
+		const cameraFaceVector = controls.object.getWorldDirection(new THREE.Vector3());
 		const coefficient = followDistance / cameraFaceVector.length();
-		const v1 = new Vector2(targetPos.x, targetPos.z);
-		const v2 = v1.add(new Vector2(cameraFaceVector.x, cameraFaceVector.z).multiplyScalar(coefficient).negate());
+		const v1 = new THREE.Vector2(targetPos.x, targetPos.z);
+		const v2 = v1.add(new THREE.Vector2(cameraFaceVector.x, cameraFaceVector.z).multiplyScalar(coefficient).negate());
 
 		followPos.x = v2.x;
-		followPos.y = targetPos.y + followDistance * Math.tan(MathUtils.degToRad(followAngleY));
+		followPos.y = targetPos.y + followDistance * Math.tan(THREE.MathUtils.degToRad(followAngleY));
 		followPos.z = v2.y;
 		// controls.target.copy(targetPos);
 		gsap.to(controls.target, {
@@ -408,7 +445,7 @@ export class GameRenderer {
 		});
 	}
 
-	private outlineModels(models: Object3D[]) {
+	private outlineModels(models: THREE.Object3D[]) {
 		this.chanceCardTargetOutlinePass.selectedObjects = models;
 	}
 
@@ -464,7 +501,7 @@ export class GameRenderer {
 		// 	if (item.linkto.id === targetMapItem.id) return true;
 		// });
 		// if (linkMapItem && this.mapItems.has(linkMapItem.id)) {
-		// 	const lookat = new Vector3();
+		// 	const lookat = new THREE.Vector3();
 		// 	lookat.copy(this.mapItems.get(linkMapItem.id)!.position);
 		// 	lookat.setY(BLOCK_HEIGHT);
 		// 	buildModel.lookAt(lookat);
@@ -495,9 +532,9 @@ export class GameRenderer {
 		// 				);
 		// 			}
 		// 			const textSpriteModel = houseItem.textSprite.getSprite();
-		// 			const box = new Box3().setFromObject(buildModel);
+		// 			const box = new THREE.Box3().setFromObject(buildModel);
 		// 			// 计算边界框的高度
-		// 			const size = box.getSize(new Vector3());
+		// 			const size = box.getSize(new THREE.Vector3());
 		// 			textSpriteModel.position.y = Math.max(size.y * 2 + 0.5, 1.5);
 		// 			buildModel.add(textSpriteModel);
 		// 			houseItem.group = buildModel;
@@ -514,7 +551,6 @@ export class GameRenderer {
 		if (playerEntity) {
 			// playerEntity.doAnimation(RoleAnimations.Idle, true);
 			const playerModule = playerEntity.model;
-			playerEntity.doAnimation(RoleAnimations.RoleWalking, true);
 
 			//页面进入后台后取消动画
 			let animationShouldStop = false;
@@ -553,7 +589,6 @@ export class GameRenderer {
 					throw new Error("在设置角色运动朝向时读取MapItem错误");
 				}
 			}
-			playerEntity.doAnimation(RoleAnimations.Idle, true);
 		}
 		// useMonopolyClient().AnimationComplete();
 	}
@@ -569,8 +604,8 @@ export class GameRenderer {
 	private getMapItemPosition(index: number) {
 		const mapIndex = useMapData().mapIndex;
 		const id = mapIndex[index];
-		if (!this.mapItems.has(id)) return new Vector3(0, 0, 0);
-		return this.mapItems.get(id)!.position;
+		if (!this.mapItemsInScene.has(id)) return new THREE.Vector3(0, 0, 0);
+		return this.mapItemsInScene.get(id)!.position;
 	}
 
 	private getPlayerEntity(id: string) {
@@ -580,12 +615,12 @@ export class GameRenderer {
 	private getMapItem(index: number) {
 		const mapIndex = useMapData().mapIndex;
 		const id = mapIndex[index];
-		return this.mapItems.get(id);
+		return this.mapItemsInScene.get(id);
 	}
 
-	private getGroupCenter(group: Group) {
-		if (group.children.length === 0) return new Vector3(0, 0, 0);
-		const centerPoint = new Vector3();
+	private getGroupCenter(group: THREE.Group) {
+		if (group.children.length === 0) return new THREE.Vector3(0, 0, 0);
+		const centerPoint = new THREE.Vector3();
 		group.children.forEach(function (child) {
 			centerPoint.add(child.position);
 		});
@@ -594,7 +629,7 @@ export class GameRenderer {
 		return centerPoint;
 	}
 
-	private setItemPositionOnMap(object: Object3D, x: number, z: number, rotation = 0, y: number = 0) {
+	private setItemPositionOnMap(object: THREE.Object3D, x: number, z: number, rotation = 0, y: number = 0) {
 		object.position.set(x + 0.5, y, z + 0.5);
 		object.rotation.y = (Math.PI / 2) * rotation;
 	}
@@ -686,14 +721,14 @@ export class GameRenderer {
 	) {
 		const playerEntity = this.playerEntities.get(playerId);
 		if (!playerEntity) return;
-		const position = new Vector3();
+		const position = new THREE.Vector3();
 		position.copy(playerEntity.model.position);
 
 		const { css2DObject, appInstance, unmount } = createCSS2DObjectFromVue(component, props);
 
-		position.x += playerEntity.size * (Math.random() - 0.5) * 0.1;
-		position.y += playerEntity.size / 2;
-		position.z += playerEntity.size * (Math.random() - 0.5) * 0.1;
+		// position.x += playerEntity.size * (Math.random() - 0.5) * 0.1;
+		// position.y += playerEntity.size / 2;
+		// position.z += playerEntity.size * (Math.random() - 0.5) * 0.1;
 		css2DObject.position.copy(position);
 		this.scene.add(css2DObject);
 		if (delay)
@@ -756,7 +791,7 @@ function createCSS2DObjectFromVue(rootComponent: Component, rootProps?: Record<s
 // 	c.fillText(text, 0, 0);
 // 	const texture = new Texture(canvas);
 // 	texture.needsUpdate = true;
-// 	texture.colorSpace = SRGBColorSpace;
+// 	texture.colorSpace = THREE.SRGBColorSpace;
 // 	const material = new SpriteMaterial({
 // 		map: texture,
 // 		depthWrite: false,

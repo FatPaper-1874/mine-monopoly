@@ -1,20 +1,9 @@
-import {
-	ChanceCardType,
-	ChangeRoleOperate,
-	GameData,
-	GameMap,
-	GameMapInDb,
-	GameOverRule,
-	OperateType,
-	PlayerInfo,
-	PropertyInfo,
-	Role,
-	SocketMsgSource,
-	SocketMsgType,
-	User,
-} from "@fatpaper-monopoly/types";
-import { ChatMessageType, MonopolyWebSocketMsgType } from "@fatpaper-monopoly/types";
-import { DataConnection } from "peerjs";
+
+import { ChatMessageType, MonopolyWebSocketMsgType, SocketMsgSource, SocketMsgType } from "../../enums/game/base";
+import { GameOverRule, OperateType } from "../../enums/game/game";
+import { GameMapInDb } from "./db";
+import { GameData, PlayerInfo, PropertyInfo } from "./game-process";
+import { Role, User } from "./item";
 
 export type MonopolyWebSocketMsg = {
 	type: MonopolyWebSocketMsgType;
@@ -126,7 +115,7 @@ export interface SocketMessageDataType {
 	};
 	[SocketMsgType.GameInit]: {
 		client: never;
-		server: GameMapInDb;
+		server: GameData;
 	};
 	[SocketMsgType.GameInitFinished]: {
 		client: undefined;
@@ -163,7 +152,11 @@ export interface SocketMessageDataType {
 	};
 	[SocketMsgType.RollDiceResult]: {
 		client: never;
-		server: number[];
+		server: {
+			rollDiceResult: number[];
+			rollDiceCount: number;
+			rollDicePlayerId: string;
+		};
 	};
 	[SocketMsgType.UseChanceCard]: {
 		client: { chanceCardId: string; targetId: string | string[] };
@@ -215,6 +208,8 @@ export interface SocketMessageDataType {
 		server: undefined;
 	};
 }
+
+
 
 export interface Room {
 	roomId: string;

@@ -1,6 +1,5 @@
 import Peer, { DataConnection } from "peerjs";
-import { SocketMessage, ClientSocketMessage } from "@src/interfaces/bace";
-import { SocketMsgType, UserInRoomInfo } from "@fatpaper-monopoly/types";
+import { ClientSocketMessage, SocketMessage, SocketMsgType, UserInRoomInfo } from "@fatpaper-monopoly/types";
 import { deleteRoom, emitRoomHeart } from "@src/utils/api/room-router";
 import { __ICE_SERVER_PATH__, __PROTOCOL__ } from "@src/../global.config";
 import { handleClientSocketMessage } from "./client-message-handlers";

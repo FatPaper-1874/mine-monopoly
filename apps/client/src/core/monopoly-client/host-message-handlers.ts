@@ -1,6 +1,13 @@
-import { ChatMessage, GameLog, RoomInfo, ServerSocketMessage, SocketMessage } from "@src/interfaces/bace";
 import { MonopolyClient } from "./MonopolyClient";
-import { GameEventType, OperateType, PlayerInfo, PropertyInfo, SocketMsgType } from "@fatpaper-monopoly/types";
+import {
+	GameEventType,
+	OperateType,
+	PlayerInfo,
+	PropertyInfo,
+	ServerSocketMessage,
+	SocketMessage,
+	SocketMsgType,
+} from "@fatpaper-monopoly/types";
 import {
 	useChat,
 	useGameLog,
@@ -19,7 +26,8 @@ import router from "@src/router";
 import useEventBus from "@src/utils/event-bus";
 import { createVNode } from "vue";
 import PropertyInfoVue from "@src/components/common/property-card.vue";
-import { useGameData } from "@src/store/game";
+import { useGameData, useMapData } from "@src/store/game";
+import { GameMap } from "@fatpaper-monopoly/utils/protos/game-map";
 
 type ServerMessageHandler<T extends SocketMsgType> = (
 	msg: SocketMessage<T, SocketMsgSource.Server>,
@@ -173,24 +181,28 @@ const handleGameStartReply: ServerMessageHandler<SocketMsgType.GameStart> = () =
 	});
 };
 
-const handleGameInit: ServerMessageHandler<SocketMsgType.GameInit> = () => {
+const handleGameInit: ServerMessageHandler<SocketMsgType.GameInit> = (msg) => {
+	console.log("🚀 ~ handleGameInit ~ handleGameInit:", "handleGameInit");
+	const gameDataStore = useGameData();
+	const gameData = msg.data;
+	if (gameData) {
+		gameDataStore.$patch({
+			currentPlayerIdInRound: gameData.currentPlayerIdInRound,
+			currentRound: gameData.currentRound,
+			currentMultiplier: gameData.currentMultiplier,
+			playersList: gameData.playersList,
+			propertiesList: gameData.propertiesList,
+		});
+		const me = gameData.playersList.find((p) => p.id === useUserInfo().userId);
+		if (me && me.isBankrupted) {
+			const utilStore = useUtil();
+			utilStore.canRoll = false;
+			utilStore.canUseCard = false;
+		}
+	}
 	const loadingStore = useLoading();
 	loadingStore.text = "获取数据成功，加载中...";
-	//TODO
-	// const gameInitInfo = data.data as GameInitInfo;
-
-	// const mapDataStore = useMapData();
-	// mapDataStore.$patch(gameInitInfo);
-
-	// const gameInfoStore = useGameData();
-	// gameInitInfo &&
-	// 	gameInfoStore.$patch({
-	// 		currentRound: gameInitInfo.currentRound,
-	// 		currentPlayerIdInRound: gameInitInfo.currentPlayerInRound,
-	// 		currentMultiplier: gameInitInfo.currentMultiplier,
-	// 	});
-
-	// router.replace({ name: "game" });
+	router.replace({ name: "game" });
 };
 
 const handleGameInitFinished: ServerMessageHandler<SocketMsgType.GameInitFinished> = () => {
@@ -257,10 +269,9 @@ const handleRollDiceAnimationPlay: ServerMessageHandler<SocketMsgType.RollDiceSt
 };
 
 const handleRollDiceResult: ServerMessageHandler<SocketMsgType.RollDiceResult> = (msg) => {
-	const rollDiceResult: number[] = msg.data;
-
+	const res = msg.data;
 	const utilStore = useUtil();
-	utilStore.rollDiceResult = rollDiceResult;
+	utilStore.rollDiceResult = res.rollDiceResult;
 	utilStore.isRollDiceAnimationPlay = false;
 };
 

@@ -1,17 +1,5 @@
 import { defineStore } from "pinia";
-import { User, Room, ChatMessage, UserInRoomInfo, GameLog, RoleInRoom } from "@src/interfaces/bace";
-import {
-	MapItem,
-	PlayerInfo,
-	PropertyInfo,
-	MapItemType,
-	ChanceCardInfo,
-	Street,
-	GameMap,
-	Role,
-	ResourcesType,
-} from "@fatpaper-monopoly/types";
-import { GameOverRule } from "@fatpaper-monopoly/types";
+import { ChatMessage, GameLog, GameOverRule, Room, User, UserInRoomInfo } from "@fatpaper-monopoly/types";
 import { isFullScreen, isLandscape, setTimeOutAsync } from "@src/utils";
 import { getUserByToken } from "@src/utils/api/user";
 import { useGameData } from "./game";

@@ -8,6 +8,10 @@ declare enum OperateType {
 	PauseGame = "PauseGame",//房主暂停游戏
 	ResumeGame = "ResumeGame"
 }
+declare enum PlayerMoveType {
+	Walk = 0,
+	Tp = 1
+}
 declare enum ChanceCardType {
 	ToSelf = "ToSelf",
 	ToOtherPlayer = "ToOtherPlayer",
@@ -88,6 +92,25 @@ interface GameMap {
 	};
 	buildingModelIdList: string[];
 }
+interface IRoundTimeTimer {
+	start(callback: Function | null, timeS?: number): Promise<void>;
+	nextTick(): void;
+	pause(): void;
+	resume(): void;
+	stop(): void;
+	setTimeOutFunction(newFunction: Function | null): Promise<void>;
+	setIntervalFunction(countDownCallback: (remainingTime: number) => void): void;
+	clearInterval(): void;
+	destroy(): void;
+}
+interface IDice {
+	/** 获取骰子点数总和 */
+	getResultNumber(): number;
+	/** 获取所有骰子的结果数组 */
+	getResultArray(): number[];
+	/** 掷骰子 */
+	roll(): void;
+}
 type GameContext = {
 	cancel?: boolean;
 } & Record<string, any>;
@@ -100,19 +123,25 @@ interface IGameProcess {
 	currentRoundPlayer: IPlayer | null;
 	currentRound: number;
 	gameRuntimeStack: IGameRuntimeStack<GameContext>;
-	onPlayerOperation<T extends OperateType>(playerId: string, operationType: T): Promise<PlayerOperationResult[T]>;
+	roundTimeTimer: IRoundTimeTimer;
+	diceUtil: IDice;
+	emitPlayerOperation<T extends OperateType>(playerId: string, operationType: T, data: PlayerOperationResult[T]): void;
+	oncePlayerOperationAsync<T extends OperateType>(playerId: string, operationType: T): Promise<PlayerOperationResult[T]>;
+	onPlayerOperationAsync<T extends OperateType>(playerId: string, operationType: T): Promise<PlayerOperationResult[T]>;
+	oncePlayerOperation<T extends OperateType>(playerId: string, operationType: T, callback: (res: PlayerOperationResult[T]) => void): void;
+	onPlayerOperation<T extends OperateType>(playerId: string, operationType: T, callback: (res: PlayerOperationResult[T]) => void): void;
 	pushEventToStack(gameEvent: GameEvent<GameContext>): void;
-	start(): Promise<void>;
 }
 interface IGameRuntimeStack<Context extends GameContext> {
 	stack: GameEvent<Context>[];
-	run(): Promise<void>;
+	run(context: Context, gameProcess: IGameProcess): Promise<void>;
 	isEmpty(): boolean;
 	push(...gameEvents: GameEvent<Context>[]): void;
 	pop(): GameEvent<Context> | undefined;
 }
+type GameEventFunction<Context extends GameContext> = (ctx: Context, gameProcess: IGameProcess) => Promise<void>;
 type GameEvent<Context extends GameContext> = {
-	fn: (ctx: Context) => Promise<void>;
+	fn: GameEventFunction<Context>;
 	key?: string;
 };
 interface GamePhaseInfo {
@@ -131,7 +160,16 @@ interface IGamePhase<Context extends GameContext> extends GamePhaseInfo {
 interface PlayerRoundContext extends GameContext {
 	currentRoundPlayer: IPlayer;
 }
-interface ArrivedEventContext extends PlayerRoundContext {
+interface PlayerRoundStartContext extends PlayerRoundContext {
+}
+interface RollDiceContext extends PlayerRoundStartContext {
+	dice: number[];
+}
+interface PlayerMoveContext extends RollDiceContext {
+	type: PlayerMoveType;
+	targetIndex: number;
+}
+interface ArrivedEventContext extends PlayerMoveContext {
 	arrivedProperty: PropertyInfo;
 }
 interface IPlayer {

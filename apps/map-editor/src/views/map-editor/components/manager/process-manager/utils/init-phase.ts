@@ -26,9 +26,9 @@ const gameRoundStartPhase: GamePhaseInfo = {
 	description: "轮次开始阶段",
 	from: "系统",
 	mark: GamePhaseMark.GameRoundStart,
-	initEventCode: `return (async (context, next) => {
+	initEventCode: `return (async (context, gameProcess) => {
 
-}) as Middleware<GameRoundStartContext>;`,
+}) as GameEventFunction<GameRoundStartContext>;`,
 };
 
 const playerRoundStartPhase: GamePhaseInfo = {
@@ -37,9 +37,9 @@ const playerRoundStartPhase: GamePhaseInfo = {
 	description: "玩家回合开始阶段",
 	from: "系统",
 	mark: GamePhaseMark.PlayerRoundStart,
-	initEventCode: `return (async (context, next) => {
+	initEventCode: `return (async (context, gameProcess) => {
 	
-}) as Middleware<PlayerRoundStartContext>;`,
+}) as GameEventFunction<PlayerRoundStartContext>;`,
 };
 
 const rollDicePhase: GamePhaseInfo = {
@@ -48,9 +48,9 @@ const rollDicePhase: GamePhaseInfo = {
 	description: "玩家掷骰子阶段",
 	from: "系统",
 	mark: GamePhaseMark.RollDice,
-	initEventCode: `return (async (context, next) => {
+	initEventCode: `return (async (context, gameProcess) => {
 	
-}) as Middleware<RollDiceContext>;`,
+}) as GameEventFunction<RollDiceContext>;`,
 };
 
 const playerMovePhase: GamePhaseInfo = {
@@ -59,9 +59,9 @@ const playerMovePhase: GamePhaseInfo = {
 	description: "玩家移动阶段",
 	from: "系统",
 	mark: GamePhaseMark.PlayerMove,
-	initEventCode: `return (async (context, next) => {
+	initEventCode: `return (async (context, gameProcess) => {
 	
-}) as Middleware<PlayerMoveContext>;`,
+}) as GameEventFunction<PlayerMoveContext>;`,
 };
 
 const arrivedEventPhase: GamePhaseInfo = {
@@ -70,9 +70,9 @@ const arrivedEventPhase: GamePhaseInfo = {
 	description: "到达事件阶段",
 	from: "系统",
 	mark: GamePhaseMark.ArrivedEvent,
-	initEventCode: `return (async (context, next) => {
+	initEventCode: `return (async (context, gameProcess) => {
 	
-}) as Middleware<ArrivedEventContext>;`,
+}) as GameEventFunction<ArrivedEventContext>;`,
 };
 
 const playerRoundEndPhase: GamePhaseInfo = {
@@ -81,9 +81,9 @@ const playerRoundEndPhase: GamePhaseInfo = {
 	description: "玩家回合结束阶段",
 	from: "系统",
 	mark: GamePhaseMark.PlayerRoundEnd,
-	initEventCode: `return (async (context, next) => {
+	initEventCode: `return (async (context, gameProcess) => {
 	
-}) as Middleware<PlayerRoundEndContext>;`,
+}) as GameEventFunction<PlayerRoundEndContext>;`,
 };
 
 const gameRoundEndPhase: GamePhaseInfo = {
@@ -92,7 +92,7 @@ const gameRoundEndPhase: GamePhaseInfo = {
 	description: "轮次结束阶段",
 	from: "系统",
 	mark: GamePhaseMark.GameRoundEnd,
-	initEventCode: `return (async (context, next) => {
+	initEventCode: `return (async (context, gameProcess) => {
 	
-}) as Middleware<GameRoundEndContext>;`,
+}) as GameEventFunction<GameRoundEndContext>;`,
 };

@@ -1,4 +1,6 @@
-class Dice {
+import { IDice } from "@fatpaper-monopoly/types";
+
+class Dice implements IDice {
 	private diceNum = 2; //骰子个数(默认两个)
 	private resultArray: Array<number> = [];
 

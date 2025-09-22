@@ -7,16 +7,25 @@ import {
 	ChanceCardClientInfo,
 	ChanceCardInfo,
 	ChanceCardInstanceInfo,
+	ChanceCardType,
 	GameContext,
+	GameData,
 	GameEvent,
+	GameLinkItem,
+	GameLog,
 	GameMap,
+	GameSetting,
 	IGamePhase,
 	IGameProcess,
+	IPlayer,
+	IProperty,
 	MapEvent,
 	MapItem,
 	OperateType,
 	PlayerOperationResult,
 	PlayerRoundContext,
+	ServerSocketMessage,
+	SocketMsgSource,
 	SocketMsgType,
 	UserInRoomInfo,
 } from "@fatpaper-monopoly/types";
@@ -24,9 +33,8 @@ import Dice from "./class/Dice";
 import { RoundTimeTimer } from "./class/RoundTimeTimer";
 import { Player } from "./class/Player";
 import { Property } from "./class/Property";
-import { GameSetting, ServerSocketMessage } from "@src/interfaces/bace";
 import { ChanceCard } from "./class/ChanceCard";
-import { compileTsToJs } from "@src/utils";
+import { compileTsToJs, randomString } from "@src/utils";
 import { GamePhase } from "@src/core/worker/class/GamePhase";
 import { GameRuntimeStack } from "@src/core/worker/class/GameRuntimeStack";
 
@@ -82,6 +90,7 @@ function sendToUsers(userIdList: string[], msg: ServerSocketMessage) {
 
 export class GameProcess implements IGameProcess {
 	public extraData: Record<string, any> = {};
+	private startTime: number = Date.now();
 
 	public mapData: GameMap;
 	private gameSetting: GameSetting;
@@ -105,17 +114,19 @@ export class GameProcess implements IGameProcess {
 	private isGameOver: boolean = false;
 	private timeoutList: any[] = []; //计时器列表
 	private intervalTimerList: any[] = []; //计时器列表
-	private roundTimeTimer: RoundTimeTimer; //倒计时
+	public roundTimeTimer: RoundTimeTimer; //倒计时
+	private gameLogList: GameLog[] = [];
 
-	private dice: Dice;
+	public currentMultiplier: number = 1;
+
+	public diceUtil: Dice;
 
 	constructor(mapData: GameMap, gameSetting: GameSetting, userList: UserInRoomInfo[], roomOwnerId: string) {
 		this.mapData = mapData;
 		this.gameSetting = gameSetting;
 		this.userList = userList;
-		console.log("🚀 ~ GameProcess ~ constructor ~ mapData:", mapData);
 
-		this.dice = new Dice(gameSetting.diceNum);
+		this.diceUtil = new Dice(gameSetting.diceNum);
 		this.roundTimeTimer = new RoundTimeTimer(gameSetting.roundTime, 1000);
 		if (gameSetting.slackOffMode) {
 			operationListener.on(roomOwnerId, OperateType.PauseGame, () => {
@@ -181,6 +192,7 @@ export class GameProcess implements IGameProcess {
 	}
 
 	private async gameLoop() {
+		this.roundTimeTimer.setIntervalFunction(this.roundRemainingTimeBroadcast);
 		//游戏循环
 		while (!this.isGameOver) {
 			//回合循环 加载回合开始阶段
@@ -206,27 +218,523 @@ export class GameProcess implements IGameProcess {
 				await this.runGamePhase(phase);
 			}
 		}
+		this.roundTimeTimer.clearInterval();
 	}
 
-	public async onPlayerOperation<T extends OperateType>(
+	public async handlePlayerRollDice(playerId: string) {
+		const player = this.getPlayerById(playerId);
+		if (!player) throw Error("玩家掷骰子时找不到玩家");
+		this.gameBroadcast({
+			type: SocketMsgType.RollDiceStart,
+			source: SocketMsgSource.Server,
+			data: "",
+		});
+		//摇骰子
+		this.diceUtil.roll();
+		//让骰子摇一会 :P
+		await this.sleep(1500);
+		//发送信息
+		const msgToRollDice: ServerSocketMessage = {
+			type: SocketMsgType.RollDiceResult,
+			source: SocketMsgSource.Server,
+			data: {
+				rollDiceResult: this.diceUtil.getResultArray(),
+				rollDiceCount: this.diceUtil.getResultNumber(),
+				rollDicePlayerId: player.getId(),
+			},
+			msg: {
+				type: "info",
+				content: `${player.getName()} 摇到的点数是: ${this.diceUtil.getResultArray().join("-")}`,
+			},
+		};
+		this.gameLogBroadcast(
+			`${this.createGameLinkItem(GameLinkItem.Player, player.getId())} 摇到的点数是: ${this.diceUtil
+				.getResultArray()
+				.join("-")}`
+		);
+		this.gameBroadcast(msgToRollDice);
+	}
+
+	private async handlePlayerBuyProperty(player: IPlayer, property: IProperty) {
+		const msgToSend: ServerSocketMessage = {
+			type: SocketMsgType.MsgNotify,
+			source: SocketMsgSource.Server,
+			data: undefined,
+		};
+		if (player.getMoney() > property.getSellCost()) {
+			property.setOwner(player);
+			this.gameInfoBroadcast();
+			this.gameMsgNotifyBroadcast("info", `${player.getName()} 买下了地皮 ${property.getName()}`);
+			this.gameLogBroadcast(
+				`${this.createGameLinkItem(GameLinkItem.Player, player.getId())} 买下了地皮 ${this.createGameLinkItem(
+					GameLinkItem.Property,
+					property.getId()
+				)}`
+			);
+			player.cost(property.getSellCost());
+		} else {
+			msgToSend.msg = { type: "error", content: "不够钱啊穷鬼" };
+			sendToUsers([player.getId()], msgToSend);
+		}
+
+		return;
+	}
+
+	private async handlePlayerBuildUp(player: IPlayer, property: IProperty) {
+		const msgToSend: ServerSocketMessage = {
+			type: SocketMsgType.MsgNotify,
+			source: SocketMsgSource.Server,
+			data: undefined,
+		};
+		if (player.getMoney() > property.getSellCost()) {
+			property.buildUp();
+			this.gameInfoBroadcast();
+			this.gameMsgNotifyBroadcast(
+				"info",
+				`${player.getName()}把地皮${property.getName()}升到了${property.getBuildingLevel()}级`
+			);
+			this.gameLogBroadcast(
+				`${this.createGameLinkItem(GameLinkItem.Player, player.getId())} 把地皮 ${this.createGameLinkItem(
+					GameLinkItem.Property,
+					property.getId()
+				)} 升到了 ${property.getBuildingLevel()} 级`
+			);
+			await player.cost(property.getSellCost());
+		} else {
+			msgToSend.msg = { type: "error", content: "不够钱啊穷鬼" };
+			sendToUsers([player.getId()], msgToSend);
+		}
+		return;
+	}
+
+	// private getRandomChanceCard(num: number): ChanceCard[] {
+	// 	let tempChanceCardList: ChanceCard[] = [];
+	// 	for (let i = 0; i < num; i++) {
+	// 		const getIndex = Math.floor(Math.random() * this.chanceCardInfoList.length);
+	// 		const card = this.chanceCardInfos.get();
+	// 		if (card) tempChanceCardList.push(new ChanceCard(card));
+	// 	}
+	// 	return tempChanceCardList;
+	// }
+
+	private getNewChanceCard(id: string): ChanceCard {
+		const tempChanceCard = this.chanceCardInfos.get(id);
+		if (!tempChanceCard) throw new Error("错误的机会卡ID");
+		return new ChanceCard(tempChanceCard);
+	}
+
+	public async handleUseChanceCard(sourcePlayer: IPlayer, chanceCardId: string, targetIdList: string[]) {
+		this.roundTimeTimer.stop();
+		const chanceCard = sourcePlayer.getCardById(chanceCardId);
+		if (chanceCard) {
+			let error = ""; //收集错误信息
+			try {
+				switch (
+					chanceCard.getType() //根据机会卡的类型执行不同操作
+				) {
+					case ChanceCardType.ToSelf:
+						await chanceCard.use(sourcePlayer, sourcePlayer, this); //直接使用
+						this.gameMsgNotifyBroadcast(
+							"info",
+							`${sourcePlayer.getName()} 对自己使用了机会卡: "${chanceCard.getName()}"`
+						);
+						this.gameLogBroadcast(
+							`${this.createGameLinkItem(
+								GameLinkItem.Player,
+								sourcePlayer.getId()
+							)} 对自己使用了机会卡: ${this.createGameLinkItem(GameLinkItem.ChanceCard, chanceCard.getSourceId())}`
+						);
+						break;
+					case ChanceCardType.ToOtherPlayer:
+					case ChanceCardType.ToPlayer:
+						const _targetPlayer = this.players.get(targetIdList[0]); //获取目标玩家对象
+						if (!_targetPlayer) {
+							error = "目标玩家不存在";
+							break;
+						}
+						await chanceCard.use(sourcePlayer, _targetPlayer, this);
+						this.gameMsgNotifyBroadcast(
+							"info",
+							`${sourcePlayer.getName()} 对玩家 ${_targetPlayer.getName()} 使用了机会卡: "${chanceCard.getName()}"`
+						);
+						this.gameLogBroadcast(
+							`${this.createGameLinkItem(GameLinkItem.Player, sourcePlayer.getId())} 对玩家 ${this.createGameLinkItem(
+								GameLinkItem.Player,
+								_targetPlayer.getId()
+							)} 使用了机会卡: ${this.createGameLinkItem(GameLinkItem.ChanceCard, chanceCard.getSourceId())}`
+						);
+						break;
+					case ChanceCardType.ToProperty:
+						const _targetProperty = this.properties.get(targetIdList[0]);
+						if (!_targetProperty) {
+							error = "目标建筑/地皮不存在";
+							break;
+						}
+						await chanceCard.use(sourcePlayer, _targetProperty, this);
+						this.gameMsgNotifyBroadcast(
+							"info",
+							`${sourcePlayer.getName()} 对地皮 ${_targetProperty.getName()} 使用了机会卡: "${chanceCard.getName()}"`
+						);
+						this.gameLogBroadcast(
+							`${this.createGameLinkItem(GameLinkItem.Player, sourcePlayer.getId())} 对地皮 ${this.createGameLinkItem(
+								GameLinkItem.Property,
+								_targetProperty.getId()
+							)} 使用了机会卡: ${this.createGameLinkItem(GameLinkItem.ChanceCard, chanceCard.getSourceId())}`
+						);
+						break;
+					case ChanceCardType.ToMapItem:
+						const _targetIdList = targetIdList as string[];
+						const _targetPlayerList: Player[] = [];
+						_targetIdList.forEach((id) => {
+							//获取目标玩家列表
+							const _tempPlayer = this.players.get(id);
+							if (_tempPlayer) {
+								_targetPlayerList.push(_tempPlayer);
+							}
+						});
+						if (_targetPlayerList.length === 0) {
+							error = "选中的玩家不存在";
+							break;
+						}
+						await chanceCard.use(sourcePlayer, _targetPlayerList, this);
+						break;
+				}
+			} catch (e: any) {
+				error = e.message;
+			}
+			if (error) {
+				const errorMsg: ServerSocketMessage = {
+					type: SocketMsgType.MsgNotify,
+					data: undefined,
+					source: SocketMsgSource.Server,
+					msg: {
+						type: "error",
+						content: error,
+					},
+				};
+				sendToUsers([sourcePlayer.getId()], errorMsg);
+				const callBackMsg: ServerSocketMessage = {
+					type: SocketMsgType.UseChanceCard,
+					data: { error: true },
+					source: SocketMsgSource.Server,
+				};
+				sendToUsers([sourcePlayer.getId()], callBackMsg);
+			} else {
+				sourcePlayer.loseCard(chanceCardId);
+				const successMsg: ServerSocketMessage = {
+					type: SocketMsgType.MsgNotify,
+					data: undefined,
+					source: SocketMsgSource.Server,
+					msg: {
+						type: "success",
+						content: `机会卡 ${chanceCard.getName()} 使用成功！`,
+					},
+				};
+				this.gameInfoBroadcast();
+
+				// this.eventMsg = `等待 ${sourcePlayer.getName()} 掷骰子`;
+				// this.roundTimeTimer.setTimeOutFunction(handleUseChanceCardTimeOut);
+				sendToUsers([sourcePlayer.getId()], successMsg);
+				const callBackMsg: ServerSocketMessage = {
+					type: SocketMsgType.UseChanceCard,
+					data: { error: false },
+					source: SocketMsgSource.Server,
+				};
+				sendToUsers([sourcePlayer.getId()], callBackMsg);
+			}
+
+			this.gameInfoBroadcast();
+		} else {
+			const errorMsg: ServerSocketMessage = {
+				type: SocketMsgType.MsgNotify,
+				data: undefined,
+				source: SocketMsgSource.Server,
+				msg: {
+					type: "error",
+					content: "机会卡使用失败: 未知的机会卡ID",
+				},
+			};
+			sendToUsers([sourcePlayer.getId()], errorMsg);
+		}
+	}
+
+	public async handleArriveEvent(arrivedPlayer: IPlayer) {
+		if (arrivedPlayer.getIsBankrupted()) return;
+		const playerPositionIndex = arrivedPlayer.getPositionIndex();
+		const arriveItemId = this.mapData.mapIndex[playerPositionIndex];
+		const arriveItem = this.mapItems.get(arriveItemId);
+
+		if (!arriveItem) return;
+		if (arriveItem.linkto) {
+			const linkMapItem = this.mapItems.get(arriveItem.linkto);
+			if (!linkMapItem || !linkMapItem.property) return;
+			const property = this.properties.get(linkMapItem.property.id);
+			if (!property) return;
+			const arrivePropertyMsg: ServerSocketMessage = {
+				type: SocketMsgType.BuyProperty,
+				source: SocketMsgSource.Server,
+				data: property.getPropertyInfo(),
+			};
+
+			// let roundRemainingTime = this.gameSetting.roundTime;
+			const owner = property.getOwner();
+			if (owner) {
+				//地皮有主人
+				if (owner.getId() === arrivedPlayer.getId()) {
+					//地产是自己的
+					if (property.getBuildingLevel() < 2) {
+						//添加定时器计算操作剩余时间
+						// this.roundRemainingTimeBroadcast(roundRemainingTime);
+						// intervalTimer = setInterval(() => {
+						// 	this.roundRemainingTimeBroadcast(roundRemainingTime);
+						// 	if (roundRemainingTime > 0) {
+						// 		roundRemainingTime--;
+						// 	} else {
+						// 		operationListener.emit(arrivedPlayer.getId(), OperateType.BuildHouse, false);
+						// 	}
+						// }, 1000);
+						// this.intervalTimerList.push(intervalTimer);
+						this.roundTimeTimer.setTimeOutFunction(() => {
+							operationListener.emit(arrivedPlayer.getId(), OperateType.BuildHouse, false);
+						}); //到时间就结束操作
+
+						//已有房产, 升级房屋
+						sendToUsers([arrivedPlayer.getId()], {
+							type: SocketMsgType.BuildHouse,
+							source: SocketMsgSource.Server,
+							data: property.getPropertyInfo(),
+							msg: {
+								type: "success",
+								content: `你到达了你的${property.getName()}，可以升级房子`,
+							},
+						});
+						const playerRes = await operationListener.onceAsync(arrivedPlayer.getId(), OperateType.BuildHouse);
+						this.roundRemainingTimeBroadcast(0);
+						if (playerRes) {
+							await this.handlePlayerBuildUp(arrivedPlayer, property);
+						}
+					}
+				} else {
+					//地产是别人的
+					const ownerPlayer = this.getPlayerById(owner.getId());
+					if (!ownerPlayer) return;
+					const passCost = property.getPassCost() * this.currentMultiplier;
+					this.handlePayToSomeOne(arrivedPlayer, ownerPlayer, passCost);
+					sendToUsers([arrivedPlayer.getId()], {
+						type: SocketMsgType.MsgNotify,
+						source: SocketMsgSource.Server,
+						data: undefined,
+						msg: {
+							type: "error",
+							content: `你到达了${owner.getName()}的地皮: ${property.getName()}，支付了${passCost}￥过路费`,
+						},
+					});
+					sendToUsers([ownerPlayer.getId()], {
+						type: SocketMsgType.MsgNotify,
+						source: SocketMsgSource.Server,
+						data: undefined,
+						msg: {
+							type: "success",
+							content: `${arrivedPlayer.getName()}到达了你的地皮: ${property.getName()}，支付了${passCost}￥过路费`,
+						},
+					});
+					sendToUsers(
+						Array.from(this.players.values())
+							.filter((p) => p.getId() !== arrivedPlayer.getId() && p.getId() !== owner.getId())
+							.map((p) => p.getId()),
+						{
+							type: SocketMsgType.MsgNotify,
+							source: SocketMsgSource.Server,
+							data: undefined,
+							msg: {
+								type: "info",
+								content: `${arrivedPlayer.getName()}到达了${owner.getName()}的地皮: ${property.getName()}，支付了${passCost}￥过路费`,
+							},
+						}
+					);
+					this.gameInfoBroadcast();
+					this.gameLogBroadcast(
+						`${this.createGameLinkItem(GameLinkItem.Player, arrivedPlayer.getId())} 到达了 ${this.createGameLinkItem(
+							GameLinkItem.Player,
+							owner.getId()
+						)} 的地皮: ${this.createGameLinkItem(GameLinkItem.Property, property.getId())}，支付了 ${passCost}￥ 过路费`
+					);
+				}
+			} else {
+				// this.eventMsg = `等待 ${arrivedPlayer.getName()} 购买地皮`;
+				this.roundTimeTimer.setTimeOutFunction(() => {
+					operationListener.emit(arrivedPlayer.getId(), OperateType.BuyProperty, false);
+				}); //到时间就结束操作
+
+				//地皮没有购买
+				arrivePropertyMsg.type = SocketMsgType.BuyProperty;
+				arrivePropertyMsg.msg = {
+					type: "success",
+					content: `你到达了${property.getName()}，可以买下这块地皮`,
+				};
+				//空地, 买房
+				sendToUsers([arrivedPlayer.getId()], arrivePropertyMsg);
+				//等待客户端回应买房
+				const playerRes = await operationListener.onceAsync(arrivedPlayer.getId(), OperateType.BuyProperty);
+				this.roundRemainingTimeBroadcast(0);
+				if (playerRes) {
+					await this.handlePlayerBuyProperty(arrivedPlayer, property);
+				}
+			}
+		} else if (arriveItem.mapEventId) {
+			const mapEvent = this.mapData.mapEvents.find((e) => e.id === arriveItem.mapEventId);
+			if (!mapEvent) throw Error("找不到对应的MapEvent");
+			const effectCode = mapEvent.effectCode;
+			if (effectCode) {
+				const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+				const arrivedFunction = new AsyncFunction("arrivedPlayer", "gameProcess", effectCode);
+				await arrivedFunction(arrivedPlayer, this);
+				this.gameMsgNotifyBroadcast("info", `${arrivedPlayer.getName()} 踩到了特殊地块: ${mapEvent.name}`);
+				this.gameLogBroadcast(
+					`${this.createGameLinkItem(
+						GameLinkItem.Player,
+						arrivedPlayer.getId()
+					)} 踩到了特殊地块: ${this.createGameLinkItem(GameLinkItem.ArrivedEvent, mapEvent.id)}`
+				);
+			}
+		}
+		this.gameInfoBroadcast();
+	}
+
+	private async handlePayToSomeOne(source: IPlayer, target: IPlayer, money: number) {
+		target.gain(money, source);
+		source.cost(money, target);
+	}
+
+	private getPlayerById(id: string) {
+		return this.players.get(id);
+	}
+
+	public oncePlayerOperation<T extends OperateType>(
+		playerId: string,
+		operationType: T,
+		callback: (res: PlayerOperationResult[T]) => void
+	): void {
+		operationListener.once(playerId, operationType, callback);
+	}
+
+	public onPlayerOperation<T extends OperateType>(
+		playerId: string,
+		operationType: T,
+		callback: (res: PlayerOperationResult[T]) => void
+	): void {
+		operationListener.on(playerId, operationType, callback);
+	}
+
+	public async oncePlayerOperationAsync<T extends OperateType>(
+		playerId: string,
+		operationType: T
+	): Promise<PlayerOperationResult[T]> {
+		return await operationListener.onceAsync(playerId, operationType);
+	}
+
+	public async onPlayerOperationAsync<T extends OperateType>(
 		playerId: string,
 		operationType: T
 	): Promise<PlayerOperationResult[T]> {
 		return await operationListener.onAsync(playerId, operationType);
 	}
 
+	public emitPlayerOperation<T extends OperateType>(
+		playerId: string,
+		operationType: T,
+		data: PlayerOperationResult[T]
+	) {
+		operationListener.emit(playerId, operationType, data);
+	}
+
+	private async waitInitFinished() {
+		const promiseArr: Promise<any>[] = [];
+		Array.from(this.players.values()).forEach((player) => {
+			promiseArr.push(operationListener.onceAsync(player.getId(), OperateType.GameInitFinished));
+		});
+		await Promise.all(promiseArr);
+
+		this.gameBroadcast({ type: SocketMsgType.GameInitFinished, data: undefined, source: SocketMsgSource.Server });
+	}
+
 	public async runGamePhase(phase: IGamePhase<GameContext>, context?: GameContext) {
 		this.currentGamePhase = phase;
 		this.gameRuntimeStack.push(...phase.getEventQueue().reverse());
-		await this.gameRuntimeStack.run(context);
+		await this.gameRuntimeStack.run(context, this);
 	}
 
 	public pushEventToStack(...gameEvents: GameEvent<GameContext>[]) {
 		this.gameRuntimeStack.push(...gameEvents);
 	}
 
+	public roundRemainingTimeBroadcast = (remainingTime: number) => {
+		const eventMsg = this.currentGamePhase?.name || "";
+		const msg: ServerSocketMessage = {
+			type: SocketMsgType.RemainingTime,
+			source: SocketMsgSource.Server,
+			data: { eventMsg, remainingTime },
+		};
+		this.gameBroadcast(msg);
+	};
+
+	private sleep(ms: number) {
+		return new Promise((resolve) => setTimeout(resolve, ms));
+	}
+
 	public async start() {
+		// this.gameInitBroadcast();
+		this.gameBroadcast({
+			type: SocketMsgType.GameInit,
+			source: SocketMsgSource.Server,
+			data: this.getGameData(),
+		});
+
+		await this.waitInitFinished();
 		await this.gameLoop();
+	}
+
+	public getGameData() {
+		const gameInfo: GameData = {
+			currentPlayerIdInRound: this.currentRoundPlayer ? this.currentRoundPlayer.getId() : "",
+			currentRound: this.currentRound,
+			currentMultiplier: this.currentMultiplier,
+			playersList: Array.from(this.players.values()).map((player) => player.getPlayerInfo()),
+			propertiesList: Array.from(this.properties.values()).map((property) => property.getPropertyInfo()),
+			isGameOver: this.isGameOver,
+		};
+		return gameInfo;
+	}
+
+	public createGameLinkItem(type: GameLinkItem, id: string) {
+		return `@-#${type}#-#${id}#`;
+	}
+
+	public gameInfoBroadcast() {
+		this.gameBroadcast({
+			type: SocketMsgType.GameData,
+			source: SocketMsgSource.Server,
+			data: this.getGameData(),
+		});
+	}
+
+	public gameMsgNotifyBroadcast(type: "success" | "warning" | "error" | "info", msg: string) {
+		this.gameBroadcast({
+			type: SocketMsgType.MsgNotify,
+			data: undefined,
+			msg: { type, content: msg },
+			source: SocketMsgSource.Server,
+		});
+	}
+
+	public gameLogBroadcast(log: string) {
+		const gameLog: GameLog = { id: randomString(8), time: Date.now() - this.startTime, content: log };
+		this.gameLogList.push(gameLog);
+		this.gameBroadcast({
+			type: SocketMsgType.GameLog,
+			data: gameLog,
+			source: SocketMsgSource.Server,
+		});
 	}
 
 	public gameBroadcast(msg: ServerSocketMessage) {

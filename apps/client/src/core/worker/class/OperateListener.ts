@@ -6,7 +6,6 @@ type OperateListenerItem = {
 };
 
 export class OperateListener {
-	private static instance: OperateListener;
 	private evetnMap: Map<string, Map<OperateType, OperateListenerItem[]>> = new Map();
 
 	constructor() {}
@@ -34,31 +33,20 @@ export class OperateListener {
 		});
 	}
 
-	public onceAsync<T extends OperateType>(
-		playerId: string,
-		eventType: T,
-		listener: (...args: any[]) => PlayerOperationResult[T]
-	): Promise<PlayerOperationResult[T]> {
+	public onceAsync<T extends OperateType>(playerId: string, eventType: T): Promise<PlayerOperationResult[T]> {
 		return new Promise((resolve) => {
-			const newFn = (args: any) => {
-				resolve(listener(args));
-			};
-			this.setOperateListener(playerId, eventType, newFn, true);
+			this.setOperateListener(playerId, eventType, resolve, true);
 		});
 	}
 
-	public on<T extends OperateType>(
-		playerId: string,
-		eventType: T,
-		listener: (...args: any[]) => PlayerOperationResult[T]
-	) {
+	public on<T extends OperateType>(playerId: string, eventType: T, listener: (res: PlayerOperationResult[T]) => void) {
 		this.setOperateListener(playerId, eventType, listener, false);
 	}
 
 	public once<T extends OperateType>(
 		playerId: string,
 		eventType: T,
-		listener: (...args: any[]) => PlayerOperationResult[T]
+		listener: (res: PlayerOperationResult[T]) => void
 	) {
 		this.setOperateListener(playerId, eventType, listener, true);
 	}

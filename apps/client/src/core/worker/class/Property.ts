@@ -44,10 +44,10 @@ export class Property implements IProperty {
 		this.level = level;
 	}
 
-	public async setOwner(player: IPlayer | undefined) {
+	public setOwner(player: IPlayer | undefined) {
 		//如果原本有主人
 		if (this.owner) {
-			await this.owner.loseProperty(this);
+			this.owner.loseProperty(this);
 		}
 		this.owner = player;
 		if (this.owner) {

@@ -1,20 +1,22 @@
 <script setup lang="ts">
 import { computed, watch } from "vue";
-import { ChanceCardInfo } from "@src/interfaces/game";
 import { __PROTOCOL__ } from "@src/../global.config";
+import { ChanceCardClientInfo } from "@fatpaper-monopoly/types";
+import { useResourceStore } from "@src/store/game";
 
-const props = defineProps<{ chanceCard: ChanceCardInfo; disable: boolean }>();
+const props = defineProps<{ chanceCard: ChanceCardClientInfo; disable: boolean }>();
 
 const iconUrl = computed(() => {
-	return props.chanceCard.icon.includes("http") ? props.chanceCard.icon : `${__PROTOCOL__}://${props.chanceCard.icon}`;
+	const resource = useResourceStore().getRecourceById(props.chanceCard.iconId);
+	return resource ? resource.url : "";
 });
 </script>
 
 <template>
 	<div class="chance-card" :class="{ disable }" :style="{ border: `0.4em solid ${chanceCard.color}` }">
-		<div class="icon" v-if="chanceCard.icon"><img :src="iconUrl" alt="" /></div>
+		<div class="icon" v-if="chanceCard.iconId"><img :src="iconUrl" alt="" /></div>
 		<div class="name" :style="{ color: chanceCard.color }">{{ chanceCard.name }}</div>
-		<div class="describe" :style="{ color: chanceCard.color }">{{ chanceCard.describe }}</div>
+		<div class="describe" :style="{ color: chanceCard.color }">{{ chanceCard.description }}</div>
 	</div>
 </template>
 

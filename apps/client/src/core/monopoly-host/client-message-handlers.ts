@@ -1,13 +1,13 @@
-import {
-	ChatMessage,
-	ClientSocketMessage,
-	GameLog,
-	RoomInfo,
-	ServerSocketMessage,
-	SocketMessage,
-} from "@src/interfaces/bace";
 import { MonopolyHost } from "./MonopolyHost";
-import { GameEventType, OperateType, PlayerInfo, PropertyInfo, SocketMsgType } from "@fatpaper-monopoly/types";
+import {
+	ClientSocketMessage,
+	GameEventType,
+	OperateType,
+	PlayerInfo,
+	PropertyInfo,
+	SocketMessage,
+	SocketMsgType,
+} from "@fatpaper-monopoly/types";
 import { debounce } from "@src/utils";
 import { SocketMsgSource } from "@fatpaper-monopoly/types";
 import { FPMessage } from "@fatpaper-monopoly/ui";
@@ -118,9 +118,16 @@ const handleGameStart: ClientMessageHandler<SocketMsgType.GameStart> = (conn, ms
 	console.log("🚀 ~ handleGameStart ~ msg:", msg);
 	host.getRoom().startGame();
 };
-const handleGameInitFinished: ClientMessageHandler<SocketMsgType.GameInitFinished> = (conn, msg, host, clientId) => {};
-const handleRollDiceResult: ClientMessageHandler<SocketMsgType.RollDiceResult> = (conn, msg, host, clientId) => {};
-const handleUseChanceCard: ClientMessageHandler<SocketMsgType.UseChanceCard> = (conn, msg, host, clientId) => {};
+const handleGameInitFinished: ClientMessageHandler<SocketMsgType.GameInitFinished> = (conn, msg, host, clientId) => {
+	host.getRoom().emitOperationToWorker(clientId, OperateType.GameInitFinished);
+};
+const handleRollDiceResult: ClientMessageHandler<SocketMsgType.RollDiceResult> = (conn, msg, host, clientId) => {
+	host.getRoom().emitOperationToWorker(clientId, OperateType.RollDice);
+};
+const handleUseChanceCard: ClientMessageHandler<SocketMsgType.UseChanceCard> = (conn, msg, host, clientId) => {
+	const { chanceCardId, targetId } = msg.data;
+	host.getRoom().emitOperationToWorker(clientId, OperateType.UseChanceCard, chanceCardId, targetId);
+};
 const handleAnimationComplete: ClientMessageHandler<SocketMsgType.Animation> = (conn, msg, host, clientId) => {};
 const handleBuyProperty: ClientMessageHandler<SocketMsgType.BuyProperty> = (conn, msg, host, clientId) => {};
 const handleBuildHouse: ClientMessageHandler<SocketMsgType.BuildHouse> = (conn, msg, host, clientId) => {};

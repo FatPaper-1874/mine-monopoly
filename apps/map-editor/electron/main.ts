@@ -29,6 +29,7 @@ function createWindow() {
 			preload: path.join(__dirname, "preload.mjs"),
 			devTools: true,
 			webSecurity: false,
+			zoomFactor: 1.0,
 		},
 		frame: false,
 	});

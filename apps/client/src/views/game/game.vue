@@ -12,6 +12,8 @@ import scoreboard from "./components/scoreboard.vue";
 import RoundInfo from "@src/views/game/components/round-info.vue";
 import ProgressBar from "@src/views/game/components/progress-bar.vue";
 import PlayerContainer from "./components/player-container.vue";
+import { useGameData, useMapData } from "@src/store/game";
+import { GameMap } from "@fatpaper-monopoly/types";
 
 //pinia仓库
 const gameInfoStore = useGameData();
@@ -26,8 +28,8 @@ const islockingCamera = ref(true);
 const lockCameraIcon = computed(() => (islockingCamera.value ? "fa-video" : "fa-video-slash"));
 
 //动态数据部分
-const _isMyTurn = computed(() => gameInfoStore.isMyTurn);
-const _propertiesList = computed(() => gameInfoStore.propertiesList);
+const isMyTurn = computed(() => gameInfoStore.isMyTurn);
+const propertiesList = computed(() => gameInfoStore.propertiesList);
 
 function handleToggleLockCamera() {
 	if (gameRenderer) islockingCamera.value = gameRenderer.toggleLockCamera();
@@ -46,8 +48,11 @@ onMounted(async () => {
 
 		const canvas = document.getElementById("game-canvas") as HTMLCanvasElement;
 		const container = document.getElementsByClassName("game-page")[0] as HTMLDivElement;
-		gameRenderer = new GameRenderer(canvas, container);
-		// await gameRenderer.init();
+		const mapData = JSON.parse(JSON.stringify(useMapData().$state)) as GameMap;
+		console.log("🚀 ~ mapData:", mapData)
+		gameRenderer = new GameRenderer(canvas, container, mapData);
+		console.log("🚀 ~ gameRenderer:", gameRenderer)
+		await gameRenderer.init();
 		useLoading().showLoading("数据加载完成，等待其他玩家加载...");
 		socketClient.gameInitFinished();
 	} catch (e: any) {
@@ -59,10 +64,6 @@ onBeforeUnmount(() => {
 	if (gameRenderer) gameRenderer.destroy();
 	gameRenderer = null;
 });
-
-function useGameData() {
-	throw new Error("Function not implemented.");
-}
 </script>
 
 <template>

@@ -15,7 +15,7 @@ const props = defineProps<{
 
 const playersPropertyies = computed(() => {
 	return useGameData().propertiesList.filter((property) => {
-		return property.owner && property.owner.id === props.player.id;
+		return property.owner && property.owner.userId === props.player.id;
 	});
 });
 
@@ -50,8 +50,8 @@ const chanceCardVisible = computed(() => {
 					<div class="properyies-list">
 						<div class="property-item" v-for="property in playersPropertyies" :key="property.id">
 							<div class="name">{{ property.name }}</div>
-							<div class="level" :style="{ color: PropertyLevel[property.buildingLevel].color }">
-								{{ PropertyLevel[property.buildingLevel].name }}
+							<div class="level" :style="{ color: PropertyLevel[property.level].color }">
+								{{ PropertyLevel[property.level].name }}
 							</div>
 						</div>
 					</div>

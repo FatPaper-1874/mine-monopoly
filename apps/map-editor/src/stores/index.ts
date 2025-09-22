@@ -1,19 +1,17 @@
 import { defineStore } from "pinia";
-import { GameMap } from "@fatpaper-monopoly/types";
+import { ChanceCardInfo, GameMap, PropertyInfo } from "@fatpaper-monopoly/types";
 import { CameraMode, OperationMode } from "@src/enums";
 import {
 	MapItem,
 	MapItemType,
 	Street,
 	MapEvent,
-	ChanceCard,
-	PropertyInfo,
 	Role,
 	GameMapInfo,
 	SemVer,
 } from "@fatpaper-monopoly/types/interfaces/game/item";
 import { eventBus } from "@src/utils/event-bus";
-import { getInitPhase } from "./utils/init-phase";
+import { getInitPhase } from "../views/map-editor/components/manager/process-manager/utils/init-phase";
 
 export const useMapDataStore = defineStore("MapData", {
 	state: (): GameMap => ({
@@ -171,10 +169,10 @@ export const useMapDataStore = defineStore("MapData", {
 		},
 
 		// ChanceCard
-		addChanceCard(chanceCard: ChanceCard) {
+		addChanceCard(chanceCard: ChanceCardInfo) {
 			this.chanceCards.push(chanceCard);
 		},
-		editChanceCard(chanceCard: ChanceCard) {
+		editChanceCard(chanceCard: ChanceCardInfo) {
 			const index = this.chanceCards.findIndex((s) => s.id === chanceCard.id);
 			if (index < 0) throw Error("找不到目标机会卡");
 			const old = this.chanceCards[index];
