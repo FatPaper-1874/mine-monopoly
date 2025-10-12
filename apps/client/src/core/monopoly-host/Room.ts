@@ -323,8 +323,10 @@ export class Room {
 					this.sendToClient(user.socketClient, SocketMsgType.Dialog, {
 						playerId: user.userId,
 						option: {
-							title: "房主要启用非官方地图⚠️",
-							content: `此地图由房主创作，<b style='color: red'>未经过官方验证，可能存在数据异常、游戏不平衡或脚本风险。</b><br>请谨慎游玩，并自行承担使用非官方内容所带来的风险。`,
+							title: "房主要启用非官方地图",
+							content: `此地图由房主 <b>${
+								this.getOwner().username
+							}</b> 提供，未经过官方验证，可能存在<b style='color: red'>数据异常、游戏不平衡或脚本风险。</b><br>请谨慎游玩，并自行承担使用非官方内容所带来的风险。`,
 							confirmText: "同意",
 							cancelText: "不同意",
 						},
