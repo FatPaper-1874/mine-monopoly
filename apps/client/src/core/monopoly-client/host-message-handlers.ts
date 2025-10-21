@@ -31,6 +31,8 @@ import { useGameData, useMapData, useResourceStore } from "@src/store/game";
 import { GameMap } from "@fatpaper-monopoly/utils/protos/game-map";
 import { loadGameMapFromFile, loadGameMapFromServer } from "@src/utils/file/game-map";
 import { base64ToArrayBuffer } from "@fatpaper-monopoly/utils";
+import { showTargetSelector } from "@src/components/common/target-seletor";
+import { TargetSelectResult } from "../../../../../packages/types/interfaces/game/game-process";
 
 type ServerMessageHandler<T extends SocketMsgType> = (
 	msg: SocketMessage<T, SocketMsgSource.Server>,
@@ -108,12 +110,6 @@ export function handleServerSocketMessage(msg: ServerSocketMessage, client: Mono
 		case SocketMsgType.PlayerTp:
 			handlePlayerTp(msg, client);
 			break;
-		// case SocketMsgType.BuyProperty:
-		// 	handleBuyProperty(msg, client);
-		// 	break;
-		// case SocketMsgType.BuildHouse:
-		// 	handleBuildHouse(msg, client);
-		// 	break;
 		case SocketMsgType.GameOver:
 			handleGameOver(msg, client);
 			break;
@@ -123,8 +119,11 @@ export function handleServerSocketMessage(msg: ServerSocketMessage, client: Mono
 		case SocketMsgType.ResumeGame:
 			handleGameResume(msg, client);
 			break;
-		case SocketMsgType.Dialog:
-			handleDialog(msg, client);
+		case SocketMsgType.ConfirmDialog:
+			handleConfirmDialog(msg, client);
+			break;
+		case SocketMsgType.TargetSelectDialog:
+			handleTargetSelect(msg, client);
 			break;
 		default:
 			break;
@@ -339,40 +338,6 @@ const handlePlayerTp: ServerMessageHandler<SocketMsgType.PlayerTp> = (msg) => {
 	useEventBus().emit("player-tp", playerId, positionIndex, walkId);
 };
 
-// const handleBuyProperty: ServerMessageHandler<SocketMsgType.Operation> = (msg, client) => {
-// 	const property = msg.data;
-// 	const vnode = createVNode(PropertyInfoVue, { property });
-// 	FPMessageBox({
-// 		title: "购买地皮",
-// 		content: vnode,
-// 		cancelText: "不买",
-// 		confirmText: "买！",
-// 	})
-// 		.then(() => {
-// 			client.sendMsg(SocketMsgType.Operation, { operateType: OperateType.BuyProperty, data: true });
-// 		})
-// 		.catch(() => {
-// 			client.sendMsg(SocketMsgType.Operation, { operateType: OperateType.BuyProperty, data: false });
-// 		});
-// };
-
-// const handleBuildHouse: ServerMessageHandler<SocketMsgType.Operation> = (msg, client) => {
-// 	const property = msg.data;
-// 	const vnode = createVNode(PropertyInfoVue, { property });
-// 	FPMessageBox({
-// 		title: "升级房子",
-// 		content: vnode,
-// 		cancelText: "不升级",
-// 		confirmText: "升级！",
-// 	})
-// 		.then(() => {
-// 			client.sendMsg(SocketMsgType.Operation, { operateType: OperateType.BuildHouse, data: true });
-// 		})
-// 		.catch(() => {
-// 			client.sendMsg(SocketMsgType.Operation, { operateType: OperateType.BuildHouse, data: false });
-// 		});
-// };
-
 const handleGameOver: ServerMessageHandler<SocketMsgType.GameOver> = () => {
 	const gameInfoStore = useGameData();
 	gameInfoStore.isGameOver = true;
@@ -386,7 +351,7 @@ const handleGameResume: ServerMessageHandler<SocketMsgType.ResumeGame> = () => {
 	useLoading().hideLoading();
 };
 
-const handleDialog: ServerMessageHandler<SocketMsgType.Dialog> = (msg, client) => {
+const handleConfirmDialog: ServerMessageHandler<SocketMsgType.ConfirmDialog> = (msg, client) => {
 	const data = msg.data;
 	FPMessageBox({
 		title: data.option.title,
@@ -396,14 +361,45 @@ const handleDialog: ServerMessageHandler<SocketMsgType.Dialog> = (msg, client) =
 			client.sendMsg({
 				type: SocketMsgType.Operation,
 				source: SocketMsgSource.Client,
-				data: { operateType: OperateType.DialogResult, data: { id: data.playerId, confirm: true, data: undefined } },
+				data: {
+					operateType: OperateType.ConfirmDialogResult,
+					data: { id: data.playerId, confirm: true, data: undefined },
+				},
 			});
 		})
 		.catch(() => {
 			client.sendMsg({
 				type: SocketMsgType.Operation,
 				source: SocketMsgSource.Client,
-				data: { operateType: OperateType.DialogResult, data: { id: data.playerId, confirm: false, data: undefined } },
+				data: {
+					operateType: OperateType.ConfirmDialogResult,
+					data: { id: data.playerId, confirm: false, data: undefined },
+				},
+			});
+		});
+};
+
+const handleTargetSelect: ServerMessageHandler<SocketMsgType.TargetSelectDialog> = (msg, client) => {
+	const data = msg.data;
+	showTargetSelector(data.option.type)
+		.then((res) => {
+			client.sendMsg({
+				type: SocketMsgType.Operation,
+				source: SocketMsgSource.Client,
+				data: {
+					operateType: OperateType.SelectDialogResult,
+					data: { target: res },
+				},
+			});
+		})
+		.catch(() => {
+			client.sendMsg({
+				type: SocketMsgType.Operation,
+				source: SocketMsgSource.Client,
+				data: {
+					operateType: OperateType.SelectDialogResult,
+					data: { target: [] },
+				},
 			});
 		});
 };

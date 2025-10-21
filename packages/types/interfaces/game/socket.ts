@@ -1,14 +1,15 @@
 import { ChatMessageType, MonopolyWebSocketMsgType, SocketMsgSource, SocketMsgType } from "../../enums/game/base";
-import { GameOverRule } from "../../enums/game/game";
+import { GameOverRule, TargetSelectType } from "../../enums/game/game";
 import { OperateType } from "../../enums/game/game-process";
 import { GameMapInDb } from "./db";
 import {
-	DialogOption,
+	ConfirmDialogOption,
 	GameData,
 	InputOptionItem,
 	PlayerInfo,
 	PlayerOperationResult,
 	PropertyInfo,
+	SelectDialogOption,
 } from "./game-process";
 import { Role, User } from "./item";
 
@@ -216,11 +217,18 @@ export interface SocketMessageDataType {
 		client: undefined;
 		server: undefined;
 	};
-	[SocketMsgType.Dialog]: {
+	[SocketMsgType.ConfirmDialog]: {
 		client: undefined;
 		server: {
 			playerId: string;
-			option: DialogOption<InputOptionItem<string, any>[]>;
+			option: ConfirmDialogOption<InputOptionItem<string, any>[]>;
+		};
+	};
+	[SocketMsgType.TargetSelectDialog]: {
+		client: undefined;
+		server: {
+			playerId: string;
+			option: SelectDialogOption<TargetSelectType>;
 		};
 	};
 	[SocketMsgType.UI]: {

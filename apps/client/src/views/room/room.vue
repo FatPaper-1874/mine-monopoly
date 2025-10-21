@@ -145,6 +145,7 @@ async function handleUploadMap() {
 	if (!file) return;
 	//传输需要将地图从ArrayBuffer编码为Base64字符串
 	socketClient.changeGameMap({ from: "custom", data: arrayBufferToBase64(file) });
+	useLoading().showLoading("等待其他玩家确认");
 }
 </script>
 

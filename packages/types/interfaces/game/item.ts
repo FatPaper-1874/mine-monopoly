@@ -1,4 +1,4 @@
-import { ChanceCardType, MapEventType } from "../../enums/game/game";
+import { TargetSelectType, MapEventType } from "../../enums/game/game";
 import { IPlayer, PlayerInfo, PropertyInfo } from "./game-process";
 
 export type SemVer = `${number}.${number}.${number}`;

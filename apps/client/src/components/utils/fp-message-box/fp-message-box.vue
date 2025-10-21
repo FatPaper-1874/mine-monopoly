@@ -15,37 +15,35 @@ const props = withDefaults(defineProps<Props>(), {
 	cancelText: "取消",
 });
 
+const emits = defineEmits(["confirm", "close"]);
+
 const ContentContainer = ref<HTMLElement | null>(null);
-const visible = ref(false);
-const isConfirm = ref(true);
 
 function handleCancle() {
-	isConfirm.value = false;
-	visible.value = false;
+	emits("close");
 }
 function handleConfirm() {
-	visible.value = false;
+	emits("confirm");
 }
 
 onMounted(() => {
 	if (!ContentContainer.value) return;
-	// render(props.content, ContentContainer.value);
-});
-
-defineExpose({
-	visible,
-	isConfirm,
+	if (isVNode(props.content)) {
+		render(props.content, ContentContainer.value);
+	}
 });
 </script>
 
 <template>
-	<div class="fp-message-box__overlay" v-show="visible">
+	<div class="fp-message-box__overlay">
 		<div class="fp-message-box">
 			<div class="fp-message-box__title">
 				<span>{{ title }}</span>
 				<!-- <FontAwesomeIcon @click="handleCancle" class="close__btn" icon="close"></FontAwesomeIcon> -->
 			</div>
-			<div ref="ContentContainer" class="fp-message-box__content" v-html="props.content"></div>
+			<div ref="ContentContainer" class="fp-message-box__content">
+				<template v-if="!isVNode(props.content)" v-html="props.content"></template>
+			</div>
 			<div class="fp-message-box__footer">
 				<button class="confirm__btn" @click="handleConfirm">{{ confirmText }}</button>
 				<button class="cancle__btn" @click="handleCancle">{{ cancelText }}</button>

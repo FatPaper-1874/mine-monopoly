@@ -3,7 +3,7 @@ declare enum GameOverRule {
 	LeftOnePlayer = 1,//只剩一位玩家
 	Earn100000 = 2
 }
-declare enum ChanceCardType {
+declare enum TargetSelectType {
 	ToSelf = "ToSelf",
 	ToOtherPlayer = "ToOtherPlayer",
 	ToPlayer = "ToPlayer",
@@ -78,7 +78,8 @@ declare enum OperateType {
 	Animation = "AnimationComplete",//前端动画完成回馈
 	PauseGame = "PauseGame",//房主暂停游戏
 	ResumeGame = "ResumeGame",//房主恢复游戏
-	DialogResult = "DialogResult"
+	ConfirmDialogResult = "ConfirmDialogResult",//由服务端主机调起的dialog的结果返回
+	SelectDialogResult = "SelectDialogResult"
 }
 interface GameMap {
 	id: string;
@@ -152,7 +153,8 @@ declare const enum SocketMsgType {
 	GameOver = "GameOver",//游戏结束
 	PauseGame = "PauseGame",//房主暂停游戏
 	ResumeGame = "ResumeGame",//房主恢复游戏
-	Dialog = "Dialog",//在客户端唤起dialog
+	ConfirmDialog = "ConfirmDialog",//在客户端唤起确认dialog
+	TargetSelectDialog = "TargetSelectDialog",//在客户端唤起目标选择dialog
 	UI = "UI"
 }
 declare enum SocketMsgSource {
@@ -174,12 +176,13 @@ interface GameSetting {
 	overMoney: number;
 	slackOffMode: boolean;
 }
-type ChangeMapMessageType = {
+type Base64String = string;
+type RoomMapInfo = {
 	from: "server";
 	data: string;
 } | {
 	from: "custom";
-	data: ArrayBuffer;
+	data: Base64String;
 };
 interface SocketMessage<T extends SocketMsgType = SocketMsgType, S extends SocketMsgSource = SocketMsgSource> {
 	type: T;
@@ -196,7 +199,7 @@ type ServerSocketMessage = {
 	[K in SocketMsgType]: SocketMessage<K, SocketMsgSource.Server>;
 }[SocketMsgType];
 type OperationMessage = {
-	[T in OperateType | string]: {
+	[T in OperateType]: {
 		operateType: T;
 		data: PlayerOperationResult[T];
 	};
@@ -253,8 +256,8 @@ interface SocketMessageDataType {
 		server: undefined;
 	};
 	[SocketMsgType.ChangeMap]: {
-		client: ChangeMapMessageType;
-		server: ChangeMapMessageType;
+		client: RoomMapInfo;
+		server: RoomMapInfo;
 	};
 	[SocketMsgType.ChangeRole]: {
 		client: string;
@@ -365,9 +368,19 @@ interface SocketMessageDataType {
 		client: undefined;
 		server: undefined;
 	};
-	[SocketMsgType.Dialog]: {
+	[SocketMsgType.ConfirmDialog]: {
 		client: undefined;
-		server: {};
+		server: {
+			playerId: string;
+			option: ConfirmDialogOption<InputOptionItem<string, any>[]>;
+		};
+	};
+	[SocketMsgType.TargetSelectDialog]: {
+		client: undefined;
+		server: {
+			playerId: string;
+			option: SelectDialogOption<TargetSelectType>;
+		};
 	};
 	[SocketMsgType.UI]: {
 		client: undefined;
@@ -381,7 +394,6 @@ interface Room {
 	userNum: number;
 }
 interface RoomInfo {
-	mapId: string;
 	roomId: string;
 	userList: Array<User>;
 	isStarted: boolean;
@@ -439,19 +451,37 @@ interface IGameProcess {
 	gameMsgNotifyBroadcast(type: "success" | "warning" | "error" | "info", msg: string): void;
 	gameLogBroadcast(log: string): void;
 	gameBroadcast(msg: ServerSocketMessage): void;
-	showDialogToPlayer<I extends readonly InputOptionItem<string, any>[]>(playerId: string, option: DialogOption<I>): Promise<DialogResult<I>>;
+	showConfirmDialog<I extends InputOptionItem<string, any>[]>(playerId: string, option: ConfirmDialogOption<I>): Promise<ConfirmDialogResult<I>>;
+	showTargetSelectDialog<I extends TargetSelectType>(playerId: string, option: SelectDialogOption<I>): Promise<SelectDialogResult<I>>;
+}
+interface DialogOption {
+	title: string;
+	content: string;
+	confirmText?: string;
+	cancelText?: string;
+}
+interface SelectDialogOption<I extends TargetSelectType> extends DialogOption {
+	type: I;
+}
+interface SelectDialogResult<I extends TargetSelectType> {
+	target: TargetSelectResult[I];
+}
+interface TargetSelectResult {
+	[TargetSelectType.ToMapItem]: string;
+	[TargetSelectType.ToPlayer]: string;
+	[TargetSelectType.ToOtherPlayer]: string;
+	[TargetSelectType.ToSelf]: string;
+	[TargetSelectType.ToProperty]: string;
+}
+interface ConfirmDialogOption<I extends readonly InputOptionItem<string, any>[]> extends DialogOption {
+	inputOptions?: I;
 }
 type InputOptionItem<K extends string, D> = {
 	key: K;
 	label: string;
 	initData: D;
 };
-interface DialogOption<I extends readonly InputOptionItem<string, any>[]> {
-	title: string;
-	content: string;
-	inputOptions: I;
-}
-type DialogResult<I extends readonly InputOptionItem<string, any>[]> = {
+type ConfirmDialogResult<I extends readonly InputOptionItem<string, any>[]> = {
 	[P in I[number] as P["key"]]: P["initData"];
 } & {
 	confirm: boolean;
@@ -533,7 +563,7 @@ interface IChanceCard {
 	getName: () => string;
 	getDescribe: () => string;
 	getIcon: () => string;
-	getType: () => ChanceCardType;
+	getType: () => TargetSelectType;
 	getColor: () => string;
 	getEffectCode: () => string;
 	use: (sourcePlayer: IPlayer, target: IPlayer | IProperty | IPlayer[] | IProperty[], gameProcess: IGameProcess) => Promise<void>;
@@ -577,7 +607,7 @@ interface ChanceCardInfo {
 	iconId: string;
 	color: string;
 	effectCode: string;
-	type: ChanceCardType;
+	type: TargetSelectType;
 }
 interface Buff {
 	id: string;
@@ -595,15 +625,15 @@ interface PlayerOperationResult {
 		chanceCardId: string;
 		targetIdList: string[];
 	};
-	[OperateType.Animation]: undefined;
+	[OperateType.Animation]: string;
 	[OperateType.PauseGame]: undefined;
 	[OperateType.ResumeGame]: undefined;
-	[OperateType.DialogResult]: {
+	[OperateType.ConfirmDialogResult]: {
 		id: string;
 		confirm: boolean;
 		data: any;
 	};
-	[key: string]: any;
+	[OperateType.SelectDialogResult]: SelectDialogResult<TargetSelectType>;
 }
 type SemVer = `${number}.${number}.${number}`;
 interface GameMapInfo {

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import FpDialog from "@src/components/utils/fp-dialog/fp-dialog.vue";
-import { ChanceCardInfo } from "@fatpaper-monopoly/types";
+import { ChanceCardClientInfo, ChanceCardInfo } from "@fatpaper-monopoly/types";
 import { useGameData, useMapData } from "@src/store/game";
 import { computed, nextTick, onBeforeMount, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import ChanceCard from "@src/views/game/components/chance-card.vue";
@@ -10,11 +10,11 @@ import { generateSvgArrows } from "@src/utils";
 const mapDataStore = useMapData();
 const gameInfoStore = useGameData();
 
-const props = defineProps<{ chanceCard: ChanceCardInfo }>();
+const props = defineProps<{ chanceCard: ChanceCardClientInfo }>();
 const emit = defineEmits<{ (e: "useCard", targetId: string): void; (e: "cancel"): void }>();
 
 const myPlayer = computed(() => {
-	return gameInfoStore.getMyInfo;
+	return gameInfoStore.myGameInfo;
 });
 const myId = computed(() => (myPlayer.value ? myPlayer.value.id : ""));
 
@@ -63,7 +63,6 @@ function handleCancel() {
 
 <template>
 	<FpDialog visible @submit="handleTargetSelected" @cancel="handleCancel">
-		<template #title> 使用机会卡: {{ chanceCard.name }} </template>
 		<div ref="containerEl" class="target-selector-container">
 			<div class="chance-card-container">
 				<ChanceCard id="chance-card" :chance-card="chanceCard" :disable="false" />

@@ -1,6 +1,6 @@
 import { EventTiggerTime, GamePhaseMark, OperateType, PlayerEvents } from "../../enums/game/game-process";
 import { UserInRoomInfo } from "./item";
-import { ChanceCardType, GameLinkItem, PlayerMoveType } from "../../enums/game/game";
+import { TargetSelectType, GameLinkItem, PlayerMoveType } from "../../enums/game/game";
 import { GameMap } from "../game/map";
 import { IDice, IRoundTimeTimer } from "./util";
 import { ServerSocketMessage } from "./socket";
@@ -62,10 +62,42 @@ export interface IGameProcess {
 	gameLogBroadcast(log: string): void;
 	gameBroadcast(msg: ServerSocketMessage): void;
 
-	showDialogToPlayer<I extends InputOptionItem<string, any>[]>(
+	showConfirmDialog<I extends InputOptionItem<string, any>[]>(
 		playerId: string,
-		option: DialogOption<I>
-	): Promise<DialogResult<I>>;
+		option: ConfirmDialogOption<I>
+	): Promise<ConfirmDialogResult<I>>;
+
+	showTargetSelectDialog<I extends TargetSelectType>(
+		playerId: string,
+		option: SelectDialogOption<I>
+	): Promise<SelectDialogResult<I>>;
+}
+
+interface DialogOption {
+	title: string;
+	content: string;
+	confirmText?: string;
+	cancelText?: string;
+}
+
+export interface SelectDialogOption<I extends TargetSelectType> extends DialogOption {
+	type: I;
+}
+
+export interface SelectDialogResult<I extends TargetSelectType> {
+	target: TargetSelectResult[I];
+}
+
+export interface TargetSelectResult {
+	[TargetSelectType.ToMapItem]: string[];
+	[TargetSelectType.ToPlayer]: string[];
+	[TargetSelectType.ToOtherPlayer]: string[];
+	[TargetSelectType.ToSelf]: string[];
+	[TargetSelectType.ToProperty]: string[];
+}
+
+export interface ConfirmDialogOption<I extends readonly InputOptionItem<string, any>[]> extends DialogOption {
+	inputOptions?: I;
 }
 
 export type InputOptionItem<K extends string, D> = {
@@ -74,15 +106,7 @@ export type InputOptionItem<K extends string, D> = {
 	initData: D;
 };
 
-export interface DialogOption<I extends readonly InputOptionItem<string, any>[]> {
-	title: string;
-	content: string;
-	confirmText?: string;
-	cancelText?: string;
-	inputOptions?: I;
-}
-
-export type DialogResult<I extends readonly InputOptionItem<string, any>[]> = {
+export type ConfirmDialogResult<I extends readonly InputOptionItem<string, any>[]> = {
 	[P in I[number] as P["key"]]: P["initData"];
 } & { confirm: boolean };
 
@@ -221,7 +245,7 @@ export interface IChanceCard {
 	getName: () => string;
 	getDescribe: () => string;
 	getIcon: () => string;
-	getType: () => ChanceCardType;
+	getType: () => TargetSelectType;
 	getColor: () => string;
 	getEffectCode: () => string;
 	use: (
@@ -274,7 +298,7 @@ export interface ChanceCardInfo {
 	iconId: string;
 	color: string;
 	effectCode: string;
-	type: ChanceCardType;
+	type: TargetSelectType;
 }
 
 export interface Buff {
@@ -294,7 +318,8 @@ export interface PlayerOperationResult {
 	[OperateType.Animation]: string;
 	[OperateType.PauseGame]: undefined;
 	[OperateType.ResumeGame]: undefined;
-	[OperateType.DialogResult]: { id: string; confirm: boolean; data: any };
+	[OperateType.ConfirmDialogResult]: { id: string; confirm: boolean; data: any };
+	[OperateType.SelectDialogResult]: SelectDialogResult<TargetSelectType>;
 	// [key: string]: any;
 }
 

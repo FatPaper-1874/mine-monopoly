@@ -1,7 +1,7 @@
 import {
 	ChanceCardInfo,
 	ChanceCardClientInfo,
-	ChanceCardType,
+	TargetSelectType,
 	IChanceCard,
 	IGameProcess,
 	IPlayer,
@@ -15,7 +15,7 @@ export class ChanceCard implements IChanceCard {
 	private sourceId: string;
 	private name: string;
 	private describe: string;
-	private type: ChanceCardType;
+	private type: TargetSelectType;
 	private color: string;
 	private icon: string;
 	private effectCode: string;

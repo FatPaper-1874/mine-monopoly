@@ -18,33 +18,23 @@ export function FPMessageBox(options: Options) {
 
 function showMessageBox(options: Options, resolve: (value: unknown) => void, reject: (reason?: any) => void) {
 	const fragment = document.createDocumentFragment();
-	const messageBoxApp = createApp(FPMessageBoxVue, options) as App<any>;
+	const messageBoxApp = createApp(FPMessageBoxVue, {
+		...options,
+		onConfirm: () => {
+			unmount(true);
+		},
+		onClose: () => {
+			unmount(false);
+		},
+	}) as App<any>;
 
-	const vm = messageBoxApp.mount(fragment);
+	messageBoxApp.mount(fragment);
 	document.body.appendChild(fragment);
 
-	//@ts-ignore
-	vm.visible = true;
-
-	watch(
-		//@ts-ignore
-		() => vm.visible,
-		(newVal) => {
-			if (!newVal) {
-				unmount();
-			}
-		}
-	);
-
-	function unmount() {
+	function unmount(isConfirm: boolean) {
 		messageBoxApp.unmount();
 		useEventBus().remove(GameEventType.TimeOut, unmount);
-		//@ts-ignore
-		if (vm.isConfirm) {
-			resolve("");
-		} else {
-			reject();
-		}
+		isConfirm ? resolve("") : reject();
 	}
 
 	useEventBus().once(GameEventType.TimeOut, unmount);

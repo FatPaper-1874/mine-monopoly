@@ -34,7 +34,8 @@ export const enum SocketMsgType {
 	PauseGame = "PauseGame", //房主暂停游戏
 	ResumeGame = "ResumeGame", //房主恢复游戏
 
-	Dialog = "Dialog", //在客户端唤起dialog
+	ConfirmDialog = "ConfirmDialog", //在客户端唤起确认dialog
+	TargetSelectDialog = "TargetSelectDialog", //在客户端唤起目标选择dialog
 	UI = "UI", //在客户端增添UI
 }
 

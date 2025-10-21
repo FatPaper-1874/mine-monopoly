@@ -103,10 +103,10 @@ export const useGameData = defineStore("game-data", {
 	},
 	getters: {
 		isMyTurn: (state) => useUserInfo().userId === state.currentPlayerIdInRound,
-		getMyInfo: (state) => state.playersList.find((p) => p.id === useUserInfo().userId),
+		myGameInfo: (state) => state.playersList.find((p) => p.id === useUserInfo().userId),
 		canIOperate: (state) => {
 			const _this = useGameData();
-			const amIBankrupted = _this.getMyInfo && _this.getMyInfo.isBankrupted;
+			const amIBankrupted = _this.myGameInfo && _this.myGameInfo.isBankrupted;
 			return !amIBankrupted && _this.isMyTurn;
 		},
 	},

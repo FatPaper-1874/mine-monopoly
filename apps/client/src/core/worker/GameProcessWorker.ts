@@ -5,9 +5,9 @@ import {
 	ChanceCardClientInfo,
 	ChanceCardInfo,
 	ChanceCardInstanceInfo,
-	ChanceCardType,
-	DialogOption,
-	DialogResult,
+	TargetSelectType,
+	ConfirmDialogOption,
+	ConfirmDialogResult,
 	GameContext,
 	GameData,
 	GameEvent,
@@ -30,6 +30,8 @@ import {
 	SocketMsgSource,
 	SocketMsgType,
 	UserInRoomInfo,
+	SelectDialogOption,
+	SelectDialogResult,
 } from "@fatpaper-monopoly/types";
 
 import Dice from "./class/Dice";
@@ -411,7 +413,7 @@ export class GameProcess implements IGameProcess {
 				switch (
 					chanceCard.getType() //根据机会卡的类型执行不同操作
 				) {
-					case ChanceCardType.ToSelf:
+					case TargetSelectType.ToSelf:
 						await chanceCard.use(sourcePlayer, sourcePlayer, this); //直接使用
 						this.gameMsgNotifyBroadcast(
 							"info",
@@ -424,8 +426,8 @@ export class GameProcess implements IGameProcess {
 							)} 对自己使用了机会卡: ${this.createGameLinkItem(GameLinkItem.ChanceCard, chanceCard.getSourceId())}`
 						);
 						break;
-					case ChanceCardType.ToOtherPlayer:
-					case ChanceCardType.ToPlayer:
+					case TargetSelectType.ToOtherPlayer:
+					case TargetSelectType.ToPlayer:
 						const _targetPlayer = this.players.get(targetIdList[0]); //获取目标玩家对象
 						if (!_targetPlayer) {
 							error = "目标玩家不存在";
@@ -443,7 +445,7 @@ export class GameProcess implements IGameProcess {
 							)} 使用了机会卡: ${this.createGameLinkItem(GameLinkItem.ChanceCard, chanceCard.getSourceId())}`
 						);
 						break;
-					case ChanceCardType.ToProperty:
+					case TargetSelectType.ToProperty:
 						const _targetProperty = this.properties.get(targetIdList[0]);
 						if (!_targetProperty) {
 							error = "目标建筑/地皮不存在";
@@ -461,7 +463,7 @@ export class GameProcess implements IGameProcess {
 							)} 使用了机会卡: ${this.createGameLinkItem(GameLinkItem.ChanceCard, chanceCard.getSourceId())}`
 						);
 						break;
-					case ChanceCardType.ToMapItem:
+					case TargetSelectType.ToMapItem:
 						const _targetIdList = targetIdList as string[];
 						const _targetPlayerList: Player[] = [];
 						_targetIdList.forEach((id) => {
@@ -559,14 +561,14 @@ export class GameProcess implements IGameProcess {
 					//地产是自己的
 					if (property.getBuildingLevel() < 2) {
 						this.roundTimeTimer.setTimeOutFunction(() => {
-							operationListener.emit(arrivedPlayer.getId(), OperateType.DialogResult, {
+							operationListener.emit(arrivedPlayer.getId(), OperateType.ConfirmDialogResult, {
 								id: arrivedPlayer.getId(),
 								confirm: false,
 								data: undefined,
 							});
 						}); //到时间就结束操作
 						//已有房产, 升级房屋
-						const playerRes = await this.showDialogToPlayer(arrivedPlayer.getId(), {
+						const playerRes = await this.showConfirmDialog(arrivedPlayer.getId(), {
 							title: `升级 ${property.getName()}`,
 							content: `${property.getName()}`,
 						});
@@ -609,7 +611,7 @@ export class GameProcess implements IGameProcess {
 			} else {
 				// this.eventMsg = `等待 ${arrivedPlayer.getName()} 购买地皮`;
 				this.roundTimeTimer.setTimeOutFunction(() => {
-					operationListener.emit(arrivedPlayer.getId(), OperateType.DialogResult, {
+					operationListener.emit(arrivedPlayer.getId(), OperateType.ConfirmDialogResult, {
 						id: arrivedPlayer.getId(),
 						confirm: false,
 						data: undefined,
@@ -619,7 +621,7 @@ export class GameProcess implements IGameProcess {
 				//空地, 买房
 				//等待客户端回应买房
 				this.roundRemainingTimeBroadcast(0);
-				const playerRes = await this.showDialogToPlayer(arrivedPlayer.getId(), {
+				const playerRes = await this.showConfirmDialog(arrivedPlayer.getId(), {
 					title: `购买${property.getName()}`,
 					content: `${property.getName()}`,
 				});
@@ -724,19 +726,34 @@ export class GameProcess implements IGameProcess {
 		this.gameBroadcast(msg);
 	};
 
-	public async showDialogToPlayer<I extends InputOptionItem<string, any>[]>(
+	public async showConfirmDialog<I extends InputOptionItem<string, any>[]>(
 		playerId: string,
-		option: DialogOption<I>
-	): Promise<DialogResult<I>> {
+		option: ConfirmDialogOption<I>
+	): Promise<ConfirmDialogResult<I>> {
 		sendToUsers([playerId], {
-			type: SocketMsgType.Dialog,
+			type: SocketMsgType.ConfirmDialog,
 			source: SocketMsgSource.Server,
 			data: {
 				playerId,
 				option,
 			},
 		});
-		return (await operationListener.onceAsync(playerId, OperateType.DialogResult)) as DialogResult<I>;
+		return (await operationListener.onceAsync(playerId, OperateType.ConfirmDialogResult)) as ConfirmDialogResult<I>;
+	}
+
+	public async showTargetSelectDialog<I extends TargetSelectType>(
+		playerId: string,
+		option: SelectDialogOption<I>
+	): Promise<SelectDialogResult<I>> {
+		sendToUsers([playerId], {
+			type: SocketMsgType.TargetSelectDialog,
+			source: SocketMsgSource.Server,
+			data: {
+				playerId,
+				option,
+			},
+		});
+		return (await operationListener.onceAsync(playerId, OperateType.SelectDialogResult)) as SelectDialogResult<I>;
 	}
 
 	private sleep(ms: number) {

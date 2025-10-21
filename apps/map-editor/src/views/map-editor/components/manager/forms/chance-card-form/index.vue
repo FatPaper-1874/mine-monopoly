@@ -6,7 +6,7 @@ import templateText from "./template-text?raw";
 import { computed, onMounted, reactive, ref, watch } from "vue";
 import { useMapDataStore, useResourceStore } from "@src/stores";
 import { message } from "ant-design-vue";
-import { ChanceCardType } from "@fatpaper-monopoly/types";
+import { TargetSelectType } from "@fatpaper-monopoly/types";
 import { addNewImage } from "@src/utils/file";
 import { Rule } from "ant-design-vue/es/form";
 import ChanceCardPreview from "@src/views/map-editor/components/common/chance-card-preview.vue";
@@ -32,7 +32,7 @@ function getInitForm() {
 		name: "",
 		color: "",
 		description: "",
-		type: ChanceCardType.ToMapItem,
+		type: TargetSelectType.ToMapItem,
 		effectCode: "",
 		iconId: "",
 	};

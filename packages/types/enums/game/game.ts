@@ -8,18 +8,12 @@ export enum PlayerMoveType{
 	Tp
 }
 
-export enum ChanceCardType {
+export enum TargetSelectType {
 	ToSelf = "ToSelf",
 	ToOtherPlayer = "ToOtherPlayer",
 	ToPlayer = "ToPlayer",
 	ToProperty = "ToProperty",
 	ToMapItem = "ToMapItem",
-}
-
-export enum ChanceCardOperateType {
-	HOVER = "ChanceCardOperate-HOVER",
-	DROG = "ChanceCardOperate-DROG",
-	USE = "ChanceCardOperate-USE",
 }
 
 //与spine导出的角色文件中的动画名对应

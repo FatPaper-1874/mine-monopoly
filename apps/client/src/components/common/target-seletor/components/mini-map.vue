@@ -10,14 +10,14 @@ const emits = defineEmits(["update:selectedId"]);
 
 const properties = useGameData().propertiesList;
 const playerList = useGameData().playersList;
-const indexList = useMapData().mapIndexList;
-const myInfo = useGameData().getMyInfo;
+const indexList = useMapData().mapIndex;
+const myInfo = useGameData().myGameInfo;
 
 type MapItemWithPlayer = MapItem & {
 	players: PlayerInfo[];
 };
 const mapItemsList = computed(() => {
-	const mapItemsList = <MapItemWithPlayer[]>toRaw(mapDataStore.mapItemsList);
+	const mapItemsList = <MapItemWithPlayer[]>toRaw(mapDataStore.mapItems);
 	const minX = Math.min(...mapItemsList.map((item) => item.x));
 	const minY = Math.min(...mapItemsList.map((item) => item.y));
 
@@ -41,16 +41,6 @@ const mapItemsList = computed(() => {
 	});
 });
 
-const myCurrentMapItemId = computed(() => {
-	if (myInfo) {
-		return (
-			mapDataStore.mapItemsList.find((item) => item.id === mapDataStore.mapIndexList[myInfo.positionIndex])?.id || null
-		);
-	} else {
-		return null;
-	}
-});
-
 function handleMapItemClick(mapItem: MapItem) {
 	emits("update:selectedId", mapItem.id);
 }
@@ -62,7 +52,7 @@ onMounted(() => {
 function initMiniMap() {
 	const miniMapContainer = document.getElementsByClassName("mini-map-container")[0] as HTMLElement;
 	if (!miniMapContainer) return;
-	const mapItemsList = mapDataStore.mapItemsList;
+	const mapItemsList = mapDataStore.mapItems;
 	const maxX = Math.max(...mapItemsList.map((item) => item.x));
 	const maxY = Math.max(...mapItemsList.map((item) => item.y));
 
@@ -92,7 +82,7 @@ function initMiniMap() {
 			v-for="mapItem in mapItemsList"
 			:key="mapItem.id"
 		>
-			{{ mapItem.property?.owner?.name[0] }}
+			{{ mapItem.property?.owner?.username[0] }}
 			<div
 				v-for="(player, index) in mapItem.players"
 				:key="player.id"
@@ -168,8 +158,8 @@ function initMiniMap() {
 			&::after {
 				content: "";
 				position: absolute;
-				width: $map-item-size;
-				height: $map-item-size;
+				width: 100%;
+				height: 100%;
 				border: 0.3rem solid var(--color-primary);
 				border-radius: 0.6rem;
 				animation: pulse-selected 0.6s infinite alternate;

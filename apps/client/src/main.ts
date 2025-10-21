@@ -70,7 +70,6 @@ import {
 	faGhost,
 	faUpload,
 } from "@fortawesome/free-solid-svg-icons";
-import { chanceCardSource } from "./directives/ChanceCardUse";
 import { useDeviceStatus, useSettig } from "@src/store";
 import { isFullScreen as _isFullScreen, isLandscape as _isLandscape, isMobileDevice } from "@src/utils";
 
@@ -136,7 +135,7 @@ createApp(App)
 	.use(pinia)
 	.use(router)
 	.component("font-awesome-icon", FontAwesomeIcon)
-	.directive("chanceCardSource", chanceCardSource)
+	// .directive("chanceCardSource", chanceCardSource)
 	.mount("#app");
 
 initDeviceStatusListener();

@@ -78,7 +78,8 @@ export enum OperateType {
 	PauseGame = "PauseGame", //房主暂停游戏
 	ResumeGame = "ResumeGame", //房主恢复游戏
 
-	DialogResult = "DialogResult", //由程序调起的dialog的结果返回
+	ConfirmDialogResult = "ConfirmDialogResult", //由服务端主机调起的dialog的结果返回
+	SelectDialogResult = "SelectDialogResult", //由服务端主机调起的dialog的结果返回
 }
 
 export const PlayerBuffTriggerTimingMap: Record<PlayerEvents, string> = {

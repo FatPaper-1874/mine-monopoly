@@ -16,7 +16,6 @@ import { debounce, getScreenPosition, isMobileDevice, throttle } from "@src/util
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass";
 import { OutlinePass } from "three/examples/jsm/postprocessing/OutlinePass";
-import { ChanceCardOperateType, ChanceCardType, GameEvent, RoleAnimations } from "@fatpaper-monopoly/types";
 import useEventBus from "@src/utils/event-bus";
 import { GammaCorrectionShader } from "three/examples/jsm/shaders/GammaCorrectionShader";
 import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass";

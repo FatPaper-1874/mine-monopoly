@@ -320,7 +320,7 @@ export class Room {
 			const promiseArr = Array.from(this.userList.values())
 				.filter((user) => user.userId !== this.ownerId)
 				.map((user) => {
-					this.sendToClient(user.socketClient, SocketMsgType.Dialog, {
+					this.sendToClient(user.socketClient, SocketMsgType.ConfirmDialog, {
 						playerId: user.userId,
 						option: {
 							title: "房主要启用非官方地图",
@@ -331,7 +331,7 @@ export class Room {
 							cancelText: "不同意",
 						},
 					});
-					return this.operationListener.onceAsync(user.userId, OperateType.DialogResult);
+					return this.operationListener.onceAsync(user.userId, OperateType.ConfirmDialogResult);
 				});
 
 			const res = await Promise.all(promiseArr);
