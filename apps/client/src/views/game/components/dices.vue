@@ -57,6 +57,10 @@ function handleRollDice() {
 	border: 0.5rem solid rgba(255, 255, 255, 0.6);
 	background-color: rgba(255, 255, 255, 0.5);
 	transition: background-color 0.15s ease-in-out;
+	position: absolute;
+	right: 0.4rem;
+	bottom: 0.4rem;
+	z-index: var(--z-ui);
 
 	&.canroll {
 		background-color: var(--color-second);

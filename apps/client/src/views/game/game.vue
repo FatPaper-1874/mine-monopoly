@@ -49,9 +49,9 @@ onMounted(async () => {
 		const canvas = document.getElementById("game-canvas") as HTMLCanvasElement;
 		const container = document.getElementsByClassName("game-page")[0] as HTMLDivElement;
 		const mapData = JSON.parse(JSON.stringify(useMapData().$state)) as GameMap;
-		console.log("🚀 ~ mapData:", mapData)
+		console.log("🚀 ~ mapData:", mapData);
 		gameRenderer = new GameRenderer(canvas, container, mapData);
-		console.log("🚀 ~ gameRenderer:", gameRenderer)
+		console.log("🚀 ~ gameRenderer:", gameRenderer);
 		await gameRenderer.init();
 		useLoading().showLoading("数据加载完成，等待其他玩家加载...");
 		socketClient.gameInitFinished();
@@ -70,17 +70,11 @@ onBeforeUnmount(() => {
 	<div class="game-page">
 		<canvas id="game-canvas" :width="windowWidth" :height="windowHeight"></canvas>
 		<div class="ui-container">
-			<div class="progress-bar ui-item">
-				<ProgressBar />
-			</div>
+			<ProgressBar />
 
-			<div class="round-info ui-item">
-				<RoundInfo />
-			</div>
+			<RoundInfo />
 
-			<div class="player-contianer ui-item">
-				<PlayerContainer />
-			</div>
+			<PlayerContainer />
 
 			<div class="tool-bar ui-item">
 				<button class="border-button lock-camera" @click="handleToggleLockCamera">
@@ -88,13 +82,9 @@ onBeforeUnmount(() => {
 				</button>
 			</div>
 
-			<div class="chance-card-container ui-item">
-				<ChanceCardContainer />
-			</div>
+			<ChanceCardContainer />
 
-			<div class="dice ui-item">
-				<Dices @click="handleRollDice"></Dices>
-			</div>
+			<Dices @click="handleRollDice"></Dices>
 
 			<teleport to="body">
 				<div
@@ -129,13 +119,6 @@ onBeforeUnmount(() => {
 		width: 4rem;
 		height: 4rem;
 	}
-
-	&.roll-dice {
-		border-width: 0.2rem;
-		font-size: 2rem;
-		width: 8rem;
-		height: 8rem;
-	}
 }
 
 .ui-container,
@@ -153,33 +136,9 @@ onBeforeUnmount(() => {
 }
 
 .ui-container {
-	z-index: 1000;
 	pointer-events: none;
-
-	// &>div {
-	// 	pointer-events: none;
-	// }
-
 	.ui-item {
 		position: absolute;
-
-		&.progress-bar {
-			position: absolute;
-			left: 0;
-			top: 50%;
-			transform: translateY(-50%);
-		}
-
-		&.round-info {
-			top: 0;
-			left: 50%;
-			transform: translateX(-50%);
-		}
-
-		&.player-contianer {
-			top: 4.2rem;
-			right: 0;
-		}
 
 		&.tool-bar {
 			position: absolute;
@@ -188,19 +147,6 @@ onBeforeUnmount(() => {
 			display: none;
 			justify-content: space-between;
 			pointer-events: none;
-		}
-
-		&.chance-card-container {
-			position: absolute;
-			left: 50%;
-			bottom: 0;
-			transform: translateX(-50%);
-		}
-
-		&.dice {
-			position: absolute;
-			right: 0.4rem;
-			bottom: 0.4rem;
 		}
 	}
 

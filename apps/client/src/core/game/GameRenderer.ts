@@ -137,7 +137,7 @@ export class GameRenderer {
 		this.popElementRenderer.domElement.style.position = "absolute";
 		this.popElementRenderer.domElement.style.top = "0px";
 		this.popElementRenderer.domElement.style.pointerEvents = "none";
-		this.popElementRenderer.domElement.style.zIndex = "500";
+		this.popElementRenderer.domElement.style.zIndex = "var(--z-ui)";
 		container.appendChild(this.popElementRenderer.domElement);
 
 		const controls = new OrbitControls(this.camera, this.canvas);

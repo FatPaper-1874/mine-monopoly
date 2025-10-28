@@ -37,7 +37,6 @@ function getBlockHeight(money: number) {
 
 <style scoped lang="scss">
 .progress-bar {
-	position: relative;
 	width: 1.3rem;
 	height: 30rem;
 	background-color: var(--color-bg);
@@ -45,6 +44,12 @@ function getBlockHeight(money: number) {
 	box-sizing: border-box;
 	border: 0.45rem solid rgba(255, 255, 255, 0.7);
 	border-left: 0;
+
+	position: absolute;
+	left: 0;
+	top: 50%;
+	transform: translateY(-50%);
+	z-index: var(--z-ui);
 }
 
 .target-bar {

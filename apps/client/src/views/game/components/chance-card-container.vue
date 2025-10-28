@@ -40,7 +40,7 @@ async function handleChanceCardClick(card: ChanceCardClientInfo) {
 </script>
 
 <template>
-	<div class="chance-card-container-vue" :style="{ '--num': _chanceCardsList.length }">
+	<div class="chance-card-container" :style="{ '--num': _chanceCardsList.length }">
 		<div v-show="utilStore.canUseCard" class="tips">点击卡片使用机会卡，一回合使用一张</div>
 		<TransitionGroup name="card">
 			<ChanceCard
@@ -67,13 +67,17 @@ async function handleChanceCardClick(card: ChanceCardClientInfo) {
 	transform: translateY(-50rem);
 }
 
-.chance-card-container-vue {
+.chance-card-container {
 	width: 10rem;
 	height: 12rem;
 	display: flex;
 	justify-content: space-around;
 	padding: 0.8rem;
-	position: relative;
+	position: absolute;
+	left: 50%;
+	bottom: 0;
+	transform: translateX(-50%);
+	z-index: var(--z-ui);
 
 	$n: 5;
 	@for $i from 1 through $n {

@@ -78,7 +78,7 @@ defineExpose({
 	padding: 0 0.6rem;
 	border-radius: 0.4rem;
 	border: 0.12rem solid;
-	z-index: 9999;
+	z-index: var(--z-message);
 	transition: top 0.2s ease-in-out;
 	font-family: "ContentFont";
 

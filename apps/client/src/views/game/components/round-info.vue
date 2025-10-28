@@ -29,6 +29,12 @@ const _currentMultiplier = computed(() => gameInfoStore.currentMultiplier);
 	border-top: 0;
 	border-radius: 0 0 1rem 1rem;
 
+	position: absolute;
+	top: 0;
+	left: 50%;
+	transform: translateX(-50%);
+	z-index: var(--z-ui);
+
 	& > .round {
 		font-size: 1.5rem;
 		margin-right: 2rem;

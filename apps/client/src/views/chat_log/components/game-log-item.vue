@@ -136,7 +136,7 @@ function generatePopItem(e: MouseEvent, itemType: GameLogLinkItem, props: any) {
 	const vm = appInstance.mount(documentFragment);
 	const el = vm.$el as HTMLElement;
 	el.style.position = "absolute";
-	el.style.zIndex = "1000000";
+	el.style.zIndex = "calc(var(--z-chat-log) + 1)";
 	el.style.left = x - 20 + "px";
 	el.style.bottom = document.body.clientHeight - y - 20 + "px";
 	el.style.boxShadow = "var(--box-shadow)";

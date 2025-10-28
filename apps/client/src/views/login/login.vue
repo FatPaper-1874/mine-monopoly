@@ -3,7 +3,7 @@ import { ref, onBeforeMount, onBeforeUnmount, reactive, onMounted, nextTick, h }
 import router from "@src/router";
 import { __PROTOCOL__ } from "@src/../global.config";
 import { getUserByToken } from "@src/utils/api/user";
-import { createLoginIframeOnBody, exitFullScreen, randomString, setTimeOutAsync } from "@src/utils";
+import {  exitFullScreen, randomString, setTimeOutAsync } from "@src/utils";
 import { FPMessage } from "@fatpaper-monopoly/ui";
 import { useUserInfo } from "@src/store";
 import { LoginDiceRenderer } from "@src/core/three/LoginDiceRenderer";
