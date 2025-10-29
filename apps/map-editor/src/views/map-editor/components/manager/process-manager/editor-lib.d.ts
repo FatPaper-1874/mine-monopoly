@@ -448,6 +448,8 @@ interface IGameProcess {
 	onPlayerOperationAsync<T extends OperateType>(playerId: string, operationType: T): Promise<PlayerOperationResult[T]>;
 	oncePlayerOperation<T extends OperateType>(playerId: string, operationType: T, callback: (res: PlayerOperationResult[T]) => void): void;
 	onPlayerOperation<T extends OperateType>(playerId: string, operationType: T, callback: (res: PlayerOperationResult[T]) => void): void;
+	removePlayerOperationListener<T extends OperateType>(playerId: string, operationType: T, listener?: (...args: any[]) => PlayerOperationResult[T]): void;
+	removePlayerAllOperationListener(playerId: string): void;
 	pushEventToStack(gameEvent: GameEvent<GameContext>): void;
 	generateNewChanceCard(sourceId: string): IChanceCard;
 	createGameLinkItem(type: GameLinkItem, id: string): void;
@@ -472,11 +474,11 @@ interface SelectDialogResult<I extends TargetSelectType> {
 	target: TargetSelectResult[I];
 }
 interface TargetSelectResult {
-	[TargetSelectType.ToMapItem]: string;
-	[TargetSelectType.ToPlayer]: string;
-	[TargetSelectType.ToOtherPlayer]: string;
-	[TargetSelectType.ToSelf]: string;
-	[TargetSelectType.ToProperty]: string;
+	[TargetSelectType.ToMapItem]: string[];
+	[TargetSelectType.ToPlayer]: string[];
+	[TargetSelectType.ToOtherPlayer]: string[];
+	[TargetSelectType.ToSelf]: string[];
+	[TargetSelectType.ToProperty]: string[];
 }
 interface ConfirmDialogOption<I extends readonly InputOptionItem<string, any>[]> extends DialogOption {
 	inputOptions?: I;

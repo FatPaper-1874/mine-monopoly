@@ -472,11 +472,11 @@ interface SelectDialogResult<I extends TargetSelectType> {
 	target: TargetSelectResult[I];
 }
 interface TargetSelectResult {
-	[TargetSelectType.ToMapItem]: string;
-	[TargetSelectType.ToPlayer]: string;
-	[TargetSelectType.ToOtherPlayer]: string;
-	[TargetSelectType.ToSelf]: string;
-	[TargetSelectType.ToProperty]: string;
+	[TargetSelectType.ToMapItem]: string[];
+	[TargetSelectType.ToPlayer]: string[];
+	[TargetSelectType.ToOtherPlayer]: string[];
+	[TargetSelectType.ToSelf]: string[];
+	[TargetSelectType.ToProperty]: string[];
 }
 interface ConfirmDialogOption<I extends readonly InputOptionItem<string, any>[]> extends DialogOption {
 	inputOptions?: I;

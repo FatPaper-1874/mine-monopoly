@@ -192,7 +192,7 @@ export class GameProcess implements IGameProcess {
 				effectCode: compileTsToJs(chanceCard.effectCode, GameProcessTypes),
 			});
 		});
-		console.log("🚀 ~ GameProcess ~ initMap ~ this.chanceCardInfos:", this.chanceCardInfos)
+		console.log("🚀 ~ GameProcess ~ initMap ~ this.chanceCardInfos:", this.chanceCardInfos);
 	}
 
 	private initPlayer() {
@@ -661,14 +661,6 @@ export class GameProcess implements IGameProcess {
 		return this.players.get(id);
 	}
 
-	public oncePlayerOperation<T extends OperateType>(
-		playerId: string,
-		operationType: T,
-		callback: (res: PlayerOperationResult[T]) => void
-	): void {
-		operationListener.once(playerId, operationType, callback);
-	}
-
 	public onPlayerOperation<T extends OperateType>(
 		playerId: string,
 		operationType: T,
@@ -677,11 +669,12 @@ export class GameProcess implements IGameProcess {
 		operationListener.on(playerId, operationType, callback);
 	}
 
-	public async oncePlayerOperationAsync<T extends OperateType>(
+	public oncePlayerOperation<T extends OperateType>(
 		playerId: string,
-		operationType: T
-	): Promise<PlayerOperationResult[T]> {
-		return await operationListener.onceAsync(playerId, operationType);
+		operationType: T,
+		callback: (res: PlayerOperationResult[T]) => void
+	): void {
+		operationListener.once(playerId, operationType, callback);
 	}
 
 	public async onPlayerOperationAsync<T extends OperateType>(
@@ -691,12 +684,31 @@ export class GameProcess implements IGameProcess {
 		return await operationListener.onAsync(playerId, operationType);
 	}
 
+	public async oncePlayerOperationAsync<T extends OperateType>(
+		playerId: string,
+		operationType: T
+	): Promise<PlayerOperationResult[T]> {
+		return await operationListener.onceAsync(playerId, operationType);
+	}
+
 	public emitPlayerOperation<T extends OperateType>(
 		playerId: string,
 		operationType: T,
 		data: PlayerOperationResult[T]
 	) {
 		operationListener.emit(playerId, operationType, data);
+	}
+
+	public removePlayerOperationListener<T extends OperateType>(
+		playerId: string,
+		operationType: T,
+		listener?: (...args: any[]) => PlayerOperationResult[T]
+	): void {
+		operationListener.remove(playerId, operationType, listener);
+	}
+
+	public removePlayerAllOperationListener(playerId: string): void {
+		operationListener.removeAll(playerId);
 	}
 
 	private async waitInitFinished() {

@@ -53,6 +53,13 @@ export interface IGameProcess {
 		operationType: T,
 		callback: (res: PlayerOperationResult[T]) => void
 	): void;
+	removePlayerOperationListener<T extends OperateType>(
+		playerId: string,
+		operationType: T,
+		listener?: (...args: any[]) => PlayerOperationResult[T]
+	): void;
+	removePlayerAllOperationListener(playerId: string): void;
+
 	pushEventToStack(gameEvent: GameEvent<GameContext>): void;
 	generateNewChanceCard(sourceId: string): IChanceCard;
 
