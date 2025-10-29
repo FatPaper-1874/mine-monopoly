@@ -199,7 +199,7 @@ export class MapRenderer {
 		});
 
 		eventBus.on("map-index-update", (indexList) => {
-			this.updateMapIndex(indexList);
+			this.updateMapIndex([...indexList]);
 		});
 
 		eventBus.on("map-item-type-selected", (itemTypeId) => {
@@ -502,6 +502,7 @@ export class MapRenderer {
 	}
 
 	public async loadMap(mapData: GameMap) {
+		mapData = { ...mapData };
 		useEditorStore().setLoading(true);
 		this.mapItemGroup.clear();
 		this.itemTypesCache.clear();
@@ -521,7 +522,7 @@ export class MapRenderer {
 
 		this.loadMapBackground();
 		//加载索引路径
-		this.updateMapIndex(mapData.mapIndex);
+		this.updateMapIndex([...mapData.mapIndex]);
 		//TODO
 		useEditorStore().setLoading(false);
 		this.lookAtCenter();
