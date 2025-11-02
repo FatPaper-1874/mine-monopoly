@@ -10,6 +10,9 @@ export class GameMap implements GameMapInDb {
 	name: string;
 
 	@Column({ type: "varchar", nullable: false })
+	author: string;
+
+	@Column({ type: "varchar", nullable: false })
 	version: string;
 
 	@Column({ type: "varchar", nullable: false })

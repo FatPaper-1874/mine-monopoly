@@ -27,9 +27,10 @@ onMounted(() => {
 });
 
 const gameMapfileList = ref<UploadProps["fileList"]>([]);
-type FormState = { name: string; version: string; file: UploadFile | undefined };
+type FormState = { name: string; author: string; version: string; file: UploadFile | undefined };
 const formValue = reactive<FormState>({
 	name: "",
+	author: "",
 	version: "",
 	file: undefined,
 });
@@ -43,6 +44,7 @@ async function handleFileChange(info: UploadChangeParam) {
 	}
 	const { mapData, images } = await readMapFile(file);
 	formValue.name = mapData.info.name;
+	formValue.author = mapData.info.author;
 	formValue.version = mapData.info.version;
 	const coverImageId = mapData.info.coverImageId;
 	if (!coverImageId) {
@@ -77,6 +79,7 @@ async function onFinish() {
 	formData.append("game-map", formValue.file.originFileObj);
 	formData.append("cover-image", coverImage);
 	formData.append("name", formValue.name);
+	formData.append("author", formValue.author);
 	formData.append("version", formValue.version);
 	formData.append("hash", await calculateFileHash(formValue.file.originFileObj));
 	if (gameMap) {
@@ -100,6 +103,9 @@ async function checkCoverImage(_rule: Rule, value: string) {
 	<a-form :model="formValue" @finish="onFinish" ref="formRef">
 		<a-form-item label="地图名称" name="name" :rules="[{ required: true, message: '你的地图没有名称' }]">
 			<a-input disabled v-model:value="formValue.name"></a-input>
+		</a-form-item>
+		<a-form-item label="地图作者" name="author" :rules="[{ required: true, message: '你的地图没有作者' }]">
+			<a-input disabled v-model:value="formValue.author"></a-input>
 		</a-form-item>
 		<a-form-item label="地图版本" name="version" :rules="[{ required: true, message: '你的地图没有版本' }]">
 			<a-input disabled v-model:value="formValue.version"></a-input>

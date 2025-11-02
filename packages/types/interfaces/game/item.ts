@@ -5,6 +5,7 @@ export type SemVer = `${number}.${number}.${number}`;
 
 export interface GameMapInfo {
 	name: string;
+	author: string;
 	version: SemVer;
 	backgroundImageId: string;
 	coverImageId: string;

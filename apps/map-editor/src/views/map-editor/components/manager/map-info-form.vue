@@ -30,7 +30,11 @@ async function handleUpdateInfo() {
 			const coverImageId = await addNewImage(coverImageUrl.value, "CoverImage");
 			useMapDataStore().setCoverImageId(coverImageId);
 		}
-		useMapDataStore().updateMapInfo({ name: mapInfoForm.name, version: mapInfoForm.version });
+		useMapDataStore().updateMapInfo({
+			name: mapInfoForm.name,
+			author: mapInfoForm.author,
+			version: mapInfoForm.version,
+		});
 		message.success(`更新地图信息成功`, 1);
 	} catch (e: any) {
 		message.error(e.message, 1);
@@ -75,6 +79,10 @@ function handleClose() {
 		<a-form @finish="handleUpdateInfo" :model="mapInfoForm" name="basic" autocomplete="off">
 			<a-form-item label="地图名称" name="name" :rules="[{ required: true, message: '请输入地图名称' }]">
 				<a-input v-model:value="mapInfoForm.name" />
+			</a-form-item>
+
+			<a-form-item label="地图作者" name="author" :rules="[{ required: true, message: '请输入作者名称' }]">
+				<a-input v-model:value="mapInfoForm.author" />
 			</a-form-item>
 
 			<a-form-item

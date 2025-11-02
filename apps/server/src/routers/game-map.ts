@@ -52,9 +52,9 @@ gameMapRouter.post(
 			return;
 		}
 
-		const { name, version, hash } = req.body;
+		const { name, author, version, hash } = req.body;
 
-		if (name && version && hash) {
+		if (name && author && version && hash) {
 			try {
 				const gameMapFileUrl = await uploadFile({
 					filePath: gameMap.filePath,
@@ -68,6 +68,7 @@ gameMapRouter.post(
 				});
 				const map = await createGameMap({
 					name,
+					author,
 					version,
 					hash,
 					mapUrl: gameMapFileUrl,
@@ -129,9 +130,9 @@ gameMapRouter.post(
 			return;
 		}
 
-		const { id, name, version, hash } = req.body;
+		const { id, author, name, version, hash } = req.body;
 
-		if (id && name && version && hash) {
+		if (id && author && name && version && hash) {
 			try {
 				const gameMapFileUrl = await uploadFile({
 					filePath: gameMap.filePath,
@@ -146,6 +147,7 @@ gameMapRouter.post(
 				const map = await updateGameMap({
 					id,
 					name,
+					author,
 					version,
 					hash,
 					mapUrl: gameMapFileUrl,

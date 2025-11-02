@@ -18,6 +18,7 @@ export const useMapDataStore = defineStore("MapData", {
 		id: crypto.randomUUID(),
 		info: {
 			name: "",
+			author: "",
 			version: "0.0.0",
 			backgroundImageId: "",
 			coverImageId: "",
@@ -35,7 +36,7 @@ export const useMapDataStore = defineStore("MapData", {
 	}),
 	actions: {
 		// MapInfo
-		updateMapInfo(info: { name: string; version: SemVer }) {
+		updateMapInfo(info: { name: string; author: string; version: SemVer }) {
 			Object.assign(this.info, info);
 		},
 
