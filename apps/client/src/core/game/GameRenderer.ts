@@ -133,7 +133,7 @@ export class GameRenderer {
 		this.scene.add(this.arrivedEventInfoLabel);
 
 		this.popElementRenderer = new CSS2DRenderer();
-		this.popElementRenderer.setSize(window.innerWidth, window.innerHeight);
+		this.popElementRenderer.setSize(container.clientWidth, container.clientHeight);
 		this.popElementRenderer.domElement.style.position = "absolute";
 		this.popElementRenderer.domElement.style.top = "0px";
 		this.popElementRenderer.domElement.style.pointerEvents = "none";
@@ -152,12 +152,12 @@ export class GameRenderer {
 		window.addEventListener(
 			"resize",
 			debounce(() => {
-				this.camera.aspect = window.innerWidth / window.innerHeight; //相机视角长宽比
+				this.camera.aspect = container.clientWidth / container.clientHeight; //相机视角长宽比
 				this.camera.updateProjectionMatrix();
-				this.renderer.setSize(window.innerWidth, window.innerHeight);
-				this.renderPass.setSize(window.innerWidth, window.innerHeight);
-				this.composer.setSize(window.innerWidth, window.innerHeight);
-				this.popElementRenderer.setSize(window.innerWidth, window.innerHeight);
+				this.renderer.setSize(container.clientWidth, container.clientHeight);
+				this.renderPass.setSize(container.clientWidth, container.clientHeight);
+				this.composer.setSize(container.clientWidth, container.clientHeight);
+				this.popElementRenderer.setSize(container.clientWidth, container.clientHeight);
 			}, 500)
 		);
 	}
