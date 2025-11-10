@@ -1,5 +1,17 @@
 <script setup lang="ts">
-import { onMounted, computed, onUnmounted, ref, onBeforeMount, onBeforeUnmount } from "vue";
+import {
+	onMounted,
+	computed,
+	onUnmounted,
+	ref,
+	onBeforeMount,
+	onBeforeUnmount,
+	h,
+	VNode,
+	isVNode,
+	render,
+	Fragment,
+} from "vue";
 import { GameRenderer } from "@src/core/game/GameRenderer";
 import { useLoading, useRoomInfo, useUtil } from "@src/store";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
@@ -13,7 +25,9 @@ import RoundInfo from "@src/views/game/components/round-info.vue";
 import ProgressBar from "@src/views/game/components/progress-bar.vue";
 import PlayerContainer from "./components/player-container.vue";
 import { useGameData, useMapData } from "@src/store/game";
-import { GameMap } from "@fatpaper-monopoly/types";
+import { CustomUI, GameMap } from "@fatpaper-monopoly/types";
+import { compileTsToJs } from "@src/utils";
+import { storeToRefs } from "pinia";
 
 //pinia仓库
 const gameInfoStore = useGameData();
@@ -50,15 +64,56 @@ onMounted(async () => {
 		const container = document.getElementsByClassName("game-page")[0] as HTMLDivElement;
 		const mapData = JSON.parse(JSON.stringify(useMapData().$state)) as GameMap;
 		console.log("🚀 ~ mapData:", mapData);
+		const uiContainer = document.querySelector(".ui-container") as HTMLDivElement;
+		loadCustomUIs(uiContainer, mapData.customUIs);
 		gameRenderer = new GameRenderer(canvas, container, mapData);
-		console.log("🚀 ~ gameRenderer:", gameRenderer);
 		await gameRenderer.init();
 		useLoading().showLoading("数据加载完成，等待其他玩家加载...");
 		socketClient.gameInitFinished();
 	} catch (e: any) {
+		console.error(e);
+		useLoading().hideLoading();
 		router.replace({ name: "room-router" });
 	}
 });
+
+function loadCustomUIs(container: HTMLDivElement, customUIs: CustomUI[]) {
+	useLoading().showLoading("加载UI中...");
+	const gameDataStore = useGameData();
+	render(null, container);
+
+	const renderList: VNode[] = [];
+
+	for (const customUI of customUIs) {
+		const initCodeCompiled = compileTsToJs(customUI.initCode, "");
+		const initFunction = new Function(initCodeCompiled)();
+
+		const CustomUIWrapper = {
+			name: `CustomUI_${customUI.id}`,
+			setup() {
+				return () => {
+					const vnode = initFunction(h, gameDataStore);
+					if (!isVNode(vnode)) {
+						console.error("加载地图自定义UI出错: 返回结果不是VNode!", customUI);
+						return null;
+					}
+					return h("div", { style: getCustomUIStyle(customUI.layout), class: "custom-ui-container" }, vnode);
+				};
+			},
+		};
+
+		renderList.push(h(CustomUIWrapper));
+	}
+
+	render(h(Fragment, renderList), container);
+
+	function getCustomUIStyle(layout: CustomUI["layout"]) {
+		return {
+			gridArea: `${layout.y + 1} / ${layout.x + 1} / span ${layout.height} / span ${layout.width}`,
+			zIndex: `var(--z-ui)`,
+		};
+	}
+}
 
 onBeforeUnmount(() => {
 	if (gameRenderer) gameRenderer.destroy();
@@ -70,9 +125,9 @@ onBeforeUnmount(() => {
 	<div class="game-page">
 		<canvas id="game-canvas" :width="windowWidth" :height="windowHeight"></canvas>
 		<div class="ui-container">
-			<ProgressBar />
+			<!-- <ProgressBar /> -->
 
-			<RoundInfo />
+			<!-- <RoundInfo /> -->
 
 			<PlayerContainer />
 
@@ -132,6 +187,10 @@ onBeforeUnmount(() => {
 
 .ui-container {
 	pointer-events: none;
+	display: grid;
+	grid-template-columns: repeat(32, 1fr);
+	grid-template-rows: repeat(20, 1fr);
+
 	.ui-item {
 		position: absolute;
 

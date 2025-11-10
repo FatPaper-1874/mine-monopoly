@@ -14,9 +14,9 @@ let win;
 function createWindow() {
   win = new BrowserWindow({
     width: 1200,
-    height: 860,
-    minWidth: 1080,
-    minHeight: 720,
+    height: 780,
+    minWidth: 1200,
+    minHeight: 780,
     webPreferences: {
       nodeIntegration: true,
       nodeIntegrationInWorker: false,
@@ -37,6 +37,14 @@ function createWindow() {
     win.loadFile(path.join(RENDERER_DIST, "frontend/index.html"));
   }
   win.webContents.openDevTools();
+  win.on("enter-full-screen", () => {
+    console.log("进入全屏（F11 或 API）");
+    win.webContents.send("fullscreen-changed", true);
+  });
+  win.on("leave-full-screen", () => {
+    console.log("退出全屏");
+    win.webContents.send("fullscreen-changed", false);
+  });
 }
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {

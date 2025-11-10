@@ -16,9 +16,9 @@ body {
   position: relative;
 }
 
-html {
-  font-size: calc(1.5vmin + 0.13rem);
-}
+// html {
+//   font-size: calc(1.5vmin + 0.13rem);
+// }
 
 * {
   font-family: "ContentFont";
@@ -148,7 +148,6 @@ html {
   position: relative;
   overflow: hidden;
   display: flex;
-  justify-content: center;
   flex-direction: column;
 }
 

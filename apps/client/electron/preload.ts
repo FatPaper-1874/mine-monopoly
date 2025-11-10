@@ -10,6 +10,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	unmaximize: () => ipcRenderer.send("window-unmaximize"),
 	close: () => ipcRenderer.send("window-close"),
 	getVersion: () => version,
+	onFullScreenChange: (callback: (isFull: boolean) => void) =>
+		ipcRenderer.on("fullscreen-changed", (_, isFull) => callback(isFull)),
 });
 
 contextBridge.exposeInMainWorld("mapCacheLoader", {

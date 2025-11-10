@@ -102,6 +102,7 @@ interface GameMap {
 		gameRoundEnd: GamePhaseInfo[];
 	};
 	buildingModelIdList: string[];
+	customUIs: CustomUI[];
 }
 interface IRoundTimeTimer {
 	start(callback: Function | null, timeS?: number): Promise<void>;
@@ -418,6 +419,9 @@ interface GameLog {
 	content: string;
 }
 interface GameData {
+	extra: {
+		[key: string]: any;
+	};
 	currentPlayerIdInRound: string;
 	currentRound: number;
 	currentMultiplier: number;
@@ -661,6 +665,7 @@ interface PlayerOperationResult {
 type SemVer = `${number}.${number}.${number}`;
 interface GameMapInfo {
 	name: string;
+	author: string;
 	version: SemVer;
 	backgroundImageId: string;
 	coverImageId: string;
@@ -715,5 +720,16 @@ interface MapEvent {
 	description: string;
 	iconId: string;
 	effectCode: string;
+}
+interface CustomUI {
+	id: string;
+	name: string;
+	layout: {
+		x: number;
+		y: number;
+		width: number;
+		height: number;
+	};
+	initCode: string;
 }
 declare let arrivedEventPhase: IGamePhase<ArrivedEventContext>;

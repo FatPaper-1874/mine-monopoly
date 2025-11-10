@@ -7,6 +7,7 @@ import { ServerSocketMessage } from "./socket";
 
 // 客户端
 export interface GameData {
+	extra: { [key: string]: any };
 	currentPlayerIdInRound: string;
 	currentRound: number;
 	currentMultiplier: number;

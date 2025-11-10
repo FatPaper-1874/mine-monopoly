@@ -1,5 +1,5 @@
 import { ChanceCardInfo, GamePhaseInfo } from "./game-process";
-import { MapItem, MapItemType, Street, Role, MapEvent, GameMapInfo } from "./item";
+import { MapItem, MapItemType, Street, Role, MapEvent, GameMapInfo, CustomUI } from "./item";
 
 export interface GameMap {
 	id: string;
@@ -18,4 +18,5 @@ export interface GameMap {
 		gameRoundEnd: GamePhaseInfo[];
 	};
 	buildingModelIdList: string[];
+	customUIs: CustomUI[];
 }

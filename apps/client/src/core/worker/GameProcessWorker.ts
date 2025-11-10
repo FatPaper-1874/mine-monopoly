@@ -798,6 +798,7 @@ export class GameProcess implements IGameProcess {
 
 	public getGameData() {
 		const gameInfo: GameData = {
+			extra: this.extraData,
 			currentPlayerIdInRound: this.currentRoundPlayer ? this.currentRoundPlayer.getId() : "",
 			currentRound: this.currentRound,
 			currentMultiplier: this.currentMultiplier,

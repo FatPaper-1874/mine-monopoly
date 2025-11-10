@@ -79,3 +79,15 @@ export type ResourcesType = {
 	fileType: string;
 	url: string;
 };
+
+export interface CustomUI {
+	id: string;
+	name: string;
+	layout: {
+		x: number;
+		y: number;
+		width: number;
+		height: number;
+	};
+	initCode: string;
+}

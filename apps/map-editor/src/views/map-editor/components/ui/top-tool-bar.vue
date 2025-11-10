@@ -14,6 +14,7 @@ import ChanceCardManager from "../manager/chancecard-manager.vue";
 import StreetManager from "../manager/street-manager.vue";
 import RoleManager from "../manager/role-manager.vue";
 import BuildingModelSeletor from "../manager/components/building-model-seletor.vue";
+import customUiManager from "../manager/custom-ui-manager/custom-ui-manager.vue";
 import { eventBus } from "@src/utils/event-bus";
 import { addNewImage } from "@src/utils/file";
 
@@ -114,6 +115,13 @@ const buttonConfigs: ButtonConifg[] = [
 			chanceCardManagerVisible.value = true;
 		},
 	},
+	{
+		text: "自定义UI",
+		icon: "fas fa-layer-group",
+		onClick: () => {
+			customUIManagerVisible.value = true;
+		},
+	},
 ];
 
 async function seleteMapBackgroundImage() {
@@ -140,6 +148,7 @@ const streetManagerVisible = ref(false);
 const modelManagerVisible = ref(false);
 const eventManagerVisible = ref(false);
 const chanceCardManagerVisible = ref(false);
+const customUIManagerVisible = ref(false);
 </script>
 
 <template>
@@ -219,6 +228,7 @@ const chanceCardManagerVisible = ref(false);
 		<model-manager v-model="modelManagerVisible" />
 		<event-manager v-model="eventManagerVisible" />
 		<chance-card-manager v-model="chanceCardManagerVisible" />
+		<custom-ui-manager v-model="customUIManagerVisible" />
 	</div>
 </template>
 

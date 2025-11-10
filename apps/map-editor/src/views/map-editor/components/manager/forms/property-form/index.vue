@@ -81,6 +81,7 @@ function updateForm(newMapItem: MapItem | undefined) {
 // 表单提交
 async function handleCreateOrUpdateProperty() {
 	if (currentMapItemId.value) {
+		// TODO
 		useMapDataStore().addProperty(currentMapItemId.value, {
 			id: propertyId.value || crypto.randomUUID(),
 			...propertyForm,

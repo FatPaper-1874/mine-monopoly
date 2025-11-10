@@ -27,6 +27,7 @@
 		"mitt": "3.0.1",
 		"monaco-editor": "0.50.0",
 		"pinia": "2.0.33",
+		"pixi.js": "^8.14.0",
 		"protobufjs": "7.5.3",
 		"three": "0.179.1",
 		"vue": "3.5.18",

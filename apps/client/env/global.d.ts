@@ -31,6 +31,7 @@ interface Window {
 		close: () => void;
 		isMaximized: () => Promise<boolean>;
 		getVersion: () => string;
+		onFullScreenChange: (callback: (isFull: boolean) => void) => void;
 	};
 
 	mapCacheLoader: {

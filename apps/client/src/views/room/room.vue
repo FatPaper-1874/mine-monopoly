@@ -313,7 +313,7 @@ async function handleUploadMap() {
 
 <style lang="scss" scoped>
 .room-page {
-	width: 80vw;
+	width: 80%;
 	height: 80%;
 	padding: 1.2rem;
 	margin: auto;

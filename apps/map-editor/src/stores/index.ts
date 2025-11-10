@@ -9,6 +9,7 @@ import {
 	Role,
 	GameMapInfo,
 	SemVer,
+	CustomUI,
 } from "@fatpaper-monopoly/types/interfaces/game/item";
 import { eventBus } from "@src/utils/event-bus";
 import { getInitPhase } from "../views/map-editor/components/manager/process-manager/utils/init-phase";
@@ -33,6 +34,7 @@ export const useMapDataStore = defineStore("MapData", {
 		mapEvents: [],
 		phases: getInitPhase(),
 		buildingModelIdList: ["", "", ""],
+		customUIs: [],
 	}),
 	actions: {
 		// MapInfo
@@ -212,7 +214,7 @@ export const useMapDataStore = defineStore("MapData", {
 		findRoleById(id: string) {
 			return this.roles.find((r) => r.id === id);
 		},
-		reomveRole(id: string) {
+		removeRole(id: string) {
 			const deleteIndex = this.roles.findIndex((r) => r.id === id);
 			if (deleteIndex < 0) throw Error("找不到目标角色");
 			const resourceId = this.roles[deleteIndex].imageId;
@@ -224,6 +226,21 @@ export const useMapDataStore = defineStore("MapData", {
 		updateMapIndex(indexs: string[]) {
 			this.mapIndex = indexs;
 			eventBus.emit("map-index-update", indexs);
+		},
+
+		//customUI
+		saveCustomUI(customUI: CustomUI) {
+			const old = this.customUIs.find((c) => c.id === customUI.id);
+			if (old) {
+				Object.assign(old, customUI);
+			} else {
+				this.customUIs.push(customUI);
+			}
+		},
+		removeCustomUI(id: string) {
+			const deleteIndex = this.customUIs.findIndex((c) => c.id === id);
+			if (deleteIndex < 0) throw Error("找不到目标UI");
+			this.customUIs.splice(deleteIndex, 1);
 		},
 	},
 });

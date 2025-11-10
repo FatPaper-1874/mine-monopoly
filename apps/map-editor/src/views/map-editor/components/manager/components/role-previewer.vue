@@ -44,7 +44,7 @@ function handleEdit() {
 }
 
 function handleDelete() {
-	useMapDataStore().reomveRole(props.role.id);
+	useMapDataStore().removeRole(props.role.id);
 }
 
 onBeforeUnmount(() => {

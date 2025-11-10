@@ -8,7 +8,8 @@ electron.contextBridge.exposeInMainWorld("electronAPI", {
   maximize: () => electron.ipcRenderer.send("window-maximize"),
   unmaximize: () => electron.ipcRenderer.send("window-unmaximize"),
   close: () => electron.ipcRenderer.send("window-close"),
-  getVersion: () => version
+  getVersion: () => version,
+  onFullScreenChange: (callback) => electron.ipcRenderer.on("fullscreen-changed", (_, isFull) => callback(isFull))
 });
 electron.contextBridge.exposeInMainWorld("mapCacheLoader", {
   async save(mapId, hash, arrayBuffer) {

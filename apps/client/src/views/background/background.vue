@@ -27,9 +27,6 @@ const isRoll = computed(() => !useDeviceStatus().isMobile);
 
 <template>
 	<div class="background">
-		<!-- <button class="rool-button" @click="isRoll = !isRoll">
-      <FontAwesomeIcon :icon="isRoll ? 'toilet-paper' : 'toilet-paper-slash'" />
-    </button> -->
 		<div class="row" :style="{ 'animation-play-state': isRoll ? 'running' : 'paused' }" v-for="i in 8" :key="i">
 			<FontAwesomeIcon class="icon" v-for="item in getDoubleSvgList(7)" :icon="item" />
 		</div>
@@ -38,27 +35,15 @@ const isRoll = computed(() => !useDeviceStatus().isMobile);
 
 <style lang="scss" scoped>
 .background {
-	position: fixed;
+	position: absolute;
 	top: 0;
 	left: 0;
-	width: 100vw;
-	height: 100vh;
+	width: 100%;
+	height: 100%;
 	z-index: var(--z-background);
 	filter: blur(1px);
-
-	.rool-button {
-		$button_size: 3rem;
-
-		position: fixed;
-		top: 0;
-		right: 0;
-		z-index: calc(var(--z-background) + 1);
-		width: $button_size;
-		height: $button_size;
-		margin: 0.5rem;
-		box-shadow: var(--box-shadow);
-		border: 0.25rem solid var(--color-third);
-	}
+	overflow: hidden;
+	background-color: var(--color-third);
 
 	.row {
 		width: 200vw;

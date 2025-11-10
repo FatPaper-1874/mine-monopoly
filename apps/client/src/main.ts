@@ -128,7 +128,7 @@ library.add(
 	faWindowMaximize,
 	faXmark,
 	faGhost,
-	faUpload,
+	faUpload
 );
 const pinia = createPinia();
 
@@ -144,6 +144,7 @@ initSettingStore();
 
 import { gsap } from "gsap";
 import MotionPathPlugin from "gsap/MotionPathPlugin";
+import { isPC } from "./utils/platform";
 
 gsap.registerPlugin(MotionPathPlugin);
 
@@ -174,6 +175,12 @@ function initDeviceStatusListener() {
 	window.addEventListener("fullscreenchange", (e) => {
 		deviceStatus.isFullScreen = _isFullScreen();
 	});
+
+	if (isPC()) {
+		window.electronAPI.onFullScreenChange((isFull) => {
+			deviceStatus.isFullScreen = isFull;
+		});
+	}
 
 	window.addEventListener("resize", (e) => {
 		deviceStatus.isLandscape = _isLandscape();
