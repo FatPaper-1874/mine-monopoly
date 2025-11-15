@@ -1,39 +1,27 @@
 <script setup lang="ts">
 import { PropertyInfo } from "@fatpaper-monopoly/types";
-import { PropertyLevel } from "@src/utils/var";
-import { computed, ref } from "vue";
 
 const { property } = defineProps<{ property: PropertyInfo | null }>();
-
-const _propertyBuildLevelColor = computed(() => PropertyLevel[_property.value?.level || 0].color);
-const _propertyBuildLevelName = computed(() => PropertyLevel[_property.value?.level || 0].name);
-const _property = ref<PropertyInfo | null>(property);
 </script>
 
 <template>
-	<div class="property-info" v-if="_property">
+	<div class="property-info" v-if="property">
 		<div class="name">
-			<span class="data">{{ _property.name }}</span>
+			<span class="data">{{ property.name }}</span>
 		</div>
 
 		<div class="buildingLevel">
 			<span class="label">当前建筑等级</span
-			><span class="data" :style="{ color: _propertyBuildLevelColor }">{{ _propertyBuildLevelName }}</span>
+			><span class="data">LV {{ property.level }}</span>
 		</div>
 		<div class="buildCost">
-			<span class="label">升级费用</span><span class="data">{{ _property.buildCost }}</span>
+			<span class="label">升级费用</span><span class="data">{{ property.buildCost }}</span>
 		</div>
 		<div class="sellCost">
-			<span class="label">空地价格</span><span class="data">{{ _property.sellCost }}</span>
+			<span class="label">空地价格</span><span class="data">{{ property.sellCost }}</span>
 		</div>
-		<div class="cost_lv0">
-			<span class="label">{{ PropertyLevel[0].name }}过路费</span><span class="data">{{ _property.cost_lv0 }}</span>
-		</div>
-		<div class="cost_lv1">
-			<span class="label">{{ PropertyLevel[1].name }}过路费</span><span class="data">{{ _property.cost_lv1 }}</span>
-		</div>
-		<div class="cost_lv2">
-			<span class="label">{{ PropertyLevel[2].name }}过路费</span><span class="data">{{ _property.cost_lv2 }}</span>
+		<div class="cost_item" v-for="(cost, index) in property.costList">
+			<span class="label">LV{{ index }} 过路费</span><span class="data">{{ cost }}</span>
 		</div>
 	</div>
 </template>

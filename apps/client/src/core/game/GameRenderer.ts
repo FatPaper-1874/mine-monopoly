@@ -599,8 +599,12 @@ export class GameRenderer {
 		if (!targetMapItem) return;
 		const targetMapItemModel = this.mapItemsInScene.get(targetMapItem?.id);
 		if (!targetMapItemModel) return;
-		const buildModel = this.mapModules.get(mapInfo.buildingModelIdList[newProperty.level])?.clone();
+		let buildModel = this.mapModules.get(mapInfo.buildingModelIdList[newProperty.level]);
+		if (!buildModel) {
+			buildModel = this.mapModules.get(mapInfo.buildingModelIdList[mapInfo.buildingModelIdList.length - 1]);
+		}
 		if (!buildModel) return;
+		buildModel = buildModel.clone();
 		buildModel.position.copy(targetMapItemModel.position);
 		buildModel.position.y += BLOCK_HEIGHT;
 		buildModel.scale.copy(targetMapItemModel.scale);
@@ -656,7 +660,7 @@ export class GameRenderer {
 			onComplete: () => {
 				const houseItem = this.housesItems.get(newProperty.id);
 				if (houseItem) {
-					const costList = [newProperty.cost_lv0, newProperty.cost_lv1, newProperty.cost_lv2];
+					const costList = newProperty.costList;
 					if (newProperty.owner) {
 						houseItem.textSprite.updateText(
 							`${newProperty.name}\n过路费: ${Math.round(

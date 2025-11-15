@@ -131,10 +131,7 @@ export interface IGameRuntimeStack<Context extends GameContext> {
 	pop(): GameEvent<Context> | undefined;
 }
 
-export type GameEventFunction<Context extends GameContext> = (
-	ctx: Context,
-	gameProcess: IGameProcess,
-) => Promise<void>;
+export type GameEventFunction<Context extends GameContext> = (ctx: Context, gameProcess: IGameProcess) => Promise<void>;
 
 // 游戏事件--游戏循环中的最基础的单位
 export type GameEvent<Context extends GameContext> = {
@@ -238,9 +235,7 @@ export interface IProperty {
 	getBuildingLevel: () => number;
 	getBuildCost: () => number;
 	getSellCost: () => number;
-	getCost_lv0: () => number;
-	getCost_lv1: () => number;
-	getCost_lv2: () => number;
+	getCostList: () => number[];
 	getOwner: () => IPlayer | undefined;
 	getPassCost: () => number;
 
@@ -289,9 +284,8 @@ export interface PropertyInfo {
 	sellCost: number;
 	buildCost: number;
 	level: number;
-	cost_lv0: number;
-	cost_lv1: number;
-	cost_lv2: number;
+	maxLevel: number;
+	costList: number[];
 	buildingModelIdList?: string[];
 	effectCode?: string;
 	streetId: string;

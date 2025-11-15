@@ -96,6 +96,7 @@ export const useMapDataStore = defineStore("MapData", {
 				if (!taget) return;
 				eventBus.emit("map-item-unlink", id);
 				taget.beLinked = undefined;
+				taget.property = undefined;
 				mapItem.linkto = undefined;
 			}
 			if (mapItem.beLinked) {
@@ -104,6 +105,7 @@ export const useMapDataStore = defineStore("MapData", {
 				eventBus.emit("map-item-unlink", mapItem.beLinked);
 				taget.linkto = undefined;
 				mapItem.beLinked = undefined;
+				mapItem.property = undefined;
 			}
 		},
 

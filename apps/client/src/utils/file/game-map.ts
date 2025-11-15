@@ -47,7 +47,7 @@ export async function loadGameMapFromServer(mapId: string) {
 export async function loadGameMapFromFile(file: ArrayBuffer) {
 	useLoading().showLoading("正在读取地图...");
 	const mapData = await loadFromProto(new Uint8Array(file));
-	console.log("🚀 ~ loadGameMapFromFile ~ mapData:", mapData)
+	console.log("🚀 ~ loadGameMapFromFile ~ mapData:", mapData);
 	const gameMap = JSON.parse(mapData.jsonData) as GameMap;
 	useMapData().$patch(gameMap);
 	await loadMapDataToResourceStore(mapData);
@@ -56,6 +56,7 @@ export async function loadGameMapFromFile(file: ArrayBuffer) {
 	const mapInfo: GameMapInDb = {
 		id: gameMap.id,
 		name: gameMap.info.name,
+		author: gameMap.info.author,
 		version: gameMap.info.version,
 		hash: "",
 		coverUrl: coverResource.url,

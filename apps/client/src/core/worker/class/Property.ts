@@ -5,10 +5,9 @@ export class Property implements IProperty {
 	private name: string;
 	private buildCost: number;
 	private level: number;
+	private maxLevel: number;
 	private sellCost: number;
-	private cost_lv0: number;
-	private cost_lv1: number;
-	private cost_lv2: number;
+	private costList: number[];
 	private streetId: string;
 	private owner: IPlayer | undefined = undefined;
 
@@ -18,9 +17,8 @@ export class Property implements IProperty {
 		this.level = 0;
 		this.buildCost = property.buildCost;
 		this.sellCost = property.sellCost;
-		this.cost_lv0 = property.cost_lv0;
-		this.cost_lv1 = property.cost_lv1;
-		this.cost_lv2 = property.cost_lv2;
+		this.costList = property.costList;
+		this.maxLevel = property.maxLevel;
 		this.streetId = property.streetId;
 	}
 
@@ -29,13 +27,11 @@ export class Property implements IProperty {
 	public getBuildingLevel = () => this.level;
 	public getBuildCost = () => this.buildCost;
 	public getSellCost = () => this.sellCost;
-	public getCost_lv0 = () => this.cost_lv0;
-	public getCost_lv1 = () => this.cost_lv1;
-	public getCost_lv2 = () => this.cost_lv2;
+	public getCostList = () => this.costList;
 	public getOwner = () => this.owner;
 
 	public buildUp() {
-		if (this.level < 2) {
+		if (this.level < this.maxLevel) {
 			this.level++;
 		}
 	}
@@ -56,16 +52,7 @@ export class Property implements IProperty {
 	}
 
 	public getPassCost(): number {
-		switch (this.level) {
-			case 1:
-				return this.cost_lv1;
-				break;
-			case 2:
-				return this.cost_lv2;
-				break;
-			default:
-				return this.cost_lv0;
-		}
+		return this.costList[this.level];
 	}
 
 	public getPropertyInfo(): PropertyInfo {
@@ -74,11 +61,10 @@ export class Property implements IProperty {
 			id: this.id,
 			name: this.name,
 			level: this.level,
+			maxLevel: this.maxLevel,
 			buildCost: this.buildCost,
 			sellCost: this.sellCost,
-			cost_lv0: this.cost_lv0,
-			cost_lv1: this.cost_lv1,
-			cost_lv2: this.cost_lv2,
+			costList: this.costList,
 			streetId: this.streetId,
 			owner: owner ? owner.getUser() : undefined,
 		};

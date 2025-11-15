@@ -581,9 +581,7 @@ interface IProperty {
 	getBuildingLevel: () => number;
 	getBuildCost: () => number;
 	getSellCost: () => number;
-	getCost_lv0: () => number;
-	getCost_lv1: () => number;
-	getCost_lv2: () => number;
+	getCostList: () => number[];
 	getOwner: () => IPlayer | undefined;
 	getPassCost: () => number;
 	buildUp: () => void;
@@ -621,9 +619,8 @@ interface PropertyInfo {
 	sellCost: number;
 	buildCost: number;
 	level: number;
-	cost_lv0: number;
-	cost_lv1: number;
-	cost_lv2: number;
+	maxLevel: number;
+	costList: number[];
 	buildingModelIdList?: string[];
 	effectCode?: string;
 	streetId: string;

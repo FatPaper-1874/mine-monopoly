@@ -4,7 +4,6 @@ import { __PROTOCOL__ } from "@src/../global.config";
 import { computed } from "vue";
 import ChanceCard from "./chance-card.vue";
 import BuffItem from "./buff-item.vue";
-import { PropertyLevel } from "@src/utils/var";
 import { PlayerInfo } from "@fatpaper-monopoly/types";
 import { useRoomInfo } from "@src/store";
 import { useGameData } from "@src/store/game";
@@ -50,9 +49,7 @@ const chanceCardVisible = computed(() => {
 					<div class="properyies-list">
 						<div class="property-item" v-for="property in playersPropertyies" :key="property.id">
 							<div class="name">{{ property.name }}</div>
-							<div class="level" :style="{ color: PropertyLevel[property.level].color }">
-								{{ PropertyLevel[property.level].name }}
-							</div>
+							<div class="level">LV {{ property.level }}</div>
 						</div>
 					</div>
 				</div>
@@ -187,6 +184,10 @@ const chanceCardVisible = computed(() => {
 
 						& > .name {
 							color: var(--color-second);
+						}
+
+						& > .level {
+							color: var(--color-primary);
 						}
 					}
 				}

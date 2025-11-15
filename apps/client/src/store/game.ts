@@ -38,6 +38,7 @@ export const useMapData = defineStore("map-data", {
 		id: crypto.randomUUID(),
 		info: {
 			name: "",
+			author: "",
 			version: "0.0.0",
 			backgroundImageId: "",
 			coverImageId: "",
@@ -51,6 +52,7 @@ export const useMapData = defineStore("map-data", {
 		inUse: false,
 		mapEvents: [],
 		buildingModelIdList: ["", "", ""],
+		customUIs: [],
 	}),
 	actions: {
 		getMapEventByMapItemId(mapItemId: string) {
@@ -93,8 +95,9 @@ export const useMapData = defineStore("map-data", {
 });
 
 export const useGameData = defineStore("game-data", {
-	state: ():GameData => {
+	state: (): GameData => {
 		return {
+			extra: {},
 			currentPlayerIdInRound: "",
 			currentRound: 0,
 			currentMultiplier: 0,
@@ -124,7 +127,7 @@ export const useGameData = defineStore("game-data", {
 			const oldGameData = JSON.parse(JSON.stringify(this.$state)) as GameData;
 
 			this.$patch(newGamedata);
-			
+
 			compareObjectArrays(oldGameData.playersList, newGamedata.playersList, "id", (itemId, key, oldValue, newValue) => {
 				eventBus.emit(`player-${key}`, itemId, oldValue, newValue);
 			});
