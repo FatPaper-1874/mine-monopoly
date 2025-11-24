@@ -13,6 +13,33 @@ import { TitleBar } from "@fatpaper-monopoly/ui";
 import { isPC } from "./utils/platform";
 import { throttle } from "lodash";
 import { useDeviceStatus } from "./store";
+import {
+	faBolt,
+	faBomb,
+	faBook,
+	faBookTanakh,
+	faBug,
+	faCircleUser,
+	faCode,
+	faCompress,
+	faCopy,
+	faCrown,
+	faGamepad,
+	faGear,
+	faHeart,
+	faHouse,
+	faPalette,
+	faPersonRunning,
+	faQuestion,
+	faSackDollar,
+	faShuffle,
+	faSquareCheck,
+	faVolumeHigh,
+	faVolumeLow,
+	faWandMagicSparkles,
+	faWandSparkles,
+} from "@fortawesome/free-solid-svg-icons";
+import { icon } from "@fortawesome/fontawesome-svg-core";
 
 const isMobile = isMobileDevice();
 const router = useRoute();
@@ -77,6 +104,35 @@ function resizeContainer() {
 		document.documentElement.style.fontSize = `${availableWidth * fontSizeBase}px`;
 	}
 }
+
+const backgroundSvgList: string[] = [
+	faBolt,
+	faBomb,
+	faHeart,
+	faHouse,
+	faPalette,
+	faSackDollar,
+	faWandMagicSparkles,
+	faBug,
+	faCode,
+	faCircleUser,
+	faGamepad,
+	faCopy,
+	faBookTanakh,
+	faCompress,
+	faCrown,
+	faPersonRunning,
+	faWandSparkles,
+	faGear,
+	faSquareCheck,
+	faVolumeLow,
+	faVolumeHigh,
+	faQuestion,
+	faBook,
+	faShuffle,
+].map((i) => {
+	return icon(i).html[0];
+});
 </script>
 
 <template>
@@ -90,7 +146,18 @@ function resizeContainer() {
 			<!-- <FullScreenMask v-if="isMobile" /> -->
 			<Chat v-if="canChat" />
 			<DanmakuContainer v-if="canChat" />
-			<Background v-if="!isInGame" />
+			<Background
+				background-color="var(--color-third)"
+				color="var(--color-second)"
+				:icons="backgroundSvgList"
+				:icon-size="70"
+				:angle="40"
+				:speed="60"
+				:gap="100"
+				:opacity-range="[0.8, 0.8]"
+				:scale-range="[1, 1]"
+				v-if="!isInGame"
+			/>
 			<Loading />
 			<StatusBar />
 			<!-- <MusicPlayer v-if="isMusicPlayerVisiable" /> -->
