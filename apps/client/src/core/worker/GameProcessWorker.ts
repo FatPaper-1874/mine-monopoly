@@ -188,7 +188,7 @@ export class GameProcess implements IGameProcess {
 				mapItem.property.custom.effectCode = `return ${mapItem.property.custom.effectCode}`;
 			}
 		}
-		
+
 		Object.values(phases).forEach((phaseList) => {
 			for (const phase of phaseList) {
 				phase.initEventCode = `return ${phase.initEventCode}`;
@@ -669,12 +669,11 @@ export class GameProcess implements IGameProcess {
 				}
 			}
 		} else if (arriveItem.mapEventId) {
-			const mapEvent = this.mapData.mapEvents.find((e) => e.id === arriveItem.mapEventId);
+			const mapEvent = this.mapEvents.get(arriveItem.mapEventId);
 			if (!mapEvent) throw Error("找不到对应的MapEvent");
 			const effectCode = mapEvent.effectCode;
 			if (effectCode) {
-				const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
-				const arrivedFunction = new AsyncFunction("arrivedPlayer", "gameProcess", effectCode);
+				const arrivedFunction = new Function(effectCode)();
 				await arrivedFunction(arrivedPlayer, this);
 				this.gameMsgNotifyBroadcast("info", `${arrivedPlayer.getName()} 踩到了特殊地块: ${mapEvent.name}`);
 				this.gameLogBroadcast(
