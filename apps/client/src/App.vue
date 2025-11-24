@@ -153,8 +153,8 @@ const backgroundSvgList: string[] = [
 				:icon-size="70"
 				:angle="40"
 				:speed="60"
-				:gap="100"
-				:opacity-range="[0.8, 0.8]"
+				:gap="80"
+				:opacity-range="[0.5, 0.5]"
 				:scale-range="[1, 1]"
 				v-if="!isInGame"
 			/>
