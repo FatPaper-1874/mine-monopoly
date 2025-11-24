@@ -237,40 +237,40 @@ export class Player implements IPlayer {
 	}
 
 	//游戏Action
-	public gainProperty(property: IProperty) {
-		this.commandBus.execute({ type: "player.property.gain", payload: { property } });
+	public async gainProperty(property: IProperty) {
+		await this.commandBus.execute({ type: "player.property.gain", payload: { property } });
 	}
 
-	public loseProperty(property: IProperty) {
-		this.commandBus.execute({ type: "player.property.lose", payload: { property } });
+	public async loseProperty(property: IProperty) {
+		await this.commandBus.execute({ type: "player.property.lose", payload: { property } });
 	}
 
 	public async gainCard(card: IChanceCard) {
-		this.commandBus.execute({ type: "player.card.gain", payload: { card } });
+		await this.commandBus.execute({ type: "player.card.gain", payload: { card } });
 	}
 
 	public async loseCard(cardId: string) {
-		this.commandBus.execute({ type: "player.card.lose", payload: { cardId } });
+		await this.commandBus.execute({ type: "player.card.lose", payload: { cardId } });
 	}
 
-	public gain(money: number, source?: IPlayer) {
-		this.commandBus.execute({ type: "player.money.gain", payload: { money, source } });
+	public async gain(money: number, source?: IPlayer) {
+		await this.commandBus.execute({ type: "player.money.gain", payload: { money, source } });
 	}
 
-	public cost(money: number, target?: IPlayer) {
-		this.commandBus.execute({ type: "player.money.lose", payload: { money, target } });
+	public async cost(money: number, target?: IPlayer) {
+		await this.commandBus.execute({ type: "player.money.lose", payload: { money, target } });
 	}
 
-	public bankrupted(isBankrupted: boolean) {
-		this.commandBus.execute({ type: "player.bankrupted.set", payload: { bankrupted: isBankrupted } });
+	public async bankrupted(isBankrupted: boolean) {
+		await this.commandBus.execute({ type: "player.bankrupted.set", payload: { bankrupted: isBankrupted } });
 	}
 
 	public async walk(steps: number): Promise<void> {
-		this.commandBus.execute({ type: "player.walk", payload: { steps } });
+		await this.commandBus.execute({ type: "player.walk", payload: { steps } });
 	}
 
 	public async tp(positionIndex: number): Promise<void> {
-		this.commandBus.execute({ type: "player.tp", payload: { positionIndex } });
+		await this.commandBus.execute({ type: "player.tp", payload: { positionIndex } });
 	}
 
 	public registerModifier(modifier: IModifier<PlayerCommandMap>) {
