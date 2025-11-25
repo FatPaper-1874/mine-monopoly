@@ -21,6 +21,8 @@ function handleConfirm() {
 }
 
 onMounted(() => {
+	console.log("🚀 ~ props.content:", props.content);
+	console.log("🚀 ~ isVNode(props.content):", isVNode(props.content));
 	if (!ContentContainer.value) return;
 	if (isVNode(props.content)) {
 		render(props.content, ContentContainer.value);
@@ -35,7 +37,7 @@ onMounted(() => {
 				<span>{{ title }}</span>
 			</div>
 			<div ref="ContentContainer" class="fp-message-box__content">
-				<template v-if="!isVNode(props.content)" v-html="props.content"></template>
+				<div v-if="!isVNode(content)" v-html="content"></div>
 			</div>
 			<div class="fp-message-box__footer">
 				<button class="confirm__btn" @click="handleConfirm">{{ confirmText }}</button>

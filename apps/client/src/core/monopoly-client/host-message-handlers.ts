@@ -32,7 +32,6 @@ import { GameMap } from "@fatpaper-monopoly/utils/protos/game-map";
 import { loadGameMapFromFile, loadGameMapFromServer } from "@src/utils/file/game-map";
 import { base64ToArrayBuffer } from "@fatpaper-monopoly/utils";
 import { showTargetSelector } from "@src/components/common/target-seletor";
-import { TargetSelectResult } from "../../../../../packages/types/interfaces/game/game-process";
 
 type ServerMessageHandler<T extends SocketMsgType> = (
 	msg: SocketMessage<T, SocketMsgSource.Server>,
@@ -347,10 +346,7 @@ const handleGameResume: ServerMessageHandler<SocketMsgType.ResumeGame> = () => {
 
 const handleConfirmDialog: ServerMessageHandler<SocketMsgType.ConfirmDialog> = (msg, client) => {
 	const data = msg.data;
-	FPMessageBox({
-		title: data.option.title,
-		content: data.option.content,
-	})
+	FPMessageBox(data.option)
 		.then(() => {
 			client.sendMsg({
 				type: SocketMsgType.Operation,
