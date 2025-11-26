@@ -128,6 +128,10 @@ export class GameProcess implements IGameProcess {
 
 	public diceUtil: Dice;
 
+	public gameOverRuleFunction = async () => {
+		return false;
+	};
+
 	constructor(mapData: GameMap, gameSetting: GameSetting, userList: UserInRoomInfo[], roomOwnerId: string) {
 		this.mapData = mapData;
 		this.gameSetting = gameSetting;
@@ -165,6 +169,7 @@ export class GameProcess implements IGameProcess {
 			roundStartPhase: mapData.phases.gameRoundStart.map((phaseInfo) => new GamePhase(phaseInfo)),
 			roundEndPhase: mapData.phases.gameRoundEnd.map((phaseInfo) => new GamePhase(phaseInfo)),
 		};
+		this.initGameOverRuleFunction();
 		this.initMap();
 		this.initPlayer();
 		this.runInitedPhase();
@@ -195,6 +200,14 @@ export class GameProcess implements IGameProcess {
 				phase.initEventCode = `return ${phase.initEventCode}`;
 			}
 		});
+	}
+
+	private initGameOverRuleFunction() {
+		const { phases } = this.mapData;
+		const gameOverRule = phases.gameOverRule;
+		const compiledCode = compileTsToJs(gameOverRule[0].initEventCode, GameProcessTypes);
+		this.gameOverRuleFunction = new Function(compiledCode)() as () => Promise<boolean>;
+		console.log("🚀 ~ GameProcess ~ initGameOverRuleFunction ~ this.gameOverRuleFunction:", this.gameOverRuleFunction);
 	}
 
 	private initMap() {
@@ -759,7 +772,10 @@ export class GameProcess implements IGameProcess {
 
 	public async runGamePhase(phase: IGamePhase<GameContext>, context?: GameContext) {
 		this.currentGamePhase = phase;
-		this.gameRuntimeStack.push(...phase.getEventQueue().reverse());
+		const checkGameOverEvent = {
+			fn: this.checkGameOver.bind(this),
+		};
+		this.gameRuntimeStack.push(...[checkGameOverEvent, ...phase.getEventQueue().reverse()]);
 		await this.gameRuntimeStack.run(context, this);
 	}
 
@@ -821,6 +837,26 @@ export class GameProcess implements IGameProcess {
 
 		await this.waitInitFinished();
 		await this.gameLoop();
+	}
+
+	public async checkGameOver(): Promise<void> {
+		const isGameOver = await this.gameOverRuleFunction();
+		if (isGameOver) this.gameOver();
+	}
+
+	private gameOver() {
+		this.gameInfoBroadcast();
+		this.gameBroadcast({
+			type: SocketMsgType.GameOver,
+			source: SocketMsgSource.Server,
+			data: undefined,
+			msg: { content: "游戏结束", type: "info" },
+		});
+		self.postMessage(<WorkerCommMsg>{
+			type: WorkerCommType.GameOver,
+		});
+		this.isGameOver = true;
+		this.destroy();
 	}
 
 	public messageNotify(
@@ -899,5 +935,17 @@ export class GameProcess implements IGameProcess {
 			Array.from(this.players.values()).map((p) => p.getId()),
 			msg
 		);
+	}
+
+	public destroy() {
+		this.players.keys().forEach((playerId) => {
+			operationListener.removeAll(playerId);
+		});
+		this.intervalTimerList.forEach((id) => {
+			clearInterval(id);
+		});
+		this.timeoutList.forEach((id) => {
+			clearTimeout(id);
+		});
 	}
 }

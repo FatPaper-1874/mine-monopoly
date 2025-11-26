@@ -173,6 +173,7 @@ interface GameMap {
 	inUse: boolean;
 	mapEvents: MapEvent[];
 	phases: {
+		gameOverRule: GamePhaseInfo[];
 		gameInited: GamePhaseInfo[];
 		gameRoundStart: GamePhaseInfo[];
 		playerRound: GamePhaseInfo[];
@@ -520,6 +521,7 @@ interface IGameProcess {
 	gameRuntimeStack: IGameRuntimeStack<GameContext>;
 	roundTimeTimer: IRoundTimeTimer;
 	diceUtil: IDice;
+	gameOverRuleFunction: () => Promise<boolean>;
 	handlePlayerRollDice(playerId: string): Promise<void>;
 	handleArriveEvent(arrivedPlayer: IPlayer): Promise<void>;
 	handleUseChanceCard(sourcePlayer: IPlayer, chanceCardId: string, targetIdList: string[]): Promise<boolean>;
@@ -541,6 +543,7 @@ interface IGameProcess {
 	gameBroadcast(msg: ServerSocketMessage): void;
 	showConfirmDialog<I extends InputOptionItem<string, any>[]>(playerId: string, option: ConfirmDialogOption<I>): Promise<ConfirmDialogResult<I>>;
 	showTargetSelectDialog<I extends TargetSelectType>(playerId: string, option: SelectDialogOption<I>): Promise<SelectDialogResult<I>>;
+	checkGameOver(): Promise<void>;
 }
 interface DialogOption {
 	title: string;

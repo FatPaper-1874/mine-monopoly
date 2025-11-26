@@ -6,6 +6,7 @@ export function getInitPhase() {
 	const playerRoundPhases: GamePhaseInfo[] = new Array<GamePhaseInfo>();
 	const gameRoundEndPhases: GamePhaseInfo[] = new Array<GamePhaseInfo>();
 	const gameInitedPhases: GamePhaseInfo[] = [gameInitedPhase];
+	const gameOverRule: GamePhaseInfo[] = [gameOverRulePhase];
 
 	gameRoundStartPhases.push(gameRoundStartPhase);
 	playerRoundPhases.push(playerRoundStartPhase);
@@ -15,6 +16,7 @@ export function getInitPhase() {
 	playerRoundPhases.push(playerRoundEndPhase);
 	gameRoundEndPhases.push(gameRoundEndPhase);
 	return {
+		gameOverRule: gameOverRule,
 		gameInited: gameInitedPhases,
 		gameRoundStart: gameRoundStartPhases,
 		playerRound: playerRoundPhases,
@@ -22,13 +24,24 @@ export function getInitPhase() {
 	};
 }
 
+const gameOverRulePhase: GamePhaseInfo = {
+	id: crypto.randomUUID(),
+	name: "游戏结束判定规则",
+	description: "游戏结束判定规则, 返回一个布尔值, 当返回值为true时游戏结束",
+	from: "系统",
+	mark: GamePhaseMark.GameRoundStart,
+	initEventCode: `(async (context: GameContext, gameProcess: IGameProcess) => {
+	return false;
+});`,
+};
+
 const gameInitedPhase: GamePhaseInfo = {
 	id: crypto.randomUUID(),
 	name: "游戏初始化结束",
 	description: "游戏初始化结束阶段",
 	from: "系统",
 	mark: GamePhaseMark.GameRoundStart,
-	initEventCode: `return (async (context, gameProcess) => {
+	initEventCode: `(async (context, gameProcess) => {
 
 }) as GameEventFunction<GameContext>;`,
 };
@@ -39,7 +52,7 @@ const gameRoundStartPhase: GamePhaseInfo = {
 	description: "轮次开始阶段",
 	from: "系统",
 	mark: GamePhaseMark.GameRoundStart,
-	initEventCode: `return (async (context, gameProcess) => {
+	initEventCode: `(async (context, gameProcess) => {
 
 }) as GameEventFunction<GameRoundStartContext>;`,
 };
@@ -50,7 +63,7 @@ const playerRoundStartPhase: GamePhaseInfo = {
 	description: "玩家回合开始阶段",
 	from: "系统",
 	mark: GamePhaseMark.PlayerRoundStart,
-	initEventCode: `return (async (context, gameProcess) => {
+	initEventCode: `(async (context, gameProcess) => {
     console.log("玩家回合开始")
 	//通知玩家回合
 	gameProcess.roundTurnNotify(context.currentRoundPlayer.getId());
@@ -65,7 +78,7 @@ const rollDicePhase: GamePhaseInfo = {
 	description: "玩家操作阶段",
 	from: "系统",
 	mark: GamePhaseMark.RollDice,
-	initEventCode: `return (async (context, gameProcess) => {
+	initEventCode: `(async (context, gameProcess) => {
 	const currentPlayer = context.currentRoundPlayer;
 	const currentPlayerId = currentPlayer.getId();
 
@@ -133,7 +146,7 @@ const playerMovePhase: GamePhaseInfo = {
 	description: "玩家移动阶段",
 	from: "系统",
 	mark: GamePhaseMark.PlayerMove,
-	initEventCode: `return (async (context, gameProcess) => {
+	initEventCode: `(async (context, gameProcess) => {
 	//玩家移动
 	const player = context.currentRoundPlayer;
 	await player.walk(context.dice.reduce((p, c) => p + c, 0));
@@ -147,7 +160,7 @@ const arrivedEventPhase: GamePhaseInfo = {
 	description: "到达事件阶段",
 	from: "系统",
 	mark: GamePhaseMark.ArrivedEvent,
-	initEventCode: `return (async (context, gameProcess) => {
+	initEventCode: `(async (context, gameProcess) => {
 	const player = context.currentRoundPlayer;
 	await gameProcess.handleArriveEvent(player);
 }) as GameEventFunction<ArrivedEventContext>;`,
@@ -159,7 +172,7 @@ const playerRoundEndPhase: GamePhaseInfo = {
 	description: "玩家回合结束阶段",
 	from: "系统",
 	mark: GamePhaseMark.PlayerRoundEnd,
-	initEventCode: `return (async (context, gameProcess) => {
+	initEventCode: `(async (context, gameProcess) => {
 	
 }) as GameEventFunction<PlayerRoundEndContext>;`,
 };
@@ -170,7 +183,7 @@ const gameRoundEndPhase: GamePhaseInfo = {
 	description: "轮次结束阶段",
 	from: "系统",
 	mark: GamePhaseMark.GameRoundEnd,
-	initEventCode: `return (async (context, gameProcess) => {
+	initEventCode: `(async (context, gameProcess) => {
 	
 }) as GameEventFunction<GameRoundEndContext>;`,
 };

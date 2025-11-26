@@ -33,6 +33,7 @@ export interface IGameProcess {
 	gameRuntimeStack: IGameRuntimeStack<GameContext>;
 	roundTimeTimer: IRoundTimeTimer; //倒计时
 	diceUtil: IDice;
+	gameOverRuleFunction: () => Promise<boolean>;
 
 	handlePlayerRollDice(playerId: string): Promise<void>;
 	handleArriveEvent(arrivedPlayer: IPlayer): Promise<void>;
@@ -76,11 +77,12 @@ export interface IGameProcess {
 		playerId: string,
 		option: ConfirmDialogOption<I>
 	): Promise<ConfirmDialogResult<I>>;
-
 	showTargetSelectDialog<I extends TargetSelectType>(
 		playerId: string,
 		option: SelectDialogOption<I>
 	): Promise<SelectDialogResult<I>>;
+
+	checkGameOver(): Promise<void>;
 }
 
 interface DialogOption {

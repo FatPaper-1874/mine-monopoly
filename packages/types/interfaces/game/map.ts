@@ -13,6 +13,7 @@ export interface GameMap {
 	inUse: boolean;
 	mapEvents: MapEvent[];
 	phases: {
+		gameOverRule: GamePhaseInfo[];
 		gameInited: GamePhaseInfo[];
 		gameRoundStart: GamePhaseInfo[];
 		playerRound: GamePhaseInfo[];
