@@ -16,6 +16,7 @@ import RoleManager from "../manager/role-manager.vue";
 import DefaultBuildingManager from "../manager/default-building-manager.vue";
 import customUiManager from "../manager/custom-ui-manager/custom-ui-manager.vue";
 import mapDataViewer from "../common/map-data-viewer.vue";
+import GameSettingForm from "../manager/forms/game-setting-form/index.vue";
 import { eventBus } from "@src/utils/event-bus";
 import { addNewImage } from "@src/utils/file";
 
@@ -130,6 +131,13 @@ const buttonConfigs: ButtonConifg[] = [
 			mapDataViewerVisible.value = true;
 		},
 	},
+	{
+		text: "游戏参数",
+		icon: "fas fa-sliders-h",
+		onClick: () => {
+			gameSettingFormVisible.value = true;
+		},
+	},
 ];
 
 async function seleteMapBackgroundImage() {
@@ -153,6 +161,7 @@ const eventManagerVisible = ref(false);
 const chanceCardManagerVisible = ref(false);
 const customUIManagerVisible = ref(false);
 const mapDataViewerVisible = ref(false);
+const gameSettingFormVisible = ref(false);
 </script>
 
 <template>
@@ -229,6 +238,7 @@ const mapDataViewerVisible = ref(false);
 		<chance-card-manager v-model="chanceCardManagerVisible" />
 		<custom-ui-manager v-model="customUIManagerVisible" />
 		<map-data-viewer v-model="mapDataViewerVisible" />
+		<game-setting-form v-model="gameSettingFormVisible" />
 	</div>
 </template>
 

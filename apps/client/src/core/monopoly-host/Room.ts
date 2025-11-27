@@ -52,12 +52,8 @@ export class Room {
 		this.isStarted = false;
 		this.userList = new Map();
 		this.gameSetting = {
-			gameOverRule: GameOverRule.Earn100000,
 			initMoney: 20000,
-			multiplier: 0.5,
-			multiplierIncreaseRounds: 4,
 			roundTime: 20,
-			diceNum: 2,
 			chanceCardVisible: true,
 			overMoney: 100000,
 			slackOffMode: false,

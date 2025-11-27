@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { ChanceCardInfo, GameMap, PropertyInfo } from "@fatpaper-monopoly/types";
+import { ChanceCardInfo, FormSchema, GameMap, PropertyInfo } from "@fatpaper-monopoly/types";
 import { CameraMode, OperationMode } from "@src/enums";
 import {
 	MapItem,
@@ -35,6 +35,9 @@ export const useMapDataStore = defineStore("MapData", {
 		phases: getInitPhase(),
 		buildingModelIdList: ["", "", ""],
 		customUIs: [],
+		gameSettingForm: [
+			{ id: "initMoney", key: "initMoney", type: "number-input", label: "初始金钱", defaultValue: 10000 },
+		],
 	}),
 	actions: {
 		// MapInfo
@@ -243,6 +246,11 @@ export const useMapDataStore = defineStore("MapData", {
 			const deleteIndex = this.customUIs.findIndex((c) => c.id === id);
 			if (deleteIndex < 0) throw Error("找不到目标UI");
 			this.customUIs.splice(deleteIndex, 1);
+		},
+
+		//gameSettingForm
+		updateGameSettingFrom(form: FormSchema[]) {
+			this.gameSettingForm = form;
 		},
 	},
 });

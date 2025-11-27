@@ -22,6 +22,11 @@ export type GameContext = {
 	cancel?: boolean;
 } & Record<string, any>;
 
+
+export interface GameSetting {
+	[key: string]: any;
+}
+
 export interface IGameProcess {
 	extraData: Record<string, any>;
 	mapData: GameMap;

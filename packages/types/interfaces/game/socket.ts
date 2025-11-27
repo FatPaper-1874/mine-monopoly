@@ -5,6 +5,7 @@ import { GameMapInDb } from "./db";
 import {
 	ConfirmDialogOption,
 	GameData,
+	GameSetting,
 	InputOptionItem,
 	PlayerInfo,
 	PlayerOperationResult,
@@ -17,18 +18,6 @@ export type MonopolyWebSocketMsg = {
 	type: MonopolyWebSocketMsgType;
 	data: any;
 };
-
-export interface GameSetting {
-	gameOverRule: GameOverRule; //游戏结束的判定规则
-	initMoney: number; //初始金钱
-	multiplier: number; //倍率涨幅
-	multiplierIncreaseRounds: number; //上涨的回合数(隔x个回合上涨一次倍率)
-	roundTime: number;
-	diceNum: number;
-	chanceCardVisible: boolean;
-	overMoney: number;
-	slackOffMode: boolean;
-}
 
 export interface Music {
 	id: string;

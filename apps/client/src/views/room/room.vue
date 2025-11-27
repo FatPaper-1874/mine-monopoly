@@ -199,12 +199,7 @@ async function handleUploadMap() {
 						/>￥
 					</div>
 				</div>
-				<div class="options">
-					<span class="label">骰子数量</span>
-					<div>
-						<input :disabled="!isOwner" type="number" min="1" max="5" v-model="tempGameSettingFrom.diceNum" />个
-					</div>
-				</div>
+
 				<div class="options">
 					<span class="label">回合时间</span>
 					<div>
@@ -221,21 +216,6 @@ async function handleUploadMap() {
 							step="1000"
 							v-model="tempGameSettingFrom.initMoney"
 						/>￥
-					</div>
-				</div>
-				<div class="options">
-					<span class="label">倍率涨幅</span>
-					<div><input :disabled="!isOwner" type="number" min="0" v-model="tempGameSettingFrom.multiplier" />倍</div>
-				</div>
-				<div class="options">
-					<span class="label">涨幅频率</span>
-					<div>
-						<input
-							:disabled="!isOwner"
-							type="number"
-							min="1"
-							v-model="tempGameSettingFrom.multiplierIncreaseRounds"
-						/>回合
 					</div>
 				</div>
 				<div class="options">

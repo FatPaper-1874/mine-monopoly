@@ -18,3 +18,24 @@ export interface IDice {
 	/** 掷骰子 */
 	roll(): void;
 }
+
+export type ComponentType = "number-input" | "select";
+
+export interface SelectOption {
+	label: string;
+	value: string | number;
+}
+
+export interface FormSchema {
+	id: string; // 内部使用的唯一ID (UUID)
+	key: string; // 提交给后端的字段名 (例如 'age', 'role_id')
+	type: ComponentType; // 组件类型
+	label: string; // 标题
+	placeholder?: string;
+
+	// 默认值：可能是数字(输入框)或字符串/数字(下拉框)
+	defaultValue?: number | string;
+
+	// 仅 select 有效
+	options?: SelectOption[];
+}
