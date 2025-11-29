@@ -3,9 +3,9 @@ input {
   width: auto;
   outline-style: none;
   background-color: rgba(255, 255, 255, 0.8);
-  border-radius: 10px;
+  border-radius: .7rem;
   border: 0;
-  padding: 7px 10px;
+  padding: .5rem .7rem;
   box-sizing: border-box;
   font-size: 1em;
 
@@ -18,8 +18,52 @@ input {
   }
 }
 
+//select
+select {
+  width: auto;
+  outline-style: none;
+  background-color: rgba(255, 255, 255, 0.8);
+  border-radius: .7rem;
+  border: 0;
+  padding: .5rem .7rem;
+  /* 内边距 */
+  box-sizing: border-box;
+  font-size: 1rem;
+  padding-right: 1rem;
+  position: relative;
+  cursor: pointer;
+  appearance: none;
+  /* 移除默认外观（很重要，可以更好地控制样式） */
+  -moz-appearance: none;
+  /* 针对 Firefox */
+  -webkit-appearance: none;
+  /* 针对 WebKit 浏览器 */
+
+  background-image:
+    linear-gradient(45deg, transparent 50%, gray 50%),
+    linear-gradient(135deg, gray 50%, transparent 50%);
+  background-position:
+    calc(100% - 1rem) calc(1em + .1rem),
+    calc(100% - .8rem) calc(1em + .1rem);
+  background-size:
+    .25rem .25rem,
+    .25rem .25rem;
+  background-repeat: no-repeat;
+
+  &:focus {
+    outline: 0;
+    -webkit-box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075),
+      #ffb05c;
+    /* 橙色阴影 */
+    box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075),
+      #ffb05c;
+    /* 橙色阴影 */
+  }
+}
+
 //Button
-button, input[type="submit"] {
+button,
+input[type="submit"] {
   border: 0;
   font-size: 1.1rem;
   color: var(--color-text-white);

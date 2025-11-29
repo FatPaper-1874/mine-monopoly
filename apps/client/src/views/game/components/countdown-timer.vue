@@ -6,7 +6,8 @@ import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 const roomInfoStore = useRoomInfo();
 const utilStore = useUtil();
 
-const _roundTotalTime = roomInfoStore.gameSetting.roundTime;
+//TODO
+const _roundTotalTime = 20;
 const _waitingFor = computed(() => utilStore.waitingFor);
 const _timeOut = computed(() => utilStore.timeOut);
 

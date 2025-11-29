@@ -1,3 +1,4 @@
+import { FormSchema } from "@fatpaper-monopoly/types";
 import { isEqual } from "lodash";
 import * as THREE from "three";
 import * as ts from "typescript";
@@ -321,4 +322,16 @@ export function compareObjectArrays<T extends Record<string, any>>(
 			});
 		}
 	});
+}
+
+export function getDisplayValueByFormSchema(field: FormSchema, currentValue: any) {
+	switch (field.type) {
+		case "number-input":
+			return currentValue;
+			break;
+		case "select":
+			const selectOption = field.options!.find((o) => o.value === currentValue);
+			return selectOption?.label || "获取selectValue失败";
+			break;
+	}
 }

@@ -1,6 +1,7 @@
 import { MonopolyClient, useMonopolyClient } from "./MonopolyClient";
 import {
 	GameEventType,
+	GameSetting,
 	OperateType,
 	PlayerInfo,
 	PropertyInfo,
@@ -19,7 +20,7 @@ import {
 	useUserList,
 	useUtil,
 } from "@src/store";
-import { debounce } from "@src/utils";
+import { debounce, getDisplayValueByFormSchema } from "@src/utils";
 import { SocketMsgSource } from "@fatpaper-monopoly/types";
 import { FPMessage } from "@fatpaper-monopoly/ui";
 import { FPMessageBox } from "@src/components/utils/fp-message-box";
@@ -176,9 +177,8 @@ const handleRoomInfoReply: ServerMessageHandler<SocketMsgType.RoomInfo> = (msg) 
 	roomInfoData && roomInfoStore.$patch(roomInfoData);
 };
 
-const handleChangeMap: ServerMessageHandler<SocketMsgType.ChangeMap> = async (msg) => {
+const handleChangeMap: ServerMessageHandler<SocketMsgType.ChangeMap> = async (msg, client) => {
 	const data = msg.data;
-	console.log("🚀 ~ handleChangeMap ~ data:", data);
 	useLoading().showLoading("地图更换, 加载中...");
 	let gameMap, mapInfo;
 	switch (data.from) {
@@ -209,8 +209,21 @@ const handleChangeMap: ServerMessageHandler<SocketMsgType.ChangeMap> = async (ms
 		tempRoleList.push({ ...role, imageUrl: imageResource.url });
 	}
 	useRoomInfo().roleList = tempRoleList;
+	useRoomInfo().gameSettingForm = gameMap.gameSettingForm;
 	// 初始随机选择一个角色
 	useMonopolyClient().changeRole(roles[Math.floor(Math.random() * roles.length)].id);
+	// 如果自己是房主,提交默认游戏设置(房间类里不解析游戏数据, 只能靠房主来传)
+	if (useRoomInfo().amIRoomOwner) {
+		const setting: GameSetting = {};
+		gameMap.gameSettingForm.forEach((formSchema) => {
+			setting[formSchema.key] = {
+				label: formSchema.label,
+				value: formSchema.defaultValue,
+				displayValue: getDisplayValueByFormSchema(formSchema, formSchema.defaultValue),
+			};
+		});
+		client.changeGameSetting(setting);
+	}
 	useRoomInfo().mapInfo = mapInfo;
 	useLoading().hideLoading();
 };

@@ -11,17 +11,22 @@ import { getGameMapById, getGameMapList } from "@src/utils/api/map";
 import { MonopolyClient, useMonopolyClient } from "@src/core/monopoly-client/MonopolyClient";
 import { computed, onBeforeMount, onBeforeUnmount, onMounted, reactive, ref, toRaw, watch } from "vue";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
-import { copyToClipboard } from "@src/utils";
+import { copyToClipboard, getDisplayValueByFormSchema } from "@src/utils";
 import { setRoomPrivate } from "@src/utils/api/room-router";
-import { GameMapInDb, GameSetting, RoleInRoom } from "@fatpaper-monopoly/types";
+import { FormSchema, GameMapInDb, GameSetting, RoleInRoom } from "@fatpaper-monopoly/types";
 import { PROTOCOL } from "@fatpaper-monopoly/config";
 import { loadGameMapFromServer } from "@src/utils/file/game-map";
 import RolePreviewer from "./components/role-previewer.vue";
 import { useResourceStore } from "@src/store/game";
 import FpPopover from "@src/components/utils/fp-popover/fp-popover.vue";
 import { arrayBufferToBase64 } from "@fatpaper-monopoly/utils";
+import CustomForm from "@src/components/utils/custom-form/index.vue";
 
 let socketClient: MonopolyClient;
+
+onMounted(async () => {
+	socketClient = useMonopolyClient();
+});
 
 const roomInfoStore = useRoomInfo();
 const userInfoStore = useUserInfo();
@@ -65,15 +70,31 @@ function handleChangeRole() {
 }
 
 // 游戏设置相关
-const tempGameSettingFrom = ref<GameSetting>(JSON.parse(JSON.stringify(roomInfoStore.gameSetting)));
-function handleUpdateGameSetting() {
-	if (tempGameSettingFrom.value.overMoney <= tempGameSettingFrom.value.initMoney) {
-		FPMessage({ type: "error", message: "目标金钱必须大于初始金钱" });
-		return;
+const gameSettingForm = computed(() => roomInfoStore.gameSettingForm);
+const gameSettingForShow = computed(() => roomInfoStore.gameSetting);
+const gameSettingForForm = computed(() => {
+	const setting = roomInfoStore.gameSetting;
+	const temp: Record<string, any> = {};
+	for (const key in setting) {
+		const item = setting[key];
+		temp[key] = item.value;
 	}
-	if (socketClient) {
-		socketClient.changeGameSetting(toRaw(tempGameSettingFrom.value));
+	return temp;
+});
+const gameSettingFormVisible = ref(false);
+
+function handleGameSettingChange(gameSetting: Record<string, { field: FormSchema; value: any }>) {
+	const res: GameSetting = {};
+	for (const key in gameSetting) {
+		const item = gameSetting[key];
+		res[key] = {
+			label: item.field.label,
+			value: gameSetting[key].value as any,
+			displayValue: getDisplayValueByFormSchema(item.field, gameSetting[key].value),
+		};
 	}
+	socketClient.changeGameSetting(res);
+	gameSettingFormVisible.value = false;
 }
 
 const canStart = computed(
@@ -84,10 +105,6 @@ const canStart = computed(
 			!useLoading().loading
 		)
 );
-
-onMounted(async () => {
-	socketClient = useMonopolyClient();
-});
 
 async function handleSetPrivate() {
 	isPrivate.value = !isPrivate.value;
@@ -187,52 +204,12 @@ async function handleUploadMap() {
 				</div>
 			</div>
 
-			<div class="map-option">
-				<div class="options">
-					<span class="label">目标金额</span>
-					<div>
-						<input
-							:disabled="!isOwner"
-							type="number"
-							:min="tempGameSettingFrom.initMoney"
-							v-model="tempGameSettingFrom.overMoney"
-						/>￥
-					</div>
+			<div class="game-setting">
+				<button v-if="isOwner" @click="gameSettingFormVisible = true">修改地图参数</button>
+				<div class="game-setting-item" v-for="(setting, key) in gameSettingForShow">
+					<span class="label">{{ setting.label }}:</span>
+					<span class="value">{{ setting.displayValue }}</span>
 				</div>
-
-				<div class="options">
-					<span class="label">回合时间</span>
-					<div>
-						<input :disabled="!isOwner" type="number" min="5" max="30" v-model="tempGameSettingFrom.roundTime" />秒
-					</div>
-				</div>
-				<div class="options">
-					<span class="label">初始金钱</span>
-					<div>
-						<input
-							:disabled="!isOwner"
-							type="number"
-							min="1000"
-							step="1000"
-							v-model="tempGameSettingFrom.initMoney"
-						/>￥
-					</div>
-				</div>
-				<div class="options">
-					<span class="label">机会卡可视</span>
-					<div>
-						<input :disabled="!isOwner" type="checkbox" v-model="tempGameSettingFrom.chanceCardVisible" />
-						<span>(玩家详情只显示机会卡数量)</span>
-					</div>
-				</div>
-				<div class="options">
-					<span class="label">摸鱼模式</span>
-					<div>
-						<input :disabled="!isOwner" type="checkbox" v-model="tempGameSettingFrom.slackOffMode" />
-						<span>(房主离开/隐藏视窗会暂停游戏)</span>
-					</div>
-				</div>
-				<button v-if="isOwner" class="submit" @click="handleUpdateGameSetting">更新设置</button>
 			</div>
 
 			<div class="room-footbar">
@@ -247,7 +224,7 @@ async function handleUploadMap() {
 
 		<div class="right-container">
 			<div class="player-list-container">
-				<roomUserCard
+				<room-user-card
 					@role-select="roleSelectorVisible = true"
 					v-for="player in playerList"
 					:key="player.userId"
@@ -257,6 +234,18 @@ async function handleUploadMap() {
 			</div>
 		</div>
 	</div>
+
+	<FpDialog v-model:visible="gameSettingFormVisible" :hidden-footer="true">
+		<template #title>修改地图参数</template>
+		<template #default>
+			<custom-form
+				:initial-data="gameSettingForForm"
+				@submit="handleGameSettingChange"
+				:schema="gameSettingForm"
+				:submit-text="'保存地图参数'"
+			/>
+		</template>
+	</FpDialog>
 	<FpDialog @submit="handleChangeRole" v-model:visible="roleSelectorVisible">
 		<template #title>选择角色</template>
 		<template #default>
@@ -481,86 +470,35 @@ async function handleUploadMap() {
 	}
 }
 
-.map-option {
+.game-setting {
 	width: 100%;
 	padding: 0.6rem;
 	box-sizing: border-box;
 	flex: 1;
 	overflow-y: auto;
 
-	& > .options {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		margin: 0.4rem 0;
-		color: var(--color-text-primary);
-		padding: 0 0.5rem;
-
-		& > span {
-			width: 5rem;
-		}
-
-		& > div {
-			display: flex;
-			align-items: center;
-			justify-content: space-between;
-			flex: 1;
-
-			& > input {
-				width: 6rem;
-				flex: 1;
-				color: var(--color-text-primary);
-				padding: 0.5rem 0.7rem;
-				margin-right: 0.5rem;
-			}
-
-			& > input[type="checkbox"] {
-				cursor: pointer;
-				position: relative;
-				margin: 0.7rem;
-				width: 1.5rem;
-				height: 1.5rem;
-				display: block;
-				flex: 0;
-
-				&::after {
-					position: absolute;
-					top: 50%;
-					left: 50%;
-					transform: translate(-50%, -50%);
-					color: #000;
-					width: 1.6rem;
-					height: 1.6rem;
-					display: inline-block;
-					visibility: visible;
-					padding-left: 0px;
-					text-align: center;
-					content: " ";
-					border-radius: 0.2rem;
-				}
-
-				&:checked::after {
-					content: "✓";
-					color: #fff;
-					font-size: 1rem;
-					font-weight: bold;
-					background-color: var(--color-primary);
-				}
-			}
-
-			& > span {
-				flex: 1;
-				font-size: 0.8rem;
-			}
-		}
-	}
-
-	& > .submit {
-		float: right;
+	& button {
 		font-size: 0.8rem;
 		padding: 0.5rem;
 		margin-top: 0.1rem;
 		border-radius: 0.6rem;
+		width: 100%;
+	}
+
+	.game-setting-item {
+		background-color: rgba(255, 255, 255, 0.7);
+		margin-top: 0.7rem;
+		padding: 0.5rem 0.8rem;
+		border-radius: 0.3rem;
+		display: flex;
+		justify-content: space-between;
+
+		& .label {
+			color: #393939;
+		}
+		& .value {
+			color: var(--color-second);
+		}
 	}
 }
 

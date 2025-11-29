@@ -51,13 +51,7 @@ export class Room {
 		this.ownerId = "";
 		this.isStarted = false;
 		this.userList = new Map();
-		this.gameSetting = {
-			initMoney: 20000,
-			roundTime: 20,
-			chanceCardVisible: true,
-			overMoney: 100000,
-			slackOffMode: false,
-		};
+		this.gameSetting = {};
 		this.operationListener = new OperateListener();
 	}
 

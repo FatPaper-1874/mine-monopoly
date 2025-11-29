@@ -70,6 +70,7 @@ import {
 	faXmark,
 	faGhost,
 	faUpload,
+	faCheck,
 } from "@fortawesome/free-solid-svg-icons";
 import { useDeviceStatus, useSettig } from "@src/store";
 import { isFullScreen as _isFullScreen, isLandscape as _isLandscape, isMobileDevice } from "@src/utils";
@@ -128,7 +129,8 @@ library.add(
 	faWindowMaximize,
 	faXmark,
 	faGhost,
-	faUpload
+	faUpload,
+	faCheck
 );
 const pinia = createPinia();
 

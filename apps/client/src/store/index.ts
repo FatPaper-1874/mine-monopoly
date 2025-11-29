@@ -1,9 +1,11 @@
 import { defineStore } from "pinia";
 import {
 	ChatMessage,
+	FormSchema,
 	GameLog,
 	GameMapInDb,
 	GameOverRule,
+	GameSetting,
 	RoleInRoom,
 	Room,
 	User,
@@ -74,16 +76,8 @@ export const useRoomInfo = defineStore("roomInfo", {
 			ownerName: "",
 			userList: new Array<UserInRoomInfo>(),
 			roleList: new Array<RoleInRoom>(),
-			gameSetting: {
-				gameOverRule: GameOverRule.LeftOnePlayer,
-				initMoney: 20000,
-				multiplier: 1,
-				multiplierIncreaseRounds: 2,
-				roundTime: 15,
-				diceNum: 2,
-				chanceCardVisible: true,
-				overMoney: 100000,
-			},
+			gameSettingForm: new Array<FormSchema>,
+			gameSetting: {} as GameSetting,
 		};
 	},
 	actions: {},

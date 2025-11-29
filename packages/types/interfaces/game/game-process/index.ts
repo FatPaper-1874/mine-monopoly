@@ -22,14 +22,14 @@ export type GameContext = {
 	cancel?: boolean;
 } & Record<string, any>;
 
-
 export interface GameSetting {
-	[key: string]: any;
+	[key: string]: { label: string; value: any; displayValue: any };
 }
 
 export interface IGameProcess {
 	extraData: Record<string, any>;
 	mapData: GameMap;
+	gameSetting: GameSetting;
 	players: Map<string, IPlayer>;
 	properties: Map<string, IProperty>;
 	chanceCardInfos: Map<string, ChanceCardInfo>;

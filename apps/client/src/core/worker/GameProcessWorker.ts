@@ -100,7 +100,7 @@ export class GameProcess implements IGameProcess {
 	private startTime: number = Date.now();
 
 	public mapData: GameMap;
-	private gameSetting: GameSetting;
+	public gameSetting: GameSetting;
 	private userList: UserInRoomInfo[];
 
 	private gameRoundPhase: {
@@ -137,8 +137,11 @@ export class GameProcess implements IGameProcess {
 		this.gameSetting = gameSetting;
 		this.userList = userList;
 
-		this.diceUtil = new Dice(gameSetting.diceNum);
-		this.roundTimeTimer = new RoundTimeTimer(gameSetting.roundTime, 1000);
+		console.dir(gameSetting);
+		console.dir(gameSetting.initMoney.value);
+
+		this.diceUtil = new Dice(2);
+		this.roundTimeTimer = new RoundTimeTimer(15, 1000);
 		if (gameSetting.slackOffMode) {
 			operationListener.on(roomOwnerId, OperateType.PauseGame, () => {
 				console.log("PauseGame");
@@ -240,7 +243,7 @@ export class GameProcess implements IGameProcess {
 		this.userList.forEach((u) => {
 			const role = this.mapData.roles.find((r) => r.id === u.roleId);
 			if (!role) throw Error("找不到对应角色");
-			const player = new Player(u, this.gameSetting.initMoney, 0, this.mapData.phases.playerRound, role);
+			const player = new Player(u, this.gameSetting.initMoney.value || 10000, 0, this.mapData.phases.playerRound, role);
 			player.setPositionIndex(0);
 			this.players.set(player.getId(), player);
 

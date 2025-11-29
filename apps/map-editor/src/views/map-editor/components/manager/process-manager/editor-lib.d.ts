@@ -1,8 +1,3 @@
-declare enum GameOverRule {
-	OnePlayerGoBroke = 0,//一位玩家破产
-	LeftOnePlayer = 1,//只剩一位玩家
-	Earn100000 = 2
-}
 declare enum PlayerMoveType {
 	Walk = 0,
 	Tp = 1
@@ -165,6 +160,39 @@ interface IModifier<C extends ICommandMap, K extends keyof C = keyof C> {
 	descriptor: ModifierDescriptor<C, K>;
 	fn(command: ICommand<C, K>, context: ICommandContext<C, K>): Promise<void> | void;
 }
+interface IRoundTimeTimer {
+	start(callback: Function | null, timeS?: number): Promise<void>;
+	nextTick(): void;
+	pause(): void;
+	resume(): void;
+	stop(): void;
+	setTimeOutFunction(newFunction: Function | null): Promise<void>;
+	setIntervalFunction(countDownCallback: (remainingTime: number) => void): void;
+	clearInterval(): void;
+	destroy(): void;
+}
+interface IDice {
+	/** 获取骰子点数总和 */
+	getResultNumber(): number;
+	/** 获取所有骰子的结果数组 */
+	getResultArray(): number[];
+	/** 掷骰子 */
+	roll(): void;
+}
+type ComponentType = "number-input" | "select";
+interface SelectOption {
+	label: string;
+	value: string | number;
+}
+interface FormSchema {
+	id: string;
+	key: string;
+	type: ComponentType;
+	label: string;
+	placeholder?: string;
+	defaultValue?: number | string;
+	options?: SelectOption[];
+}
 interface GameMap {
 	id: string;
 	info: GameMapInfo;
@@ -176,6 +204,7 @@ interface GameMap {
 	roles: Role[];
 	inUse: boolean;
 	mapEvents: MapEvent[];
+	gameSettingForm: FormSchema[];
 	phases: {
 		gameOverRule: GamePhaseInfo[];
 		gameInited: GamePhaseInfo[];
@@ -232,17 +261,6 @@ declare enum SocketMsgSource {
 declare enum ChatMessageType {
 	Emoticon = 0,//表情
 	Text = 1
-}
-interface GameSetting {
-	gameOverRule: GameOverRule;
-	initMoney: number;
-	multiplier: number;
-	multiplierIncreaseRounds: number;
-	roundTime: number;
-	diceNum: number;
-	chanceCardVisible: boolean;
-	overMoney: number;
-	slackOffMode: boolean;
 }
 type Base64String = string;
 type RoomMapInfo = {
@@ -481,25 +499,6 @@ interface GameLog {
 	time: number;
 	content: string;
 }
-interface IRoundTimeTimer {
-	start(callback: Function | null, timeS?: number): Promise<void>;
-	nextTick(): void;
-	pause(): void;
-	resume(): void;
-	stop(): void;
-	setTimeOutFunction(newFunction: Function | null): Promise<void>;
-	setIntervalFunction(countDownCallback: (remainingTime: number) => void): void;
-	clearInterval(): void;
-	destroy(): void;
-}
-interface IDice {
-	/** 获取骰子点数总和 */
-	getResultNumber(): number;
-	/** 获取所有骰子的结果数组 */
-	getResultArray(): number[];
-	/** 掷骰子 */
-	roll(): void;
-}
 interface GameData {
 	extra: {
 		[key: string]: any;
@@ -514,9 +513,17 @@ interface GameData {
 type GameContext = {
 	cancel?: boolean;
 } & Record<string, any>;
+interface GameSetting {
+	[key: string]: {
+		label: string;
+		value: any;
+		displayValue: any;
+	};
+}
 interface IGameProcess {
 	extraData: Record<string, any>;
 	mapData: GameMap;
+	gameSetting: GameSetting;
 	players: Map<string, IPlayer>;
 	properties: Map<string, IProperty>;
 	chanceCardInfos: Map<string, ChanceCardInfo>;
