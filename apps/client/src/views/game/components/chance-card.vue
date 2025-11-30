@@ -60,13 +60,11 @@ const iconUrl = computed(() => {
 
 	& > .name {
 		font-size: 1.5em;
-		font-weight: 700;
 		margin-bottom: 0.8em;
 	}
 
 	& > .describe {
 		width: 80%;
-		font-weight: 700;
 		font-size: 0.9em;
 		margin-bottom: 1em;
 		word-wrap: break-word;
