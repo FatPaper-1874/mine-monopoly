@@ -727,22 +727,30 @@ export class GameRenderer {
 
 	private async updatePlayerPositionByStep(playerId: string, sourceIndex: number, stepNum: number, total: number) {
 		if (!this.playerEntities.has(playerId)) return;
+
 		const endIndex = (((sourceIndex + stepNum) % total) + total) % total;
 		this.playerPosition.set(playerId, endIndex);
-		const playerEntity = this.playerEntities.get(playerId);
-		if (playerEntity) {
-			// playerEntity.doAnimation(RoleAnimations.Idle, true);
-			const playerModule = playerEntity.model;
 
-			//页面进入后台后取消动画
+		const playerEntity = this.playerEntities.get(playerId);
+
+		if (playerEntity) {
+			const playerModule = playerEntity.model;
+			const playerBody = playerEntity.bodyMesh;
+
+			// 页面进入后台后取消动画逻辑
 			let animationShouldStop = false;
 			let currentAnimation: gsap.core.Tween | null = null;
 			const deviceStatusStore = useDeviceStatus();
-			deviceStatusStore.$subscribe((mutation, state) => {
-				animationShouldStop = state.isFocus;
-			});
+
+			//TODO
+			deviceStatusStore.$subscribe(
+				(mutation, state) => {
+					animationShouldStop = state.isFocus;
+				},
+				{ once: true }
+			);
+
 			for (let i = 1; i <= Math.abs(stepNum); i++) {
-				//页面进入后台后取消动画
 				if (animationShouldStop) {
 					currentAnimation && currentAnimation.kill();
 					const endMapItem = this.getMapItem(endIndex);
@@ -754,25 +762,35 @@ export class GameRenderer {
 					}
 					break;
 				}
-				const nextMapItem = this.getMapItem((((sourceIndex + Math.sign(stepNum) * i) % total) + total) % total); //下一步
+
+				// 计算下一步位置
+				const nextMapItem = this.getMapItem((((sourceIndex + Math.sign(stepNum) * i) % total) + total) % total);
+
 				if (nextMapItem) {
-					const { x: nextMapItemScreenX, y: nextMapItemScreenY } = getScreenPosition(nextMapItem, this.camera);
-					const { x: playerScreenX, y: playerScreenY } = getScreenPosition(playerEntity.model, this.camera);
-					if (nextMapItemScreenX > playerScreenX) {
-						currentAnimation = gsap.to(playerEntity.model.scale, { x: 1, duration: 0.3 });
-					} else if (nextMapItemScreenX < playerScreenX) {
-						currentAnimation = gsap.to(playerEntity.model.scale, { x: -1, duration: 0.3 });
+					const { x: nextMapItemScreenX } = getScreenPosition(nextMapItem, this.camera);
+					const { x: playerScreenX } = getScreenPosition(playerModule, this.camera);
+
+					if (playerBody) {
+						if (nextMapItemScreenX > playerScreenX) {
+							currentAnimation = gsap.to(playerBody.scale, { x: 1, duration: 0.3 });
+						} else if (nextMapItemScreenX < playerScreenX) {
+							currentAnimation = gsap.to(playerBody.scale, { x: -1, duration: 0.3 });
+						}
 					}
 					const { x, y, z } = nextMapItem.position;
-					currentAnimation = gsap.to(playerModule.position, { x, y: y + BLOCK_HEIGHT, z, duration: 0.6 });
+					currentAnimation = gsap.to(playerModule.position, {
+						x,
+						y: y + BLOCK_HEIGHT,
+						z,
+						duration: 0.6,
+					});
+
 					await currentAnimation.play();
-					// await gsap.to(playerModule.position, {x, y, z, duration: 0.6});
 				} else {
 					throw new Error("在设置角色运动朝向时读取MapItem错误");
 				}
 			}
 		}
-		// useMonopolyClient().AnimationComplete();
 	}
 
 	private updatePlayerPosition(playerInfo: PlayerInfo) {
