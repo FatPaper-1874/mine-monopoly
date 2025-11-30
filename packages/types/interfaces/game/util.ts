@@ -10,13 +10,16 @@ export interface IRoundTimeTimer {
 	destroy(): void;
 }
 
-export interface IDice {
-	/** 获取骰子点数总和 */
-	getResultNumber(): number;
-	/** 获取所有骰子的结果数组 */
-	getResultArray(): number[];
-	/** 掷骰子 */
-	roll(): void;
+export interface IDice extends DiceInfo {
+	addDiceprophecy(prophecy: number): void;
+	roll(): number;
+	getInfo(): DiceInfo;
+}
+
+export interface DiceInfo {
+	min: number;
+	max: number;
+	diceProphecyQueue: number[];
 }
 
 export type ComponentType = "number-input" | "select";

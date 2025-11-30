@@ -19,12 +19,14 @@ import { compileTsToJs, randomString } from "@src/utils";
 import GameProcessTypes from "../editor-lib.d.ts?raw";
 import { CommandBus } from "./action-system/CommandBus";
 import { ModifierManager } from "./action-system/ModifiersManager";
+import Dice from "./Dice";
 
 export class Player implements IPlayer {
 	public extras: Record<string, any> = {};
 	public roundPhases: IGamePhase<GameContext>[] = [];
 	public modifierManager: IModifierManager<PlayerCommandMap>;
 	public commandBus: ICommandBus<PlayerCommandMap>;
+	public dices: Dice[];
 
 	private user: UserInRoomInfo;
 	private money: number;
@@ -51,6 +53,7 @@ export class Player implements IPlayer {
 		this.positionIndex = initPositionIndex;
 		this.isStop = 0;
 		this.isOffline = false;
+		this.dices = [new Dice(), new Dice()];
 
 		this.modifierManager = new ModifierManager();
 		this.commandBus = new CommandBus<PlayerCommandMap>(this.modifierManager);
@@ -119,6 +122,11 @@ export class Player implements IPlayer {
 			const { bankrupted } = payload;
 			this.isBankrupted = bankrupted;
 			return payload;
+		});
+
+		this.commandBus.setHandler("player.dice.roll", (payload) => {
+			const { dices } = payload;
+			return { diceResult: dices.map((d) => d.roll()) };
 		});
 	}
 
@@ -224,6 +232,7 @@ export class Player implements IPlayer {
 		const playerInfo: PlayerInfo = {
 			id: this.user.userId,
 			user: userInfo,
+			dices: this.dices.map((d) => d.getInfo()),
 			money: this.money,
 			properties: this.properties.map((property) => property.getPropertyInfo()),
 			chanceCards: this.chanceCards.map((card) => card.getChanceCardInfo()),
@@ -271,6 +280,10 @@ export class Player implements IPlayer {
 
 	public async tp(positionIndex: number): Promise<void> {
 		await this.commandBus.execute({ type: "player.tp", payload: { positionIndex } });
+	}
+
+	public async rollDices(): Promise<number[]> {
+		return (await this.commandBus.execute({ type: "player.dice.roll", payload: { dices: this.dices } })).diceResult;
 	}
 
 	public registerModifier(modifier: IModifier<PlayerCommandMap>) {

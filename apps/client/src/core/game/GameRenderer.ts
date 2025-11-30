@@ -25,6 +25,8 @@ import { TextSprite } from "../three/TextSprite";
 import { useGameData, useMapData, useResourceStore } from "@src/store/game";
 import { getModelById } from "@src/utils/file/game-map";
 import { PlayerModel } from "@fatpaper-monopoly/utils";
+import { DiceManager } from "./DiceManager";
+import { loadModel } from "@src/utils/three/model-loader";
 
 const BLOCK_HEIGHT = 0.09;
 const PLAY_MODEL_SIZE = 0.7;
@@ -32,6 +34,7 @@ const loadingMask = useLoading();
 
 export class GameRenderer {
 	private mapData: GameMap;
+	private container: HTMLDivElement;
 	private canvas: HTMLCanvasElement;
 	private renderer: THREE.WebGLRenderer;
 	private popElementRenderer: CSS2DRenderer;
@@ -78,11 +81,16 @@ export class GameRenderer {
 	private arrivedEventInfoLabel: CSS2DObject;
 	private arrivedEventInfoLabelInstance: ComponentPublicInstance;
 
+	private diceManager: DiceManager | null = null;
+	private isRenderDice = false;
+
 	constructor(canvas: HTMLCanvasElement, container: HTMLDivElement, mapData: GameMap) {
 		this.mapData = mapData;
+		this.container = container;
 		this.canvas = canvas;
 		this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 		this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+		this.renderer.setClearAlpha(0);
 		this.renderer.setPixelRatio(window.devicePixelRatio * 2);
 
 		this.scene = new THREE.Scene();
@@ -158,11 +166,14 @@ export class GameRenderer {
 				this.renderPass.setSize(container.clientWidth, container.clientHeight);
 				this.composer.setSize(container.clientWidth, container.clientHeight);
 				this.popElementRenderer.setSize(container.clientWidth, container.clientHeight);
+				this.diceManager && this.diceManager.updateAspect(container.clientWidth / container.clientHeight);
 			}, 500)
 		);
 	}
 
 	public async init() {
+		await this.initDiceManager();
+
 		loadingMask.loading = true;
 		loadingMask.text = "正在进行初始化加载：地图数据";
 		//加载地图
@@ -217,7 +228,6 @@ export class GameRenderer {
 
 		const loop = () => {
 			this.requestAnimationFrameId = requestAnimationFrame(loop);
-
 			this.handlePropertyRaycaster(propertyRaycaster, pointer);
 			this.handleArrivedEventRaycaster(propertyRaycaster, pointer);
 
@@ -230,12 +240,32 @@ export class GameRenderer {
 				player.model.lookAt(this.camera.position);
 			});
 
-			// this.renderer.render(this.scene, this.camera);
+			// 1. 关闭自动清除，完全由我们接管
+			this.renderer.autoClear = false;
+
+			// 2. 每一帧开始时，手动清除颜色、深度、模板缓冲区
+			this.renderer.clear();
+
+			// 3. 渲染主场景 (通过 Composer)
 			this.composer.render();
+
 			this.popElementRenderer.render(this.scene, this.camera);
+
+			if (this.isRenderDice && this.diceManager) {
+				this.diceManager.update();
+				this.renderer.clearDepth();
+				this.renderer.render(this.diceManager.getScene(), this.diceManager.getCamera());
+			}
 		};
 
 		loop();
+	}
+
+	private async initDiceManager() {
+		const diceModel = (await loadModel("dice.glb")).scene;
+		diceModel.scale.set(0.8, 0.8, 0.8);
+		this.diceManager = new DiceManager(diceModel);
+		this.diceManager.updateAspect(this.container.clientWidth / this.container.clientHeight);
 	}
 
 	private initBackground() {
@@ -451,6 +481,14 @@ export class GameRenderer {
 		useEventBus().on("property-owner", async (propertyId: string) => {
 			this.updateBuilding(useGameData().getPropertyById(propertyId)!);
 		});
+
+		useEventBus().on("dice-roll", async (diceRes: number[]) => {
+			if (!this.diceManager) return;
+			this.diceManager.setDiceCount(diceRes.length);
+			this.isRenderDice = true;
+			await this.diceManager.roll(diceRes);
+			this.isRenderDice = false;
+		});
 	}
 
 	private handlePropertyRaycaster(raycaster: THREE.Raycaster, pointer: THREE.Vector2) {
@@ -515,6 +553,7 @@ export class GameRenderer {
 		});
 		useEventBus().removeAll();
 		this.commonWatchers.forEach((f) => f());
+		this.diceManager && this.diceManager.dispose();
 	}
 
 	private async loadPlayersModules(playerList: Array<PlayerInfo>) {

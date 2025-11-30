@@ -322,7 +322,8 @@ const handleRollDiceAnimationPlay: ServerMessageHandler<SocketMsgType.RollDiceSt
 const handleRollDiceResult: ServerMessageHandler<SocketMsgType.RollDiceResult> = (msg) => {
 	const res = msg.data;
 	const utilStore = useUtil();
-	utilStore.rollDiceResult = res.rollDiceResult;
+	useEventBus().emit('dice-roll', res.rollDiceResult);
+	// utilStore.rollDiceResult = res.rollDiceResult;
 	utilStore.isRollDiceAnimationPlay = false;
 };
 

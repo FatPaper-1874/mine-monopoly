@@ -11,13 +11,13 @@
 		"preview": "vite preview"
 	},
 	"dependencies": {
-		"eventemitter3": "^5.0.0",
-		"peerjs": "^1.5.4",
-		"@fatpaper-monopoly/types": "workspace:*",
 		"@fatpaper-monopoly/config": "workspace:*",
-		"@fatpaper-monopoly/ui": "workspace:*",
 		"@fatpaper-monopoly/login": "workspace:*",
-		"@fatpaper-monopoly/utils": "workspace:*"
-	},
-	"devDependencies": {}
+		"@fatpaper-monopoly/types": "workspace:*",
+		"@fatpaper-monopoly/ui": "workspace:*",
+		"@fatpaper-monopoly/utils": "workspace:*",
+		"cannon-es": "^0.20.0",
+		"eventemitter3": "^5.0.0",
+		"peerjs": "^1.5.4"
+	}
 }

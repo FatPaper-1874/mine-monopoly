@@ -161,7 +161,6 @@ export interface SocketMessageDataType {
 		client: never;
 		server: {
 			rollDiceResult: number[];
-			rollDiceCount: number;
 			rollDicePlayerId: string;
 		};
 	};

@@ -5,6 +5,11 @@ declare enum TargetSelectType {
 	ToProperty = "ToProperty",
 	ToMapItem = "ToMapItem"
 }
+interface DiceInfo {
+	min: number;
+	max: number;
+	diceProphecyQueue: number[];
+}
 interface GameData {
 	extra: {
 		[key: string]: any;
@@ -19,6 +24,7 @@ interface GameData {
 interface PlayerInfo {
 	id: string;
 	user: UserInRoomInfo;
+	dices: DiceInfo[];
 	money: number;
 	properties: PropertyInfo[];
 	chanceCards: ChanceCardClientInfo[];

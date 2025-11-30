@@ -1,30 +1,38 @@
-import { IDice } from "@fatpaper-monopoly/types";
+import { DiceInfo, IDice } from "@fatpaper-monopoly/types";
 
 class Dice implements IDice {
-	private diceNum = 2; //骰子个数(默认两个)
-	private resultArray: Array<number> = [];
+	public min: number = 1;
+	public max: number = 6;
+	public diceProphecyQueue: number[] = [];
 
-	constructor(diceNum: number) {
-		this.diceNum = diceNum;
-	}
-
-	public getResultNumber() {
-		return this.resultArray.reduce((p, c) => p + c, 0);
-	}
-
-	public getResultArray() {
-		return this.resultArray;
+	public addDiceprophecy(prophecy: number) {
+		this.diceProphecyQueue.push(prophecy);
 	}
 
 	public roll() {
-		this.resultArray = [];
-		for (let rollCount = 0; rollCount < this.diceNum; rollCount++) {
-			this.resultArray[rollCount] = this.getRandomInteger(1, 6);
+		let r: number;
+		// 预言
+		if (this.diceProphecyQueue.length > 0) {
+			r = this.diceProphecyQueue.shift() as number;
+		} else {
+			r = this.getRandomInteger(1, 6);
 		}
+		// 纠正
+		r = Math.max(r, this.min);
+		r = Math.min(r, this.max);
+		return r;
 	}
 
 	private getRandomInteger(min: number, max: number) {
 		return Math.floor(Math.random() * (max - min + 1)) + min;
+	}
+
+	public getInfo(): DiceInfo {
+		return {
+			min: this.min,
+			max: this.max,
+			diceProphecyQueue: this.diceProphecyQueue,
+		};
 	}
 }
 

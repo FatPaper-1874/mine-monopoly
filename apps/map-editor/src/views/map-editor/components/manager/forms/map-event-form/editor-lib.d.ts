@@ -56,6 +56,41 @@ interface ICommandMap {
 		result: any;
 	};
 }
+interface IRoundTimeTimer {
+	start(callback: Function | null, timeS?: number): Promise<void>;
+	nextTick(): void;
+	pause(): void;
+	resume(): void;
+	stop(): void;
+	setTimeOutFunction(newFunction: Function | null): Promise<void>;
+	setIntervalFunction(countDownCallback: (remainingTime: number) => void): void;
+	clearInterval(): void;
+	destroy(): void;
+}
+interface IDice extends DiceInfo {
+	addDiceprophecy(prophecy: number): void;
+	roll(): number;
+	getInfo(): DiceInfo;
+}
+interface DiceInfo {
+	min: number;
+	max: number;
+	diceProphecyQueue: number[];
+}
+type ComponentType = "number-input" | "select";
+interface SelectOption {
+	label: string;
+	value: string | number;
+}
+interface FormSchema {
+	id: string;
+	key: string;
+	type: ComponentType;
+	label: string;
+	placeholder?: string;
+	defaultValue?: number | string;
+	options?: SelectOption[];
+}
 interface PlayerCommandMap extends ICommandMap {
 	"player.property.gain": {
 		payload: {
@@ -141,6 +176,14 @@ interface PlayerCommandMap extends ICommandMap {
 			bankrupted: boolean;
 		};
 	};
+	"player.dice.roll": {
+		payload: {
+			dices: IDice[];
+		};
+		result: {
+			diceResult: number[];
+		};
+	};
 }
 type ModifierTiming = "before" | "after";
 interface ModifierDescriptor<C extends ICommandMap, K extends keyof C = keyof C> {
@@ -159,39 +202,6 @@ interface ModifierDescriptor<C extends ICommandMap, K extends keyof C = keyof C>
 interface IModifier<C extends ICommandMap, K extends keyof C = keyof C> {
 	descriptor: ModifierDescriptor<C, K>;
 	fn(command: ICommand<C, K>, context: ICommandContext<C, K>): Promise<void> | void;
-}
-interface IRoundTimeTimer {
-	start(callback: Function | null, timeS?: number): Promise<void>;
-	nextTick(): void;
-	pause(): void;
-	resume(): void;
-	stop(): void;
-	setTimeOutFunction(newFunction: Function | null): Promise<void>;
-	setIntervalFunction(countDownCallback: (remainingTime: number) => void): void;
-	clearInterval(): void;
-	destroy(): void;
-}
-interface IDice {
-	/** 获取骰子点数总和 */
-	getResultNumber(): number;
-	/** 获取所有骰子的结果数组 */
-	getResultArray(): number[];
-	/** 掷骰子 */
-	roll(): void;
-}
-type ComponentType = "number-input" | "select";
-interface SelectOption {
-	label: string;
-	value: string | number;
-}
-interface FormSchema {
-	id: string;
-	key: string;
-	type: ComponentType;
-	label: string;
-	placeholder?: string;
-	defaultValue?: number | string;
-	options?: SelectOption[];
 }
 interface GameMap {
 	id: string;
@@ -397,7 +407,6 @@ interface SocketMessageDataType {
 		client: never;
 		server: {
 			rollDiceResult: number[];
-			rollDiceCount: number;
 			rollDicePlayerId: string;
 		};
 	};
@@ -531,9 +540,7 @@ interface IGameProcess {
 	currentRound: number;
 	gameRuntimeStack: IGameRuntimeStack<GameContext>;
 	roundTimeTimer: IRoundTimeTimer;
-	diceUtil: IDice;
 	gameOverRuleFunction: () => Promise<boolean>;
-	handlePlayerRollDice(playerId: string): Promise<void>;
 	handleArriveEvent(arrivedPlayer: IPlayer): Promise<void>;
 	handleUseChanceCard(sourcePlayer: IPlayer, chanceCardId: string, targetIdList: string[]): Promise<boolean>;
 	roundTurnNotify(playerId: string): void;
@@ -631,6 +638,7 @@ interface ArrivedEventContext extends PlayerMoveContext {
 interface IPlayer {
 	extras: Record<string, any>;
 	roundPhases: IGamePhase<GameContext>[];
+	dices: IDice[];
 	getUser: () => UserInRoomInfo;
 	getId: () => string;
 	getName: () => string;
@@ -655,6 +663,7 @@ interface IPlayer {
 	getIsBankrupted: () => boolean;
 	walk: (step: number) => Promise<void>;
 	tp: (positionIndex: number) => Promise<void>;
+	rollDices: () => Promise<number[]>;
 	registerModifier<K extends keyof PlayerCommandMap>(modifier: IModifier<PlayerCommandMap, K>): void;
 	getPlayerInfo: () => PlayerInfo;
 	getRoundPhases: () => IGamePhase<GameContext>[];
@@ -691,6 +700,7 @@ interface IChanceCard {
 interface PlayerInfo {
 	id: string;
 	user: UserInRoomInfo;
+	dices: DiceInfo[];
 	money: number;
 	properties: PropertyInfo[];
 	chanceCards: ChanceCardClientInfo[];

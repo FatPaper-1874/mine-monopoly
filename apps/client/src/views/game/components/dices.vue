@@ -1,33 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from "vue";
+import { computed } from "vue";
 import { useUtil } from "@src/store/index";
-import { DiceRenderer } from "@src/core/three/DiceRenderer";
-import { useRoomInfo } from "@src/store/index";
 
 const utilStore = useUtil();
-const rollDiceResult = computed(() => utilStore.rollDiceResult);
-const isRollDiceAnimationPlay = computed(() => utilStore.isRollDiceAnimationPlay);
 const canRoll = computed(() => utilStore.canRoll);
-const roomInfoStore = useRoomInfo();
-
-let diceRenderer: DiceRenderer | undefined;
-
-watch(rollDiceResult, (newRollResult) => {
-	diceRenderer && diceRenderer.stopRotate(newRollResult);
-});
-
-watch(isRollDiceAnimationPlay, (animationPlay) => {
-	if (!diceRenderer) return;
-	if (animationPlay) {
-		diceRenderer.startRotate();
-	}
-});
-
-onMounted(async () => {
-	const canvasEl = document.getElementById("game_dice_canvas") as HTMLCanvasElement;
-	diceRenderer = new DiceRenderer(canvasEl, false, roomInfoStore.gameSetting.diceNum, 1.1, false, 2.1);
-	await diceRenderer.initDice();
-});
 
 const emit = defineEmits(["roll"]);
 
@@ -39,19 +15,21 @@ function handleRollDice() {
 </script>
 
 <template>
-	<canvas
+	<div
 		id="game_dice_canvas"
 		class="dice-button"
 		:disabled="!canRoll"
 		:class="{ canroll: canRoll }"
 		@click="handleRollDice"
-	/>
+	>
+		我是骰子
+	</div>
 </template>
 
 <style lang="scss" scoped>
 .dice-button {
-	width: 16rem !important;
-	height: 10rem !important;
+	width: 10rem;
+	height: 10rem;
 	cursor: pointer;
 	border-radius: 2rem;
 	border: 0.5rem solid rgba(255, 255, 255, 0.6);
@@ -61,6 +39,11 @@ function handleRollDice() {
 	right: 0.4rem;
 	bottom: 0.4rem;
 	z-index: var(--z-ui);
+
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	color: #ffffff;
 
 	&.canroll {
 		background-color: var(--color-second);

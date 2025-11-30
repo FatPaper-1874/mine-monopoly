@@ -5,8 +5,8 @@ import { readFile, writeFile } from "fs/promises";
 import path from "node:path";
 import fs from "node:fs";
 createRequire(import.meta.url);
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-process.env.APP_ROOT = path.join(__dirname, "..");
+const __dirname$1 = path.dirname(fileURLToPath(import.meta.url));
+process.env.APP_ROOT = path.join(__dirname$1, "..");
 const VITE_DEV_SERVER_URL = process.env["VITE_DEV_SERVER_URL"];
 const MAIN_DIST = path.join(process.env.APP_ROOT, "dist-electron");
 const RENDERER_DIST = path.join(process.env.APP_ROOT, "dist");
@@ -19,7 +19,7 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: true,
       nodeIntegrationInWorker: false,
-      preload: path.join(__dirname, "preload.mjs"),
+      preload: path.join(__dirname$1, "preload.mjs"),
       devTools: true,
       webSecurity: false,
       zoomFactor: 1
@@ -27,7 +27,7 @@ function createWindow() {
     frame: false
   });
   win.webContents.on("did-finish-load", () => {
-    win == null ? void 0 : win.webContents.send("main-process-message", new Date().toLocaleString());
+    win == null ? void 0 : win.webContents.send("main-process-message", (/* @__PURE__ */ new Date()).toLocaleString());
   });
   if (VITE_DEV_SERVER_URL) {
     win.loadURL(VITE_DEV_SERVER_URL);
@@ -52,12 +52,11 @@ app.whenReady().then(() => {
   protocol.handle("local", (request) => {
     const filePath = request.url.slice("local://".length);
     console.log("🚀 ~ filePath:", filePath);
-    return net.fetch(url.pathToFileURL(path.join(__dirname, filePath)).toString());
+    return net.fetch(url.pathToFileURL(path.join(__dirname$1, filePath)).toString());
   });
 });
 ipcMain.on("window-minimize", () => {
-  if (win)
-    win.minimize();
+  if (win) win.minimize();
 });
 ipcMain.on("window-maximize", () => {
   if (win) {
@@ -69,8 +68,7 @@ ipcMain.on("window-maximize", () => {
   }
 });
 ipcMain.on("window-close", () => {
-  if (win)
-    win.close();
+  if (win) win.close();
 });
 ipcMain.handle("window-is-maximized", () => {
   return win ? win.isMaximized() : false;

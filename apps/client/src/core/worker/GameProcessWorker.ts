@@ -126,8 +126,6 @@ export class GameProcess implements IGameProcess {
 
 	public currentMultiplier: number = 1;
 
-	public diceUtil: Dice;
-
 	public gameOverRuleFunction = async () => {
 		return false;
 	};
@@ -140,7 +138,6 @@ export class GameProcess implements IGameProcess {
 		console.dir(gameSetting);
 		console.dir(gameSetting.initMoney.value);
 
-		this.diceUtil = new Dice(2);
 		this.roundTimeTimer = new RoundTimeTimer(15, 1000);
 		if (gameSetting.slackOffMode) {
 			operationListener.on(roomOwnerId, OperateType.PauseGame, () => {
@@ -359,40 +356,6 @@ export class GameProcess implements IGameProcess {
 			}
 		}
 		this.roundTimeTimer.clearInterval();
-	}
-
-	public async handlePlayerRollDice(playerId: string) {
-		const player = this.getPlayerById(playerId);
-		if (!player) throw Error("玩家掷骰子时找不到玩家");
-		this.gameBroadcast({
-			type: SocketMsgType.RollDiceStart,
-			source: SocketMsgSource.Server,
-			data: "",
-		});
-		//摇骰子
-		this.diceUtil.roll();
-		//让骰子摇一会 :P
-		await this.sleep(1500);
-		//发送信息
-		const msgToRollDice: ServerSocketMessage = {
-			type: SocketMsgType.RollDiceResult,
-			source: SocketMsgSource.Server,
-			data: {
-				rollDiceResult: this.diceUtil.getResultArray(),
-				rollDiceCount: this.diceUtil.getResultNumber(),
-				rollDicePlayerId: player.getId(),
-			},
-			msg: {
-				type: "info",
-				content: `${player.getName()} 摇到的点数是: ${this.diceUtil.getResultArray().join("-")}`,
-			},
-		};
-		this.gameLogBroadcast(
-			`${this.createGameLinkItem(GameLinkItem.Player, player.getId())} 摇到的点数是: ${this.diceUtil
-				.getResultArray()
-				.join("-")}`
-		);
-		this.gameBroadcast(msgToRollDice);
 	}
 
 	private async handlePlayerBuyProperty(player: IPlayer, property: IProperty) {

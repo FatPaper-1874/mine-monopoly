@@ -4,7 +4,7 @@ import { IModifier, PlayerCommandMap } from "../action-system";
 import { UserInRoomInfo } from "../item";
 import { GameMap } from "../map";
 import { ServerSocketMessage } from "../socket";
-import { IRoundTimeTimer, IDice } from "../util";
+import { IRoundTimeTimer, IDice, DiceInfo } from "../util";
 
 // 客户端
 export interface GameData {
@@ -37,10 +37,8 @@ export interface IGameProcess {
 	currentRound: number;
 	gameRuntimeStack: IGameRuntimeStack<GameContext>;
 	roundTimeTimer: IRoundTimeTimer; //倒计时
-	diceUtil: IDice;
 	gameOverRuleFunction: () => Promise<boolean>;
 
-	handlePlayerRollDice(playerId: string): Promise<void>;
 	handleArriveEvent(arrivedPlayer: IPlayer): Promise<void>;
 	handleUseChanceCard(sourcePlayer: IPlayer, chanceCardId: string, targetIdList: string[]): Promise<boolean>;
 	roundTurnNotify(playerId: string): void;
@@ -198,6 +196,7 @@ export interface IPlayer {
 	//TODO
 	extras: Record<string, any>;
 	roundPhases: IGamePhase<GameContext>[];
+	dices: IDice[];
 
 	//玩家信息
 	getUser: () => UserInRoomInfo;
@@ -232,6 +231,7 @@ export interface IPlayer {
 	getIsBankrupted: () => boolean;
 	walk: (step: number) => Promise<void>;
 	tp: (positionIndex: number) => Promise<void>;
+	rollDices: () => Promise<number[]>;
 
 	//注册修饰器
 	registerModifier<K extends keyof PlayerCommandMap>(modifier: IModifier<PlayerCommandMap, K>): void;
@@ -283,6 +283,7 @@ export interface IChanceCard {
 export interface PlayerInfo {
 	id: string;
 	user: UserInRoomInfo;
+	dices: DiceInfo[];
 	money: number;
 	properties: PropertyInfo[];
 	chanceCards: ChanceCardClientInfo[];

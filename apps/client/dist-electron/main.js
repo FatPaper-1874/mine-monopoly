@@ -4,8 +4,8 @@ import url, { fileURLToPath } from "node:url";
 import path from "node:path";
 import fs from "fs/promises";
 createRequire(import.meta.url);
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-process.env.APP_ROOT = path.join(__dirname, "..");
+const __dirname$1 = path.dirname(fileURLToPath(import.meta.url));
+process.env.APP_ROOT = path.join(__dirname$1, "..");
 const VITE_DEV_SERVER_URL = process.env["VITE_DEV_SERVER_URL"];
 const MAIN_DIST = path.join(process.env.APP_ROOT, "dist-electron");
 const RENDERER_DIST = path.join(process.env.APP_ROOT, "dist");
@@ -22,14 +22,14 @@ function createWindow() {
       nodeIntegrationInWorker: false,
       contextIsolation: true,
       enableBlinkFeatures: "WebRTC",
-      preload: path.join(__dirname, "preload.mjs"),
+      preload: path.join(__dirname$1, "preload.mjs"),
       devTools: true,
       webSecurity: false
     },
     frame: false
   });
   win.webContents.on("did-finish-load", () => {
-    win == null ? void 0 : win.webContents.send("main-process-message", new Date().toLocaleString());
+    win == null ? void 0 : win.webContents.send("main-process-message", (/* @__PURE__ */ new Date()).toLocaleString());
   });
   if (VITE_DEV_SERVER_URL) {
     win.loadURL(VITE_DEV_SERVER_URL);
@@ -61,12 +61,11 @@ app.whenReady().then(() => {
   protocol.handle("local", (request) => {
     const filePath = request.url.slice("local://".length);
     console.log("🚀 ~ filePath:", filePath);
-    return net.fetch(url.pathToFileURL(path.join(__dirname, filePath)).toString());
+    return net.fetch(url.pathToFileURL(path.join(__dirname$1, filePath)).toString());
   });
 });
 ipcMain.on("window-minimize", () => {
-  if (win)
-    win.minimize();
+  if (win) win.minimize();
 });
 ipcMain.on("window-maximize", () => {
   if (win) {
@@ -78,8 +77,7 @@ ipcMain.on("window-maximize", () => {
   }
 });
 ipcMain.on("window-close", () => {
-  if (win)
-    win.close();
+  if (win) win.close();
 });
 ipcMain.handle("window-is-maximized", () => {
   return win ? win.isMaximized() : false;
@@ -116,8 +114,7 @@ ipcMain.handle("map-cache:save", async (_event, mapId, hash, buffer) => {
 });
 ipcMain.handle("map-cache:load", async (_event, mapId, hash) => {
   const index = await loadIndex();
-  if (index[mapId] !== hash)
-    return void 0;
+  if (index[mapId] !== hash) return void 0;
   const filePath = path.join(cacheDir, `${mapId}-${hash}.bin`);
   try {
     const buf = await fs.readFile(filePath);

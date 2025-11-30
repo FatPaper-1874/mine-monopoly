@@ -1,4 +1,5 @@
 import { IChanceCard, IPlayer, IProperty } from "../game-process";
+import { IDice } from "../util";
 import { ICommandMap } from "./command";
 
 export interface PlayerCommandMap extends ICommandMap {
@@ -55,5 +56,11 @@ export interface PlayerCommandMap extends ICommandMap {
 	"player.bankrupted.set": {
 		payload: { bankrupted: boolean };
 		result: { bankrupted: boolean };
+	};
+
+	// 骰子
+	"player.dice.roll": {
+		payload: { dices: IDice[] };
+		result: { diceResult: number[] };
 	};
 }
