@@ -237,7 +237,7 @@ export class GameRenderer {
 			this.controls.update(100);
 
 			Array.from(this.playerEntities.values()).forEach((player) => {
-				player.model.lookAt(this.camera.position);
+				player.update(this.camera);
 			});
 
 			// 1. 关闭自动清除，完全由我们接管
