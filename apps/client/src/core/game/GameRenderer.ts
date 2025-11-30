@@ -737,12 +737,10 @@ export class GameRenderer {
 			const playerModule = playerEntity.model;
 			const playerBody = playerEntity.bodyMesh;
 
-			// 页面进入后台后取消动画逻辑
 			let animationShouldStop = false;
-			let currentAnimation: gsap.core.Tween | null = null;
+			let currentAnimation: gsap.core.Timeline | null = null;
 			const deviceStatusStore = useDeviceStatus();
 
-			//TODO
 			deviceStatusStore.$subscribe(
 				(mutation, state) => {
 					animationShouldStop = state.isFocus;
@@ -757,37 +755,82 @@ export class GameRenderer {
 					if (endMapItem) {
 						const { x, y, z } = endMapItem.position;
 						playerModule.position.set(x, y + BLOCK_HEIGHT, z);
-					} else {
-						throw new Error("在读取EndMapItem错误");
+						if (playerBody) {
+							playerBody.scale.y = 1;
+							playerBody.scale.x = Math.sign(playerBody.scale.x);
+						}
 					}
 					break;
 				}
 
-				// 计算下一步位置
 				const nextMapItem = this.getMapItem((((sourceIndex + Math.sign(stepNum) * i) % total) + total) % total);
 
 				if (nextMapItem) {
 					const { x: nextMapItemScreenX } = getScreenPosition(nextMapItem, this.camera);
 					const { x: playerScreenX } = getScreenPosition(playerModule, this.camera);
 
-					if (playerBody) {
-						if (nextMapItemScreenX > playerScreenX) {
-							currentAnimation = gsap.to(playerBody.scale, { x: 1, duration: 0.3 });
-						} else if (nextMapItemScreenX < playerScreenX) {
-							currentAnimation = gsap.to(playerBody.scale, { x: -1, duration: 0.3 });
-						}
-					}
-					const { x, y, z } = nextMapItem.position;
-					currentAnimation = gsap.to(playerModule.position, {
-						x,
-						y: y + BLOCK_HEIGHT,
-						z,
-						duration: 0.6,
-					});
+					currentAnimation = gsap.timeline();
+					const duration = 0.6;
 
-					await currentAnimation.play();
+					// --- 1. 方向翻转 ---
+					if (playerBody) {
+						let targetDir = Math.sign(playerBody.scale.x);
+						if (nextMapItemScreenX > playerScreenX) targetDir = 1;
+						else if (nextMapItemScreenX < playerScreenX) targetDir = -1;
+
+						currentAnimation.to(playerBody.scale, { x: targetDir, duration: 0.1 }, 0);
+					}
+
+					// --- 2. 整体位移 ---
+					const { x, y, z } = nextMapItem.position;
+					currentAnimation.to(
+						playerModule.position,
+						{
+							x,
+							y: y + BLOCK_HEIGHT,
+							z,
+							duration: duration,
+							ease: "power2.inOut",
+						},
+						0
+					);
+
+					// --- 3. 动态形变  ---
+					if (playerBody) {
+						currentAnimation.to(
+							playerBody.scale,
+							{
+								y: 0.95,
+								duration: duration * 0.2,
+								ease: "power2.in",
+							},
+							duration * 0.5
+						);
+
+						currentAnimation.to(
+							playerBody.scale,
+							{
+								y: 1.05,
+								duration: duration * 0.5,
+								ease: "power2.out",
+							},
+							0
+						);
+
+						currentAnimation.to(
+							playerBody.scale,
+							{
+								y: 1,
+								duration: duration * 0.2,
+								ease: "sine.out",
+							},
+							duration * 0.9
+						);
+					}
+
+					await currentAnimation;
 				} else {
-					throw new Error("在设置角色运动朝向时读取MapItem错误");
+					throw new Error("MapItem error");
 				}
 			}
 		}
