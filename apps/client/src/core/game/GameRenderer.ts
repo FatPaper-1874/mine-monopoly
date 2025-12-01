@@ -9,7 +9,7 @@ import { loadItemTypeModules } from "@src/utils/three/itemtype-loader";
 import { useMonopolyClient } from "@src/core/monopoly-client/MonopolyClient";
 import { CSS2DObject, CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRenderer";
 import PropertyInfoCard from "@src/views/game/utils/components/property-info-card.vue";
-import ArrivedEventCard from "@src/views/game/utils/components/arrived-event-card.vue";
+import MapEventCard from "@src/views/game/utils/components/map-event-card.vue";
 import moneyPopTip from "@src/views/game/components/money-pop-tip.vue";
 import { loadHouseModels } from "@src/views/game/utils/house-loader";
 import { debounce, getScreenPosition, isMobileDevice, throttle } from "@src/utils";
@@ -27,6 +27,7 @@ import { getModelById } from "@src/utils/file/game-map";
 import { PlayerModel } from "@fatpaper-monopoly/utils";
 import { DiceManager } from "./DiceManager";
 import { loadModel } from "@src/utils/three/model-loader";
+import { clone } from "lodash";
 
 const BLOCK_HEIGHT = 0.09;
 const PLAY_MODEL_SIZE = 0.7;
@@ -129,7 +130,7 @@ export class GameRenderer {
 		this.propertyInfoLabelInstance = propertyInfoLabelInstance;
 
 		const { css2DObject: arrivedEventCSS2DObject, appInstance: arrivedEventLabelInstance } = createCSS2DObjectFromVue(
-			ArrivedEventCard,
+			MapEventCard,
 			{
 				property: null,
 			}
@@ -229,7 +230,7 @@ export class GameRenderer {
 		const loop = () => {
 			this.requestAnimationFrameId = requestAnimationFrame(loop);
 			this.handlePropertyRaycaster(propertyRaycaster, pointer);
-			this.handleArrivedEventRaycaster(propertyRaycaster, pointer);
+			this.handleMapEventRaycaster(propertyRaycaster, pointer);
 
 			if (this.isLockingRole && this.isLockingRoleFromSetting && this.currentFocusModule) {
 				this.updateCamera(this.controls, this.currentFocusModule, 7, 30);
@@ -301,6 +302,12 @@ export class GameRenderer {
 			mapItemModel.userData["position"] = { x: mapItem.x, y: mapItem.y };
 			mapItemModel.userData["rotation"] = mapItem.rotation;
 			mapItemModel.userData["id"] = mapItem.id;
+			mapItemModel.userData["isMapItem"] = true;
+			if (mapItem.mapEventId) {
+				const mapEvent = useMapData().getMapEventById(mapItem.mapEventId);
+				if (mapEvent) mapItemModel.userData["mapEvent"] = clone(mapEvent);
+			}
+
 			this.setItemPositionOnMap(mapItemModel, mapItem.x, mapItem.y, mapItem.rotation);
 			this.mapItemsInScene.set(mapItem.id, mapItemModel);
 			this.mapContainer.add(mapItemModel);
@@ -512,7 +519,7 @@ export class GameRenderer {
 		}
 	}
 
-	private handleArrivedEventRaycaster(raycaster: THREE.Raycaster, pointer: THREE.Vector2) {
+	private handleMapEventRaycaster(raycaster: THREE.Raycaster, pointer: THREE.Vector2) {
 		// 通过摄像机和鼠标位置更新射线
 		raycaster.setFromCamera(pointer, this.camera);
 
@@ -527,13 +534,13 @@ export class GameRenderer {
 					target = target.parent;
 				}
 			}
-			if (target && target.userData.arrivedEvent) {
-				const arrivedEvent = target.userData.arrivedEvent;
+			if (target && target.userData.mapEvent) {
+				const mapEvent = target.userData.mapEvent;
 
 				this.arrivedEventInfoLabel.position.copy(target.position);
 				// this.arrivedEventInfoLabel.position.y += 2.2;
 				//@ts-ignore
-				this.arrivedEventInfoLabelInstance.updateArrivedEvent(arrivedEvent);
+				this.arrivedEventInfoLabelInstance.updateArrivedEvent(mapEvent);
 			} else {
 				//@ts-ignore
 				this.arrivedEventInfoLabelInstance.updateArrivedEvent(null);

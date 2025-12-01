@@ -4,9 +4,9 @@ import { __PROTOCOL__ } from "@src/../global.config";
 import { MapEvent } from "@fatpaper-monopoly/types";
 import { useResourceStore } from "@src/store/game";
 
-const props = defineProps<{ arrivedEvent: MapEvent | null }>();
+const props = defineProps<{ mapEvent: MapEvent | null }>();
 
-const arrivedEvent = ref<MapEvent | null>(props.arrivedEvent);
+const arrivedEvent = ref<MapEvent | null>(props.mapEvent);
 
 function updateArrivedEvent(newArrivedEvent: MapEvent) {
 	arrivedEvent.value = newArrivedEvent;
@@ -15,8 +15,8 @@ function updateArrivedEvent(newArrivedEvent: MapEvent) {
 defineExpose({ updateArrivedEvent });
 
 const iconUrl = computed(() => {
-	if (!props.arrivedEvent) return "";
-	return useResourceStore().getRecourceById(props.arrivedEvent.iconId)?.url || "";
+	if (!arrivedEvent.value) return "qwe";
+	return useResourceStore().getRecourceById(arrivedEvent.value.iconId)?.url || "asd";
 });
 </script>
 
