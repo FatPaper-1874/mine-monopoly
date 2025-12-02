@@ -583,6 +583,8 @@ interface IGameProcess {
 	gameRuntimeStack: IGameRuntimeStack<GameContext>;
 	roundTimeTimer: IRoundTimeTimer;
 	gameOverRuleFunction: () => Promise<boolean>;
+	handlePlayerBuyProperty(player: IPlayer, property: IProperty): Promise<void>;
+	handlePlayerBuildUp(player: IPlayer, property: IProperty): Promise<void>;
 	handleArriveEvent(arrivedPlayer: IPlayer): Promise<void>;
 	handleUseChanceCard(sourcePlayer: IPlayer, chanceCardId: string, targetIdList: string[]): Promise<boolean>;
 	roundTurnNotify(playerId: string): void;
@@ -597,7 +599,7 @@ interface IGameProcess {
 	generateNewChanceCard(sourceId: string): IChanceCard;
 	createGameLinkItem(type: GameLinkItem, id: string): void;
 	sendToPlayer(id: string, msg: ServerSocketMessage): void;
-	gameInfoBroadcast(): void;
+	gameDataBroadcast(): void;
 	gameMsgNotifyBroadcast(type: "success" | "warning" | "error" | "info", msg: string): void;
 	gameLogBroadcast(log: string): void;
 	gameBroadcast(msg: ServerSocketMessage): void;
@@ -663,31 +665,34 @@ interface IGamePhase<Context extends GameContext> extends GamePhaseInfo {
 	getEventQueue(): GameEvent<Context>[];
 }
 interface IPlayer {
+	id: string;
+	name: string;
+	roleId: string;
+	money: number;
+	properties: IProperty[];
+	chanceCards: IChanceCard[];
+	positionIndex: number;
+	isStop: number;
+	isBankrupted: boolean;
+	isOffline: boolean;
+	stop: number;
 	extras: Record<string, any>;
 	roundPhases: IGamePhase<GameContext>[];
 	dices: IDice[];
 	getUser: () => UserInRoomInfo;
-	getId: () => string;
-	getName: () => string;
-	getPropertiesList: () => IProperty[];
 	setPropertiesList: (newPropertiesList: IProperty[]) => void;
 	gainProperty: (property: IProperty) => Promise<void>;
 	loseProperty: (property: IProperty) => Promise<void>;
-	getCardsList: () => IChanceCard[];
 	setCardsList: (newChanceCardList: IChanceCard[]) => void;
 	getCardById: (cardId: string) => IChanceCard | undefined;
 	gainCard: (gainCard: IChanceCard) => Promise<void>;
 	loseCard: (cardId: string) => Promise<void>;
 	setMoney: (money: number) => void;
-	getMoney: () => number;
 	cost: (money: number, target?: IPlayer) => Promise<void>;
 	gain: (money: number, source?: IPlayer) => Promise<void>;
 	setStop: (stop: number) => void;
-	getStop: () => number;
 	setPositionIndex: (newIndex: number) => void;
-	getPositionIndex: () => number;
 	setBankrupted: (isBankrupted: boolean) => void;
-	getIsBankrupted: () => boolean;
 	walk: (step: number) => Promise<void>;
 	tp: (positionIndex: number) => Promise<void>;
 	rollDices: () => Promise<number[]>;
@@ -697,14 +702,17 @@ interface IPlayer {
 	getRoundPhases: () => IGamePhase<GameContext>[];
 }
 interface IProperty {
-	getId: () => string;
-	getName: () => string;
-	getBuildingLevel: () => number;
-	getBuildCost: () => number;
-	getSellCost: () => number;
-	getCostList: () => number[];
-	getMaxLevel: () => number;
-	getOwner: () => IPlayer | undefined;
+	id: string;
+	name: string;
+	level: number;
+	maxLevel: number;
+	sellCost: number;
+	buildCost: number;
+	costList: number[];
+	streetId: string;
+	buildingModelIdList: string[] | undefined;
+	custom: PropertyCustom | undefined;
+	owner: IPlayer | undefined;
 	getOriginalData: () => PropertyInfo;
 	levelUp: () => Promise<void>;
 	levelDown: () => Promise<void>;

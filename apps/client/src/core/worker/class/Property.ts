@@ -1,5 +1,6 @@
 import {
 	ICommandBus,
+	IGameProcess,
 	IModifier,
 	IModifierManager,
 	IPlayer,
@@ -14,21 +15,23 @@ import GameProcessTypes from "../editor-lib.d.ts?raw";
 import { compileTsToJs } from "@src/utils";
 
 export class Property implements IProperty {
-	private id: string;
-	private name: string;
-	private buildCost: number;
-	private level: number;
-	private maxLevel: number;
-	private sellCost: number;
-	private costList: number[];
-	private streetId: string;
-	private buildingModelIdList: string[] | undefined;
-	private custom: PropertyCustom | undefined;
+	public id: string;
+	public name: string;
+	public level: number;
+	public maxLevel: number;
+	public buildCost: number;
+	public sellCost: number;
+	public costList: number[];
+	public streetId: string;
+	public buildingModelIdList: string[] | undefined;
+	public custom: PropertyCustom | undefined;
+	public owner: IPlayer | undefined = undefined;
 
-	private owner: IPlayer | undefined = undefined;
 	public modifierManager: IModifierManager<PropertyCommandMap>;
 	public commandBus: ICommandBus<PropertyCommandMap>;
 	private originalData: PropertyInfo;
+
+	private customPropertyInitFunction: ((property: IProperty, gameProcess: IGameProcess) => void) | undefined;
 
 	constructor(property: PropertyInfo) {
 		this.id = property.id;
@@ -50,9 +53,12 @@ export class Property implements IProperty {
 
 		if (property.custom) {
 			const codeCompiled = compileTsToJs(property.custom.effectCode, GameProcessTypes);
-			const propertyInitFunction = new Function(codeCompiled)();
-			propertyInitFunction(this);
+			this.customPropertyInitFunction = new Function(codeCompiled)();
 		}
+	}
+
+	public getCustomInitFunction() {
+		return this.customPropertyInitFunction;
 	}
 
 	private initCommandBus() {
@@ -99,14 +105,6 @@ export class Property implements IProperty {
 		});
 	}
 
-	public getId = () => this.id;
-	public getName = () => this.name;
-	public getBuildingLevel = () => this.level;
-	public getBuildCost = () => this.buildCost;
-	public getSellCost = () => this.sellCost;
-	public getCostList = () => this.costList;
-	public getMaxLevel = () => this.maxLevel;
-	public getOwner = () => this.owner;
 	public getOriginalData = () => this.originalData;
 
 	public async levelUp() {

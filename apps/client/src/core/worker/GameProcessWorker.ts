@@ -171,7 +171,8 @@ export class GameProcess implements IGameProcess {
 		};
 		this.initGameOverRuleFunction();
 		this.initMap();
-		this.initPlayer();
+		this.initPlayers();
+		this.initProperties();
 		this.runInitedPhase();
 	}
 
@@ -207,7 +208,6 @@ export class GameProcess implements IGameProcess {
 		const gameOverRule = phases.gameOverRule;
 		const compiledCode = compileTsToJs(gameOverRule[0].initEventCode, GameProcessTypes);
 		this.gameOverRuleFunction = new Function(compiledCode)() as () => Promise<boolean>;
-		console.log("🚀 ~ GameProcess ~ initGameOverRuleFunction ~ this.gameOverRuleFunction:", this.gameOverRuleFunction);
 	}
 
 	private initMap() {
@@ -236,13 +236,13 @@ export class GameProcess implements IGameProcess {
 		});
 	}
 
-	private initPlayer() {
+	private initPlayers() {
 		this.userList.forEach((u) => {
 			const role = this.mapData.roles.find((r) => r.id === u.roleId);
 			if (!role) throw Error("找不到对应角色");
 			const player = new Player(u, this.gameSetting.initMoney.value || 10000, 0, this.mapData.phases.playerRound, role);
 			player.setPositionIndex(0);
-			this.players.set(player.getId(), player);
+			this.players.set(player.id, player);
 
 			player.commandBus.setHandler("player.walk", async (payload) => {
 				const { steps } = payload;
@@ -250,9 +250,9 @@ export class GameProcess implements IGameProcess {
 				const msg: ServerSocketMessage = {
 					type: SocketMsgType.PlayerWalk,
 					source: SocketMsgSource.Server,
-					data: { playerId: player.getId(), step: steps, walkId },
+					data: { playerId: player.id, step: steps, walkId },
 				};
-				const sourceIndex = player.getPositionIndex();
+				const sourceIndex = player.positionIndex;
 				const total = this.mapData.mapIndex.length;
 				const newIndex = (((sourceIndex + steps) % total) + total) % total;
 				let passedStart = false;
@@ -262,13 +262,13 @@ export class GameProcess implements IGameProcess {
 					passedStart = sourceIndex + steps < 0;
 				}
 				player.setPositionIndex(newIndex);
-				this.gameInfoBroadcast();
+				this.gameDataBroadcast();
 				this.gameBroadcast(msg);
 
 				//在计划的动画完成事件后取消监听, 防止客户端因特殊情况没有发送动画完成的指令造成永久等待
 				const animationDuration = 600 * (Math.abs(steps) + 3);
 				let animationTimer = setTimeout(() => {
-					operationListener.emit(player.getId(), OperateType.Animation);
+					operationListener.emit(player.id, OperateType.Animation);
 				}, animationDuration);
 
 				//等待客户端完成动画发回指令
@@ -276,7 +276,7 @@ export class GameProcess implements IGameProcess {
 					listenAnimationCallback("");
 					function listenAnimationCallback(resAnimationId: string) {
 						if (resAnimationId !== walkId) {
-							operationListener.once(player.getId(), OperateType.Animation, listenAnimationCallback);
+							operationListener.once(player.id, OperateType.Animation, listenAnimationCallback);
 						} else {
 							resolve("");
 						}
@@ -292,16 +292,16 @@ export class GameProcess implements IGameProcess {
 				const msg: ServerSocketMessage = {
 					type: SocketMsgType.PlayerTp,
 					source: SocketMsgSource.Server,
-					data: { playerId: player.getId(), positionIndex, walkId },
+					data: { playerId: player.id, positionIndex, walkId },
 				};
 				player.setPositionIndex(positionIndex);
-				this.gameInfoBroadcast();
+				this.gameDataBroadcast();
 				this.gameBroadcast(msg);
 
 				//在计划的动画完成事件后取消监听, 防止客户端因特殊情况没有发送动画完成的指令造成永久等待
 				const animationDuration = 2000;
 				let animationTimer = setTimeout(() => {
-					operationListener.emit(player.getId(), OperateType.Animation, walkId);
+					operationListener.emit(player.id, OperateType.Animation, walkId);
 				}, animationDuration);
 
 				//等待客户端完成动画发回指令
@@ -309,7 +309,7 @@ export class GameProcess implements IGameProcess {
 					listenAnimationCallback("");
 					function listenAnimationCallback(resAnimationId: string) {
 						if (resAnimationId !== walkId) {
-							operationListener.once(player.getId(), OperateType.Animation, listenAnimationCallback);
+							operationListener.once(player.id, OperateType.Animation, listenAnimationCallback);
 						} else {
 							resolve("");
 						}
@@ -318,6 +318,98 @@ export class GameProcess implements IGameProcess {
 				clearTimeout(animationTimer);
 				return payload;
 			});
+
+			const initRoleFn = player.getInitRoleFunction();
+			initRoleFn(player, this);
+		});
+	}
+
+	private initProperties() {
+		this.properties.values().forEach((property) => {
+			property.commandBus.setHandler("property.arrived", async (payload) => {
+				const { arrivedPlayer, owner } = payload;
+				if (owner) {
+					//地皮有主人
+					if (owner.id === arrivedPlayer.id) {
+						//地产是自己的
+						if (property.level < property.maxLevel) {
+							this.roundTimeTimer.setTimeOutFunction(() => {
+								operationListener.emit(arrivedPlayer.id, OperateType.ConfirmDialogResult, {
+									id: arrivedPlayer.id,
+									confirm: false,
+									data: undefined,
+								});
+							}); //到时间就结束操作
+							//已有房产, 升级房屋
+							const playerRes = await this.showConfirmDialog(arrivedPlayer.id, {
+								title: `升级 ${property.name}`,
+								content: `${generatePropertyHtml(property.getPropertyInfo())}`,
+								cancelText: `不要`,
+								confirmText: `升！`,
+							});
+							this.roundRemainingTimeBroadcast(0);
+							if (playerRes.confirm) {
+								await this.handlePlayerBuildUp(arrivedPlayer, property);
+							}
+						}
+					} else {
+						//地产是别人的
+						const ownerPlayer = this.getPlayerById(owner.id);
+						if (!ownerPlayer) return payload;
+						const passCost = property.arrived(arrivedPlayer);
+						this.messageNotify([arrivedPlayer.id], {
+							type: "error",
+							content: `你到达了${owner.name}的地皮: ${property.name}，支付了${passCost}￥过路费`,
+						});
+						this.messageNotify([ownerPlayer.id], {
+							type: "success",
+							content: `${arrivedPlayer.name}到达了你的地皮: ${property.name}，支付了${passCost}￥过路费`,
+						});
+						this.messageNotify(
+							Array.from(this.players.values())
+								.filter((p) => p.id !== arrivedPlayer.id && p.id !== owner.id)
+								.map((p) => p.id),
+							{
+								type: "info",
+								content: `${arrivedPlayer.name}到达了${owner.name}的地皮: ${property.name}，支付了${passCost}￥过路费`,
+							}
+						);
+						this.gameDataBroadcast();
+						this.gameLogBroadcast(
+							`${this.createGameLinkItem(GameLinkItem.Player, arrivedPlayer.id)} 到达了 ${this.createGameLinkItem(
+								GameLinkItem.Player,
+								owner.id
+							)} 的地皮: ${this.createGameLinkItem(GameLinkItem.Property, property.id)}，支付了 ${passCost}￥ 过路费`
+						);
+					}
+				} else {
+					// this.eventMsg = `等待 ${arrivedPlayer.name} 购买地皮`;
+					this.roundTimeTimer.setTimeOutFunction(() => {
+						operationListener.emit(arrivedPlayer.id, OperateType.ConfirmDialogResult, {
+							id: arrivedPlayer.id,
+							confirm: false,
+							data: undefined,
+						});
+					}); //到时间就结束操作
+					//地皮没有购买
+					//空地, 买房
+					//等待客户端回应买房
+					this.roundRemainingTimeBroadcast(0);
+					const playerRes = await this.showConfirmDialog(arrivedPlayer.id, {
+						title: `购买 ${property.name}`,
+						content: `${generatePropertyHtml(property.getPropertyInfo())}`,
+						cancelText: `不要`,
+						confirmText: `买！`,
+					});
+					if (playerRes.confirm) {
+						await this.handlePlayerBuyProperty(arrivedPlayer, property);
+					}
+				}
+				return payload;
+			});
+
+			const customInitFn = property.getCustomInitFunction();
+			customInitFn && customInitFn(property, this);
 		});
 	}
 
@@ -358,52 +450,49 @@ export class GameProcess implements IGameProcess {
 		this.roundTimeTimer.clearInterval();
 	}
 
-	private async handlePlayerBuyProperty(player: IPlayer, property: IProperty) {
+	public async handlePlayerBuyProperty(player: IPlayer, property: IProperty) {
 		const msgToSend: ServerSocketMessage = {
 			type: SocketMsgType.MsgNotify,
 			source: SocketMsgSource.Server,
 			data: undefined,
 		};
-		if (player.getMoney() > property.getSellCost()) {
+		if (player.money > property.sellCost) {
 			property.setOwner(player);
-			this.gameInfoBroadcast();
-			this.gameMsgNotifyBroadcast("info", `${player.getName()} 买下了地皮 ${property.getName()}`);
+			this.gameDataBroadcast();
+			this.gameMsgNotifyBroadcast("info", `${player.name} 买下了地皮 ${property.name}`);
 			this.gameLogBroadcast(
-				`${this.createGameLinkItem(GameLinkItem.Player, player.getId())} 买下了地皮 ${this.createGameLinkItem(
+				`${this.createGameLinkItem(GameLinkItem.Player, player.id)} 买下了地皮 ${this.createGameLinkItem(
 					GameLinkItem.Property,
-					property.getId()
+					property.id
 				)}`
 			);
-			player.cost(property.getSellCost());
+			player.cost(property.sellCost);
 		} else {
 			msgToSend.msg = { type: "error", content: "不够钱啊穷鬼" };
-			sendToUsers([player.getId()], msgToSend);
+			sendToUsers([player.id], msgToSend);
 		}
 	}
 
-	private async handlePlayerBuildUp(player: IPlayer, property: IProperty) {
+	public async handlePlayerBuildUp(player: IPlayer, property: IProperty) {
 		const msgToSend: ServerSocketMessage = {
 			type: SocketMsgType.MsgNotify,
 			source: SocketMsgSource.Server,
 			data: undefined,
 		};
-		if (player.getMoney() > property.getSellCost()) {
+		if (player.money > property.sellCost) {
 			property.levelUp();
-			this.gameInfoBroadcast();
-			this.gameMsgNotifyBroadcast(
-				"info",
-				`${player.getName()}把地皮${property.getName()}升到了${property.getBuildingLevel()}级`
-			);
+			this.gameDataBroadcast();
+			this.gameMsgNotifyBroadcast("info", `${player.name}把地皮${property.name}升到了${property.level}级`);
 			this.gameLogBroadcast(
-				`${this.createGameLinkItem(GameLinkItem.Player, player.getId())} 把地皮 ${this.createGameLinkItem(
+				`${this.createGameLinkItem(GameLinkItem.Player, player.id)} 把地皮 ${this.createGameLinkItem(
 					GameLinkItem.Property,
-					property.getId()
-				)} 升到了 ${property.getBuildingLevel()} 级`
+					property.id
+				)} 升到了 ${property.level} 级`
 			);
-			await player.cost(property.getSellCost());
+			await player.cost(property.sellCost);
 		} else {
 			msgToSend.msg = { type: "error", content: "不够钱啊穷鬼" };
-			sendToUsers([player.getId()], msgToSend);
+			sendToUsers([player.id], msgToSend);
 		}
 		return;
 	}
@@ -435,14 +524,11 @@ export class GameProcess implements IGameProcess {
 				) {
 					case TargetSelectType.ToSelf:
 						await chanceCard.use(sourcePlayer, sourcePlayer, this); //直接使用
-						this.gameMsgNotifyBroadcast(
-							"info",
-							`${sourcePlayer.getName()} 对自己使用了机会卡: "${chanceCard.getName()}"`
-						);
+						this.gameMsgNotifyBroadcast("info", `${sourcePlayer.name} 对自己使用了机会卡: "${chanceCard.getName()}"`);
 						this.gameLogBroadcast(
 							`${this.createGameLinkItem(
 								GameLinkItem.Player,
-								sourcePlayer.getId()
+								sourcePlayer.id
 							)} 对自己使用了机会卡: ${this.createGameLinkItem(GameLinkItem.ChanceCard, chanceCard.getSourceId())}`
 						);
 						break;
@@ -456,12 +542,12 @@ export class GameProcess implements IGameProcess {
 						await chanceCard.use(sourcePlayer, _targetPlayer, this);
 						this.gameMsgNotifyBroadcast(
 							"info",
-							`${sourcePlayer.getName()} 对玩家 ${_targetPlayer.getName()} 使用了机会卡: "${chanceCard.getName()}"`
+							`${sourcePlayer.name} 对玩家 ${_targetPlayer.name} 使用了机会卡: "${chanceCard.getName()}"`
 						);
 						this.gameLogBroadcast(
-							`${this.createGameLinkItem(GameLinkItem.Player, sourcePlayer.getId())} 对玩家 ${this.createGameLinkItem(
+							`${this.createGameLinkItem(GameLinkItem.Player, sourcePlayer.id)} 对玩家 ${this.createGameLinkItem(
 								GameLinkItem.Player,
-								_targetPlayer.getId()
+								_targetPlayer.id
 							)} 使用了机会卡: ${this.createGameLinkItem(GameLinkItem.ChanceCard, chanceCard.getSourceId())}`
 						);
 						break;
@@ -474,12 +560,12 @@ export class GameProcess implements IGameProcess {
 						await chanceCard.use(sourcePlayer, _targetProperty, this);
 						this.gameMsgNotifyBroadcast(
 							"info",
-							`${sourcePlayer.getName()} 对地皮 ${_targetProperty.getName()} 使用了机会卡: "${chanceCard.getName()}"`
+							`${sourcePlayer.name} 对地皮 ${_targetProperty.name} 使用了机会卡: "${chanceCard.getName()}"`
 						);
 						this.gameLogBroadcast(
-							`${this.createGameLinkItem(GameLinkItem.Player, sourcePlayer.getId())} 对地皮 ${this.createGameLinkItem(
+							`${this.createGameLinkItem(GameLinkItem.Player, sourcePlayer.id)} 对地皮 ${this.createGameLinkItem(
 								GameLinkItem.Property,
-								_targetProperty.getId()
+								_targetProperty.id
 							)} 使用了机会卡: ${this.createGameLinkItem(GameLinkItem.ChanceCard, chanceCard.getSourceId())}`
 						);
 						break;
@@ -513,13 +599,13 @@ export class GameProcess implements IGameProcess {
 						content: error,
 					},
 				};
-				sendToUsers([sourcePlayer.getId()], errorMsg);
+				sendToUsers([sourcePlayer.id], errorMsg);
 				const callBackMsg: ServerSocketMessage = {
 					type: SocketMsgType.UseChanceCard,
 					data: { error: true },
 					source: SocketMsgSource.Server,
 				};
-				sendToUsers([sourcePlayer.getId()], callBackMsg);
+				sendToUsers([sourcePlayer.id], callBackMsg);
 				return false;
 			} else {
 				sourcePlayer.loseCard(chanceCardId);
@@ -532,20 +618,20 @@ export class GameProcess implements IGameProcess {
 						content: `机会卡 ${chanceCard.getName()} 使用成功！`,
 					},
 				};
-				this.gameInfoBroadcast();
+				this.gameDataBroadcast();
 
-				// this.eventMsg = `等待 ${sourcePlayer.getName()} 掷骰子`;
+				// this.eventMsg = `等待 ${sourcePlayer.name} 掷骰子`;
 				// this.roundTimeTimer.setTimeOutFunction(handleUseChanceCardTimeOut);
-				sendToUsers([sourcePlayer.getId()], successMsg);
+				sendToUsers([sourcePlayer.id], successMsg);
 				const callBackMsg: ServerSocketMessage = {
 					type: SocketMsgType.UseChanceCard,
 					data: { error: false },
 					source: SocketMsgSource.Server,
 				};
-				sendToUsers([sourcePlayer.getId()], callBackMsg);
+				sendToUsers([sourcePlayer.id], callBackMsg);
 			}
 
-			this.gameInfoBroadcast();
+			this.gameDataBroadcast();
 			return true;
 		} else {
 			const errorMsg: ServerSocketMessage = {
@@ -557,14 +643,14 @@ export class GameProcess implements IGameProcess {
 					content: "机会卡使用失败: 未知的机会卡ID",
 				},
 			};
-			sendToUsers([sourcePlayer.getId()], errorMsg);
+			sendToUsers([sourcePlayer.id], errorMsg);
 			return false;
 		}
 	}
 
 	public async handleArriveEvent(arrivedPlayer: IPlayer) {
-		if (arrivedPlayer.getIsBankrupted()) return;
-		const playerPositionIndex = arrivedPlayer.getPositionIndex();
+		if (arrivedPlayer.isBankrupted) return;
+		const playerPositionIndex = arrivedPlayer.positionIndex;
 		const arriveItemId = this.mapData.mapIndex[playerPositionIndex];
 		const arriveItem = this.mapItems.get(arriveItemId);
 		if (!arriveItem) return;
@@ -574,84 +660,7 @@ export class GameProcess implements IGameProcess {
 			const property = this.properties.get(linkMapItem.property.id);
 			if (!property) return;
 			// let roundRemainingTime = this.gameSetting.roundTime;
-			const owner = property.getOwner();
-			if (owner) {
-				//地皮有主人
-				if (owner.getId() === arrivedPlayer.getId()) {
-					//地产是自己的
-					if (property.getBuildingLevel() < property.getMaxLevel()) {
-						this.roundTimeTimer.setTimeOutFunction(() => {
-							operationListener.emit(arrivedPlayer.getId(), OperateType.ConfirmDialogResult, {
-								id: arrivedPlayer.getId(),
-								confirm: false,
-								data: undefined,
-							});
-						}); //到时间就结束操作
-						//已有房产, 升级房屋
-						const playerRes = await this.showConfirmDialog(arrivedPlayer.getId(), {
-							title: `升级 ${property.getName()}`,
-							content: `${generatePropertyHtml(property.getPropertyInfo())}`,
-							cancelText: `不要`,
-							confirmText: `升！`,
-						});
-						this.roundRemainingTimeBroadcast(0);
-						if (playerRes) {
-							await this.handlePlayerBuildUp(arrivedPlayer, property);
-						}
-					}
-				} else {
-					//地产是别人的
-					const ownerPlayer = this.getPlayerById(owner.getId());
-					if (!ownerPlayer) return;
-					const passCost = property.arrived(arrivedPlayer);
-					this.messageNotify([arrivedPlayer.getId()], {
-						type: "error",
-						content: `你到达了${owner.getName()}的地皮: ${property.getName()}，支付了${passCost}￥过路费`,
-					});
-					this.messageNotify([ownerPlayer.getId()], {
-						type: "success",
-						content: `${arrivedPlayer.getName()}到达了你的地皮: ${property.getName()}，支付了${passCost}￥过路费`,
-					});
-					this.messageNotify(
-						Array.from(this.players.values())
-							.filter((p) => p.getId() !== arrivedPlayer.getId() && p.getId() !== owner.getId())
-							.map((p) => p.getId()),
-						{
-							type: "info",
-							content: `${arrivedPlayer.getName()}到达了${owner.getName()}的地皮: ${property.getName()}，支付了${passCost}￥过路费`,
-						}
-					);
-					this.gameInfoBroadcast();
-					this.gameLogBroadcast(
-						`${this.createGameLinkItem(GameLinkItem.Player, arrivedPlayer.getId())} 到达了 ${this.createGameLinkItem(
-							GameLinkItem.Player,
-							owner.getId()
-						)} 的地皮: ${this.createGameLinkItem(GameLinkItem.Property, property.getId())}，支付了 ${passCost}￥ 过路费`
-					);
-				}
-			} else {
-				// this.eventMsg = `等待 ${arrivedPlayer.getName()} 购买地皮`;
-				this.roundTimeTimer.setTimeOutFunction(() => {
-					operationListener.emit(arrivedPlayer.getId(), OperateType.ConfirmDialogResult, {
-						id: arrivedPlayer.getId(),
-						confirm: false,
-						data: undefined,
-					});
-				}); //到时间就结束操作
-				//地皮没有购买
-				//空地, 买房
-				//等待客户端回应买房
-				this.roundRemainingTimeBroadcast(0);
-				const playerRes = await this.showConfirmDialog(arrivedPlayer.getId(), {
-					title: `购买 ${property.getName()}`,
-					content: `${generatePropertyHtml(property.getPropertyInfo())}`,
-					cancelText: `不要`,
-					confirmText: `买！`,
-				});
-				if (playerRes.confirm) {
-					await this.handlePlayerBuyProperty(arrivedPlayer, property);
-				}
-			}
+			property.arrived(arrivedPlayer);
 		} else if (arriveItem.mapEventId) {
 			// 特殊地块
 			const mapEvent = this.mapEvents.get(arriveItem.mapEventId);
@@ -660,16 +669,16 @@ export class GameProcess implements IGameProcess {
 			if (effectCode) {
 				const arrivedFunction = new Function(effectCode)();
 				await arrivedFunction(arrivedPlayer, this);
-				this.gameMsgNotifyBroadcast("info", `${arrivedPlayer.getName()} 踩到了特殊地块: ${mapEvent.name}`);
+				this.gameMsgNotifyBroadcast("info", `${arrivedPlayer.name} 踩到了特殊地块: ${mapEvent.name}`);
 				this.gameLogBroadcast(
-					`${this.createGameLinkItem(
-						GameLinkItem.Player,
-						arrivedPlayer.getId()
-					)} 踩到了特殊地块: ${this.createGameLinkItem(GameLinkItem.ArrivedEvent, mapEvent.id)}`
+					`${this.createGameLinkItem(GameLinkItem.Player, arrivedPlayer.id)} 踩到了特殊地块: ${this.createGameLinkItem(
+						GameLinkItem.ArrivedEvent,
+						mapEvent.id
+					)}`
 				);
 			}
 		}
-		this.gameInfoBroadcast();
+		this.gameDataBroadcast();
 	}
 
 	private getPlayerById(id: string) {
@@ -729,7 +738,7 @@ export class GameProcess implements IGameProcess {
 	private async waitInitFinished() {
 		const promiseArr: Promise<any>[] = [];
 		Array.from(this.players.values()).forEach((player) => {
-			promiseArr.push(operationListener.onceAsync(player.getId(), OperateType.GameInitFinished));
+			promiseArr.push(operationListener.onceAsync(player.id, OperateType.GameInitFinished));
 		});
 		await Promise.all(promiseArr);
 
@@ -811,7 +820,7 @@ export class GameProcess implements IGameProcess {
 	}
 
 	private gameOver() {
-		this.gameInfoBroadcast();
+		this.gameDataBroadcast();
 		this.gameBroadcast({
 			type: SocketMsgType.GameOver,
 			source: SocketMsgSource.Server,
@@ -838,7 +847,7 @@ export class GameProcess implements IGameProcess {
 	public getGameData() {
 		const gameInfo: GameData = {
 			extra: this.extraData,
-			currentPlayerIdInRound: this.currentRoundPlayer ? this.currentRoundPlayer.getId() : "",
+			currentPlayerIdInRound: this.currentRoundPlayer ? this.currentRoundPlayer.id : "",
 			currentRound: this.currentRound,
 			currentMultiplier: this.currentMultiplier,
 			playersList: Array.from(this.players.values()).map((player) => player.getPlayerInfo()),
@@ -869,7 +878,7 @@ export class GameProcess implements IGameProcess {
 		sendToUsers([id], msg);
 	}
 
-	public gameInfoBroadcast() {
+	public gameDataBroadcast() {
 		this.gameBroadcast({
 			type: SocketMsgType.GameData,
 			source: SocketMsgSource.Server,
@@ -898,7 +907,7 @@ export class GameProcess implements IGameProcess {
 
 	public gameBroadcast(msg: ServerSocketMessage) {
 		sendToUsers(
-			Array.from(this.players.values()).map((p) => p.getId()),
+			Array.from(this.players.values()).map((p) => p.id),
 			msg
 		);
 	}

@@ -5,6 +5,7 @@ import {
 	IChanceCard,
 	ICommandBus,
 	IGamePhase,
+	IGameProcess,
 	IModifier,
 	IModifierManager,
 	IPlayer,
@@ -22,6 +23,18 @@ import { ModifierManager } from "./action-system/ModifiersManager";
 import Dice from "./Dice";
 
 export class Player implements IPlayer {
+	public id: string;
+	public name: string;
+	public roleId: string;
+	public money: number;
+	public properties: IProperty[] = [];
+	public chanceCards: IChanceCard[] = [];
+	public positionIndex: number; //所在棋盘格子的下标
+	public isStop: number; //是否停止回合
+	public isBankrupted: boolean = false; //是否破产
+	public isOffline: boolean; //是否断线
+	public stop: number = 0;
+
 	public extras: Record<string, any> = {};
 	public roundPhases: IGamePhase<GameContext>[] = [];
 	public modifierManager: IModifierManager<PlayerCommandMap>;
@@ -29,14 +42,7 @@ export class Player implements IPlayer {
 	public dices: Dice[];
 
 	private user: UserInRoomInfo;
-	private money: number;
-	private properties: IProperty[] = [];
-	private chanceCards: IChanceCard[] = [];
-	private positionIndex: number; //所在棋盘格子的下标
-	private isStop: number; //是否停止回合
-	private isBankrupted: boolean = false; //是否破产
-	private isOffline: boolean; //是否断线
-	private stop: number = 0;
+	private roleInitFunction: (player: IPlayer, gameProcess: IGameProcess) => void;
 
 	constructor(
 		user: UserInRoomInfo,
@@ -49,6 +55,9 @@ export class Player implements IPlayer {
 			return new GamePhase(roundPhaseInfo);
 		});
 		this.user = user;
+		this.id = user.userId;
+		this.name = user.username;
+		this.roleId = user.roleId;
 		this.money = initMoney;
 		this.positionIndex = initPositionIndex;
 		this.isStop = 0;
@@ -60,21 +69,24 @@ export class Player implements IPlayer {
 		this.initCommandBus();
 
 		const codeCompiled = compileTsToJs(role.initCode, GameProcessTypes);
-		const roleInitFunction = new Function(codeCompiled)();
-		roleInitFunction(this);
+		this.roleInitFunction = new Function(codeCompiled)();
+	}
+
+	public getInitRoleFunction() {
+		return this.roleInitFunction;
 	}
 
 	private initCommandBus() {
 		this.commandBus.setHandler("player.property.gain", (payload) => {
 			const { property } = payload;
-			const owner = property.getOwner();
-			if (owner && owner.getId() === this.getId()) this.properties.push(property);
+			const owner = property.owner;
+			if (owner && owner.id === this.id) this.properties.push(property);
 			return payload;
 		});
 
 		this.commandBus.setHandler("player.property.lose", (payload) => {
 			const { property } = payload;
-			const index = this.properties.findIndex((p) => p.getId() === property.getId());
+			const index = this.properties.findIndex((p) => p.id === property.id);
 			if (index != -1) {
 				this.properties.splice(index, 1);
 			}
@@ -135,39 +147,16 @@ export class Player implements IPlayer {
 		return this.user;
 	}
 
-	public getId() {
-		return this.user.userId;
-	}
-
-	public getName() {
-		return this.user.username;
-	}
-
-	public getIsOffline() {
-		return this.isOffline;
-	}
-
 	public setIsOffline(isOffline: boolean) {
 		this.isOffline = isOffline;
-	}
-
-	public getCardsList() {
-		return this.chanceCards;
 	}
 
 	public async setCardsList(newChanceCardList: IChanceCard[]) {
 		this.chanceCards = newChanceCardList;
 	}
 
-	public getPropertiesList() {
-		return this.properties;
-	}
 	public setPropertiesList(newPropertiesList: IProperty[]) {
 		this.properties = newPropertiesList;
-	}
-
-	public getMoney() {
-		return this.money;
 	}
 
 	public async setMoney(money: number) {
@@ -179,24 +168,12 @@ export class Player implements IPlayer {
 		this.isStop = stop;
 	}
 
-	public getStop() {
-		return this.isStop;
-	}
-
 	public setPositionIndex(newPositionIndex: number) {
 		this.positionIndex = newPositionIndex;
 	}
 
-	public getPositionIndex() {
-		return this.positionIndex;
-	}
-
 	public setBankrupted(isBankrupted: boolean) {
 		this.isBankrupted = isBankrupted;
-	}
-
-	public getIsBankrupted() {
-		return this.isBankrupted;
 	}
 
 	public getBuff() {

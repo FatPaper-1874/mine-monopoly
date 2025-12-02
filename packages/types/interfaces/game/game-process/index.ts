@@ -39,6 +39,8 @@ export interface IGameProcess {
 	roundTimeTimer: IRoundTimeTimer; //倒计时
 	gameOverRuleFunction: () => Promise<boolean>;
 
+	handlePlayerBuyProperty(player: IPlayer, property: IProperty): Promise<void>;
+	handlePlayerBuildUp(player: IPlayer, property: IProperty): Promise<void>;
 	handleArriveEvent(arrivedPlayer: IPlayer): Promise<void>;
 	handleUseChanceCard(sourcePlayer: IPlayer, chanceCardId: string, targetIdList: string[]): Promise<boolean>;
 	roundTurnNotify(playerId: string): void;
@@ -71,7 +73,7 @@ export interface IGameProcess {
 
 	createGameLinkItem(type: GameLinkItem, id: string): void;
 	sendToPlayer(id: string, msg: ServerSocketMessage): void;
-	gameInfoBroadcast(): void;
+	gameDataBroadcast(): void;
 	gameMsgNotifyBroadcast(type: "success" | "warning" | "error" | "info", msg: string): void;
 	gameLogBroadcast(log: string): void;
 	gameBroadcast(msg: ServerSocketMessage): void;
@@ -193,24 +195,29 @@ export interface PlayerRoundEndContext extends ArrivedEventContext {}
 export interface GameRoundEndContext extends GameContext {}
 
 export interface IPlayer {
-	//TODO
+	id: string;
+	name: string;
+	roleId: string;
+	money: number;
+	properties: IProperty[];
+	chanceCards: IChanceCard[];
+	positionIndex: number; //所在棋盘格子的下标
+	isStop: number; //是否停止回合
+	isBankrupted: boolean; //是否破产
+	isOffline: boolean; //是否断线
+	stop: number;
 	extras: Record<string, any>;
 	roundPhases: IGamePhase<GameContext>[];
 	dices: IDice[];
 
-	//玩家信息
 	getUser: () => UserInRoomInfo;
-	getId: () => string;
-	getName: () => string;
 
 	//地产相关
-	getPropertiesList: () => IProperty[];
 	setPropertiesList: (newPropertiesList: IProperty[]) => void;
 	gainProperty: (property: IProperty) => Promise<void>;
 	loseProperty: (property: IProperty) => Promise<void>;
 
 	//机会卡相关
-	getCardsList: () => IChanceCard[];
 	setCardsList: (newChanceCardList: IChanceCard[]) => void;
 	getCardById: (cardId: string) => IChanceCard | undefined;
 	gainCard: (gainCard: IChanceCard) => Promise<void>;
@@ -218,17 +225,13 @@ export interface IPlayer {
 
 	//钱相关
 	setMoney: (money: number) => void;
-	getMoney: () => number;
 	cost: (money: number, target?: IPlayer) => Promise<void>;
 	gain: (money: number, source?: IPlayer) => Promise<void>;
 
 	//游戏相关
 	setStop: (stop: number) => void;
-	getStop: () => number;
 	setPositionIndex: (newIndex: number) => void;
-	getPositionIndex: () => number;
 	setBankrupted: (isBankrupted: boolean) => void;
-	getIsBankrupted: () => boolean;
 	walk: (step: number) => Promise<void>;
 	tp: (positionIndex: number) => Promise<void>;
 	rollDices: () => Promise<number[]>;
@@ -242,15 +245,18 @@ export interface IPlayer {
 }
 
 export interface IProperty {
-	//房产信息
-	getId: () => string;
-	getName: () => string;
-	getBuildingLevel: () => number;
-	getBuildCost: () => number;
-	getSellCost: () => number;
-	getCostList: () => number[];
-	getMaxLevel: () => number;
-	getOwner: () => IPlayer | undefined;
+	id: string;
+	name: string;
+	level: number;
+	maxLevel: number;
+	sellCost: number;
+	buildCost: number;
+	costList: number[];
+	streetId: string;
+	buildingModelIdList: string[] | undefined;
+	custom: PropertyCustom | undefined;
+	owner: IPlayer | undefined;
+
 	getOriginalData: () => PropertyInfo;
 
 	//设置房产信息
