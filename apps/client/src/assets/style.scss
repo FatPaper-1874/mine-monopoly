@@ -67,56 +67,6 @@ body {
   }
 }
 
-#login-iframe {
-  position: fixed;
-  width: 80vw;
-  height: 90vh;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  border: solid .5rem rgba(255, 255, 255, 0.5);
-  border-radius: 3rem;
-  box-shadow: var(--box-shadow);
-}
-
-
-:root {
-  --color-primary: #ff8f00;
-  --color-primary-110: #ff9100;
-  --color-second: #ffa000;
-  --color-third: #ffc10f;
-  --color-bg: #ffcc80;
-  --color-bg-transparent: rgba(255, 255, 255, 0.65);
-  --color-bg-light: #fff8e1;
-  --color-bg-disable: #c8c9cc;
-  --color-bg-success: #e1f3d8;
-  --color-bg-warning: #faecd8;
-  --color-bg-error: #fde2e2;
-  --color-bg-message: #cedfff;
-
-
-  --color-border-success: #d1edc4;
-  --color-border-warning: #f8e3c5;
-  --color-border-error: #fcd3d3;
-  --color-border-message: #a8d4ff;
-
-
-  --color-text-primary: #ff8800;
-  --color-text-second: #303030;
-  --color-text-white: #ffffff;
-  --color-text-disable: #909399;
-  --color-text-success: #67C23A;
-  --color-text-warning: #E6A23C;
-  --color-text-error: #F56C6C;
-  --color-text-message: #095fce;
-
-  --box-shadow: 0px 0px 0.8rem rgba(0, 0, 0, .12);
-  --box-shadow-dark: 0px 0px 0.8rem rgba(0, 0, 0, .22);
-  --text-shadow: .2rem .2rem 0.13rem rgba(0, 0, 0, 0.15);
-  --text-shadow-light: .2rem .2rem 0.13rem rgba(255, 255, 255, 1);
-  --text-shadow-surround-white: #fff -1px 0 0, #fff 1px 0 0, #fff 0 1px 0, #fff 0 -1px 0;
-}
-
 ::-webkit-scrollbar {
   width: .6rem;
   height: .6rem;

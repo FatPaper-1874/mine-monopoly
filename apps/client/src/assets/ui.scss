@@ -1,88 +1,72 @@
-//Input
-input {
+%form-control {
   width: auto;
-  outline-style: none;
-  background-color: rgba(255, 255, 255, 0.8);
-  border-radius: .7rem;
   border: 0;
-  padding: .5rem .7rem;
+  border-radius: 0.7rem;
+  padding: 0.5rem 0.7rem;
+  font-size: 1rem;
+  background-color: rgba(255, 255, 255, 0.8);
   box-sizing: border-box;
-  font-size: 1em;
+  outline: none;
+  transition: box-shadow 0.2s ease-in-out, background-color 0.2s;
 
   &:focus {
-    outline: 0;
-    -webkit-box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075),
-      #ffb05c;
-    box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075),
-      #ffb05c;
+    box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075), 0 0 0 3px rgba(255, 176, 92, 0.4);
   }
 }
 
-//select
+// Input
+input {
+  @extend %form-control;
+}
+
+// Select
 select {
-  width: auto;
-  outline-style: none;
-  background-color: rgba(255, 255, 255, 0.8);
-  border-radius: .7rem;
-  border: 0;
-  padding: .5rem .7rem;
-  /* 内边距 */
-  box-sizing: border-box;
-  font-size: 1rem;
-  padding-right: 1rem;
-  position: relative;
-  cursor: pointer;
+  @extend %form-control;
   appearance: none;
-  /* 移除默认外观（很重要，可以更好地控制样式） */
-  -moz-appearance: none;
-  /* 针对 Firefox */
-  -webkit-appearance: none;
-  /* 针对 WebKit 浏览器 */
+  cursor: pointer;
+  padding-right: 2rem;
 
   background-image:
     linear-gradient(45deg, transparent 50%, gray 50%),
     linear-gradient(135deg, gray 50%, transparent 50%);
   background-position:
-    calc(100% - 1rem) calc(1em + .1rem),
-    calc(100% - .8rem) calc(1em + .1rem);
-  background-size:
-    .25rem .25rem,
-    .25rem .25rem;
+    calc(100% - 1.2rem) 50%,
+    calc(100% - 0.9rem) 50%;
+  background-size: 5px 5px;
   background-repeat: no-repeat;
-
-  &:focus {
-    outline: 0;
-    -webkit-box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075),
-      #ffb05c;
-    /* 橙色阴影 */
-    box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075),
-      #ffb05c;
-    /* 橙色阴影 */
-  }
 }
 
-//Button
+// Button & Submit
 button,
 input[type="submit"] {
   border: 0;
   font-size: 1.1rem;
+  padding: 0.2rem 0.6rem;
   color: var(--color-text-white);
   background-color: var(--color-second);
   text-shadow: var(--text-shadow);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
 
   &:hover {
-    color: var(--color-text-white);
-    cursor: pointer;
     background-color: var(--color-primary);
+    transform: translateY(-1px); // 微小的悬浮反馈
+  }
+
+  &:active {
+    transform: translateY(1px);
   }
 
   &:disabled {
-    color: var(--color-text-disable);
     cursor: not-allowed;
+    color: var(--color-text-disable);
     background-color: var(--color-bg-disable);
+    transform: none;
+    box-shadow: none;
   }
 
-  &:focus {
-    outline: none;
+  &:focus-visible {
+    box-shadow: 0 0 0 3px rgba(255, 176, 92, 0.4);
   }
 }

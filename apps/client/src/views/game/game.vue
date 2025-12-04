@@ -156,6 +156,7 @@ onBeforeUnmount(() => {
 	width: 100%;
 	height: 100%;
 	background-color: #ffffff;
+	user-select: none;
 }
 
 .border-button {

@@ -358,10 +358,10 @@ async function handleUploadMap() {
 	padding: 0.3rem;
 
 	& > .set-private-button {
-		height: 2rem;
+		font-size: .8rem;
 		// min-height: 1.5rem;
 		margin-left: 0.3rem;
-		border-radius: 0.4rem;
+		border-radius: 0.3rem;
 	}
 
 	& > span {

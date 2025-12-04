@@ -164,7 +164,7 @@ function handleHideContainer() {
 	.button {
 		width: fit-content;
 		padding: 0.4rem 1.2rem;
-		font-size: 0.9rem;
+		font-size: 0.8rem;
 		box-shadow: var(--box-shadow);
 		text-align: center;
 		color: var(--color-text-white);
