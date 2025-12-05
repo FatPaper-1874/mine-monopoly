@@ -34,6 +34,7 @@ import { loadGameMapFromFile, loadGameMapFromServer } from "@src/utils/file/game
 import { base64ToArrayBuffer } from "@fatpaper-monopoly/utils";
 import { showTargetSelector } from "@src/components/common/target-seletor";
 import { showItemSelector } from "@src/components/utils/item-selector";
+import { FPMessageCard } from "../../components/utils/fp-message-card/index";
 
 type ServerMessageHandler<T extends SocketMsgType> = (
 	msg: SocketMessage<T, SocketMsgSource.Server>,
@@ -128,6 +129,10 @@ export function handleServerSocketMessage(msg: ServerSocketMessage, client: Mono
 			break;
 		case SocketMsgType.ItemSelectDialog:
 			handleItemSelectDialog(msg, client);
+			break;
+		case SocketMsgType.MessageCard:
+			handleMessageCardDialog(msg, client);
+			break;
 		default:
 			break;
 	}
@@ -434,4 +439,9 @@ const handleItemSelectDialog: ServerMessageHandler<SocketMsgType.ItemSelectDialo
 				},
 			});
 		});
+};
+
+const handleMessageCardDialog: ServerMessageHandler<SocketMsgType.MessageCard> = (msg, client) => {
+	const data = msg.data;
+	FPMessageCard(data.option);
 };

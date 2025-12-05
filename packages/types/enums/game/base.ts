@@ -37,6 +37,7 @@ export const enum SocketMsgType {
 	ConfirmDialog = "ConfirmDialog", //在客户端唤起确认dialog
 	TargetSelectDialog = "TargetSelectDialog", //在客户端唤起目标选择dialog
 	ItemSelectDialog = "ItemSelectDialog", //在客户端唤起自定义选择dialog
+	MessageCard = "MessageCard", //在客户端唤起信息无交互的dialog
 	UI = "UI", //在客户端增添UI
 }
 

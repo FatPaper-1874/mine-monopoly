@@ -10,6 +10,7 @@ const visible = defineModel<boolean>("visible", { default: false });
 
 const props = withDefaults(
 	defineProps<{
+		title?: string;
 		closable?: boolean;
 		submitDisable?: boolean;
 		hiddenFooter?: boolean;
@@ -51,7 +52,8 @@ function closeDialog() {
 				<div class="fp-dialog-main" :style="props.style">
 					<div class="fp-dialog-header">
 						<div class="title">
-							<slot name="title">默认标题</slot>
+							<span v-if="title">{{ title }}</span>
+							<slot v-else name="title">默认标题</slot>
 						</div>
 						<button v-if="closable" class="close-button" @click="closeDialog">
 							<FontAwesomeIcon icon="close" />

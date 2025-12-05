@@ -9,6 +9,7 @@ import {
 	InputOptionItem,
 	ItemSelectDialogOption,
 	ItemSelectDialogResult,
+	MessageCardOption,
 	PlayerInfo,
 	PropertyInfo,
 	TargetSelectDialogOption,
@@ -226,6 +227,12 @@ export interface SocketMessageDataType {
 		server: {
 			playerId: string;
 			option: ItemSelectDialogOption;
+		};
+	};
+	[SocketMsgType.MessageCard]: {
+		client: undefined;
+		server: {
+			option: MessageCardOption;
 		};
 	};
 	[SocketMsgType.UI]: {

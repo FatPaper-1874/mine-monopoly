@@ -12,6 +12,7 @@ import {
 	InputOptionItem,
 	ItemSelectDialogOption,
 	ItemSelectDialogResult,
+	MessageCardOption,
 	TargetSelectDialogOption,
 	TargetSelectDialogResult,
 } from "./ui"; // 引用 ui
@@ -81,6 +82,7 @@ export interface IGameProcess {
 		option: TargetSelectDialogOption<I>
 	): Promise<TargetSelectDialogResult<I>>;
 	showItemSelectDialog(playerId: string, option: ItemSelectDialogOption): Promise<ItemSelectDialogResult>;
+	showMessageCard(playerIds: string[], option: MessageCardOption): Promise<void>;
 
 	checkGameOver(): Promise<void>;
 }

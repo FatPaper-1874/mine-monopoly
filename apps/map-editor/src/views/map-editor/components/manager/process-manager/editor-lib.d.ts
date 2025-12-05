@@ -164,6 +164,11 @@ interface SelectorItem {
 interface ItemSelectDialogResult {
 	selected: string | string[];
 }
+interface MessageCardOption {
+	title: string;
+	content: string;
+	duration: number;
+}
 interface UISchema {
 	id: string;
 	type: "div" | "span" | "img" | "button" | "text";
@@ -432,6 +437,7 @@ declare const enum SocketMsgType {
 	ConfirmDialog = "ConfirmDialog",//在客户端唤起确认dialog
 	TargetSelectDialog = "TargetSelectDialog",//在客户端唤起目标选择dialog
 	ItemSelectDialog = "ItemSelectDialog",//在客户端唤起自定义选择dialog
+	MessageCard = "MessageCard",//在客户端唤起信息无交互的dialog
 	UI = "UI"
 }
 declare enum SocketMsgSource {
@@ -654,6 +660,12 @@ interface SocketMessageDataType {
 			option: ItemSelectDialogOption;
 		};
 	};
+	[SocketMsgType.MessageCard]: {
+		client: undefined;
+		server: {
+			option: MessageCardOption;
+		};
+	};
 	[SocketMsgType.UI]: {
 		client: undefined;
 		server: undefined;
@@ -745,6 +757,7 @@ interface IGameProcess {
 	showConfirmDialog<I extends InputOptionItem<string, any>[]>(playerId: string, option: ConfirmDialogOption<I>): Promise<ConfirmDialogResult<I>>;
 	showTargetSelectDialog<I extends TargetSelectType>(playerId: string, option: TargetSelectDialogOption<I>): Promise<TargetSelectDialogResult<I>>;
 	showItemSelectDialog(playerId: string, option: ItemSelectDialogOption): Promise<ItemSelectDialogResult>;
+	showMessageCard(playerIds: string[], option: MessageCardOption): Promise<void>;
 	checkGameOver(): Promise<void>;
 }
 interface IPlayer {

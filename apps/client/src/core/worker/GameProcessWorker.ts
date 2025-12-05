@@ -34,6 +34,7 @@ import {
 	IChanceCard,
 	ItemSelectDialogOption,
 	ItemSelectDialogResult,
+	MessageCardOption,
 } from "@fatpaper-monopoly/types";
 
 import Dice from "./class/Dice";
@@ -812,6 +813,15 @@ export class GameProcess implements IGameProcess {
 			},
 		});
 		return (await operationListener.onceAsync(playerId, OperateType.ItemSelectDialogResult)) as ItemSelectDialogResult;
+	}
+
+	public async showMessageCard(playerIds: string[], option: MessageCardOption): Promise<void> {
+		sendToUsers(playerIds, {
+			type: SocketMsgType.MessageCard,
+			source: SocketMsgSource.Server,
+			data: { option },
+		});
+		await this.sleep(option.duration);
 	}
 
 	private sleep(ms: number) {

@@ -60,6 +60,13 @@ export interface ItemSelectDialogResult {
 	selected: string | string[];
 }
 
+// MessageCard
+export interface MessageCardOption {
+	title: string;
+	content: string;
+	duration: number;
+}
+
 export interface UISchema {
 	id: string;
 	type: "div" | "span" | "img" | "button" | "text"; // 允许的标签白名单
