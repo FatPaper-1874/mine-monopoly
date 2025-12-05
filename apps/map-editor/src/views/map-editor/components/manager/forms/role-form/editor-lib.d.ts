@@ -115,7 +115,7 @@ interface Buff {
 }
 interface DialogOption {
 	title: string;
-	content: string;
+	content: string | UISchema;
 	confirmText?: string;
 	cancelText?: string;
 	closable?: boolean;
@@ -162,7 +162,7 @@ interface ItemSelectDialogResult {
 }
 interface MessageCardOption {
 	title: string;
-	content: string;
+	content: string | UISchema;
 	duration: number;
 }
 interface UISchema {

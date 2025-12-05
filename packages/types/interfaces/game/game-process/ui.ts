@@ -3,7 +3,7 @@ import { TargetSelectType } from "../../../../types/enums/game/game";
 //Dialog
 interface DialogOption {
 	title: string;
-	content: string;
+	content: string | UISchema;
 	confirmText?: string;
 	cancelText?: string;
 	closable?: boolean;
@@ -63,7 +63,7 @@ export interface ItemSelectDialogResult {
 // MessageCard
 export interface MessageCardOption {
 	title: string;
-	content: string;
+	content: string | UISchema;
 	duration: number;
 }
 

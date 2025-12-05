@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { ref, VNode, isVNode } from "vue";
 import FpDialog from "../fp-dialog/fp-dialog.vue";
+import { UISchema } from "@fatpaper-monopoly/types";
+import UiRenderer from "../ui-renderer/ui-renderer.vue";
+import { useGameData } from "@src/store/game";
 
 export interface Props {
 	title?: string;
-	content?: string | VNode;
+	content?: string | VNode | UISchema;
 	confirmText?: string;
 	cancelText?: string;
 	showCancel?: boolean;
@@ -52,7 +55,8 @@ const handleDialogClose = () => {
 	>
 		<div class="message-content">
 			<component v-if="isVNode(content)" :is="content" />
-			<div v-else v-html="content"></div>
+			<div v-else-if="typeof content === 'string'" v-html="content"></div>
+			<UiRenderer v-else :context="useGameData().$state" :schema="content as UISchema" />
 		</div>
 
 		<div class="message-footer">

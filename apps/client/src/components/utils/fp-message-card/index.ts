@@ -1,9 +1,10 @@
 import { createVNode, render, type AppContext, type VNode, getCurrentInstance } from "vue";
 import FPMessageCardVue from "./fp-message-card.vue";
+import { UISchema } from "@fatpaper-monopoly/types";
 
 export interface MessageCardOptions {
 	title?: string;
-	content?: string | VNode | (() => VNode);
+	content?: string | VNode | (() => VNode) | UISchema;
 	appContext?: AppContext;
 	duration?: number;
 }

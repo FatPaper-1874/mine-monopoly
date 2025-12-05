@@ -1,11 +1,11 @@
 import { createVNode, render, type AppContext, type VNode, getCurrentInstance } from "vue";
 import FPMessageBoxVue from "./fp-message-box.vue";
 import useEventBus from "@src/utils/event-bus"; // 假设你还需要它
-import { GameEventType } from "@fatpaper-monopoly/types"; // 假设你还需要它
+import { GameEventType, UISchema } from "@fatpaper-monopoly/types"; // 假设你还需要它
 
 export interface MessageBoxOptions {
   title?: string;
-  content?: string | VNode | (() => VNode);
+  content?: string | VNode | (() => VNode) | UISchema;
   confirmText?: string;
   cancelText?: string;
   appContext?: AppContext;
