@@ -1,5 +1,7 @@
 {
 	"name": "@fatpaper-monopoly/client",
+	"author": "Fat_Paper",
+	"description": "Mine-Monopoly的客户端",
 	"private": true,
 	"version": "1.0.0",
 	"type": "module",
@@ -19,5 +21,9 @@
 		"cannon-es": "^0.20.0",
 		"eventemitter3": "^5.0.0",
 		"peerjs": "^1.5.4"
+	},
+	"devDependencies": {
+		"electron": "37.2.6",
+		"electron-builder": "26.0.12"
 	}
 }

@@ -11,6 +11,7 @@ import generateDTS from "./src/plugins/vite-plugin-generate-dts";
 // https://vitejs.dev/config/
 export default defineConfig(({ command }) => {
 	return {
+		base: "./",
 		plugins: [
 			vue(),
 			generateDTS(),

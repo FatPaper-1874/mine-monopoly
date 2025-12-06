@@ -27,7 +27,15 @@ const routes = [
 	{ path: "/game", name: "game", component: componentLoadedInterceptor(import("@src/views/game/game.vue")) },
 ];
 
-const router = createRouter({ history: import.meta.env.PROD ? createWebHistory() : createWebHashHistory(), routes });
+const isElectron = navigator.userAgent.toLowerCase().includes('electron');
+
+const router = createRouter({
+  // 2. 根据环境动态选择 History 模式
+  history: isElectron
+    ? createWebHashHistory() // Electron 必须用 Hash (因为是 file:// 协议)
+    : createWebHistory(),    // Web 端用 History (URL好看，SEO友好)
+  routes
+});
 
 router.beforeEach((to, form) => {
 	switch (to.name) {

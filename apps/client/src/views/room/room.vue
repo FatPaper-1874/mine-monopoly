@@ -47,7 +47,8 @@ const currentMap = computed(() => roomInfoStore.mapInfo);
 const tempMapSelectedId = ref<string>(roomInfoStore.mapId || "");
 const coverImageUrl = computed(() => {
 	if (!currentMap.value) return "";
-	if (currentMap.value.coverUrl.includes("http")) return currentMap.value.coverUrl;
+	const url = currentMap.value.coverUrl;
+	if (url.startsWith("http") || url.startsWith("blob")) return currentMap.value.coverUrl;
 	else return `${PROTOCOL}://${currentMap.value.coverUrl}`;
 });
 const selectMapButtonText = computed(() => (currentMap.value ? currentMap.value.name : "选择地图"));
@@ -358,7 +359,7 @@ async function handleUploadMap() {
 	padding: 0.3rem;
 
 	& > .set-private-button {
-		font-size: .8rem;
+		font-size: 0.8rem;
 		// min-height: 1.5rem;
 		margin-left: 0.3rem;
 		border-radius: 0.3rem;

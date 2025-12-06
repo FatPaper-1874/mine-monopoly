@@ -41,8 +41,6 @@
 		"@vitejs/plugin-vue": "^5.2.4",
 		"cross-env": "10.0.0",
 		"dts-bundle-generator": "9.5.1",
-		"electron": "37.2.6",
-		"electron-builder": "26.0.12",
 		"rollup-plugin-external-globals": "0.10.0",
 		"rollup-plugin-visualizer": "5.12.0",
 		"sass": "1.58.3",

@@ -9,6 +9,7 @@ import generateMonacoDTS from "./plugins/vite-plugin-generate-monaco-dts";
 
 // https://vite.dev/config/
 export default defineConfig({
+	base: './',
 	plugins: [
 		vue(),
 		// interfaceToProtoPlugin({
