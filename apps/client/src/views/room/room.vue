@@ -45,13 +45,6 @@ const mapList = ref<GameMapInDb[]>([]);
 const mapSelectorVisible = ref(false);
 const currentMap = computed(() => roomInfoStore.mapInfo);
 const tempMapSelectedId = ref<string>(roomInfoStore.mapId || "");
-const coverImageUrl = computed(() => {
-	if (!currentMap.value) return "";
-	const url = currentMap.value.coverUrl;
-	if (url.startsWith("http") || url.startsWith("blob")) return currentMap.value.coverUrl;
-	else return `${PROTOCOL}://${currentMap.value.coverUrl}`;
-});
-const selectMapButtonText = computed(() => (currentMap.value ? currentMap.value.name : "选择地图"));
 
 function handleChangeMap() {
 	if (socketClient && tempMapSelectedId.value !== currentMap.value?.id) {
@@ -186,7 +179,8 @@ async function handleUploadMap() {
 
 			<div class="map-preview-inroom">
 				<div class="map-cover-container">
-					<img class="map-cover" v-if="coverImageUrl" :src="coverImageUrl" />
+					<MapPreviewer class="map-previewer" v-if="currentMap" :map="currentMap" />
+					<span v-else>上传地图 & 选择官方地图</span>
 				</div>
 				<div class="select-map-button">
 					<FpPopover v-if="isOwner" placement="top">
@@ -200,13 +194,13 @@ async function handleUploadMap() {
 						</template>
 					</FpPopover>
 					<button :class="{ nomap: !Boolean(roomInfoStore.mapId) }" :disabled="!isOwner" @click="handleSelectMap">
-						{{ selectMapButtonText }}
+						选择地图
 					</button>
 				</div>
 			</div>
 
 			<div class="game-setting">
-				<button v-if="isOwner" @click="gameSettingFormVisible = true">修改地图参数</button>
+				<button v-if="isOwner && currentMap" @click="gameSettingFormVisible = true">修改地图参数</button>
 				<div class="game-setting-item" v-for="(setting, key) in gameSettingForShow">
 					<span class="label">{{ setting.label }}:</span>
 					<span class="value">{{ setting.displayValue }}</span>
@@ -274,7 +268,7 @@ async function handleUploadMap() {
 				v-model:selected-key="tempMapSelectedId"
 			>
 				<template #item="map">
-					<MapPreviewer :map="map" />
+					<MapPreviewer style="width: 23rem; height: 14rem" :map="map" />
 				</template>
 			</ItemSelector>
 		</template>
@@ -384,9 +378,6 @@ async function handleUploadMap() {
 .map-preview-inroom {
 	width: 95%;
 	height: 12rem;
-	border-radius: 0.6rem;
-	border: 0.2rem solid #ffffff;
-	background-color: #ffffff;
 	position: relative;
 	overflow: hidden;
 
@@ -409,7 +400,7 @@ async function handleUploadMap() {
 		position: absolute;
 		right: 0;
 		bottom: 0;
-		z-index: 1;
+		z-index: 100;
 		display: flex;
 		gap: 0.2rem;
 
@@ -453,21 +444,16 @@ async function handleUploadMap() {
 		display: flex;
 		justify-content: center;
 		align-items: center;
-		background-color: #ddd;
-		padding: 0.5rem;
 		box-sizing: border-box;
+		border: 0.4rem solid var(--color-border-lighter);
+		border-radius: 1rem;
+		background-color: var(--color-bg-disable);
+		color: var(--color-text-secondary);
+	}
 
-		.map-cover {
-			display: block;
-			width: auto;
-			height: auto;
-			object-fit: contain;
-			max-width: 100%;
-			max-height: 100%;
-			object-fit: contain;
-			margin: auto;
-			border-radius: 0.6em;
-		}
+	& .map-previewer {
+		position: absolute;
+		z-index: 1;
 	}
 }
 

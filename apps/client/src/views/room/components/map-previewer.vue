@@ -5,13 +5,21 @@ import { PROTOCOL } from "@fatpaper-monopoly/config";
 
 const { map } = defineProps<{ map: GameMapInDb }>();
 
-const coverImageUrl = computed(() => `${PROTOCOL}://${map.coverUrl}`);
+const coverImageUrl = computed(() => {
+	const url = map.coverUrl;
+	if (url.startsWith("http") || url.startsWith("blob")) return map.coverUrl;
+	else return `${PROTOCOL}://${map.coverUrl}`;
+});
 </script>
 
 <template>
 	<div class="map-preview">
 		<div class="map-info">
 			<div class="name">{{ map.name }}</div>
+			<div class="bottom">
+				<div class="version">版本: v{{ map.version }}</div>
+				<div class="author">作者: {{ map.author }}</div>
+			</div>
 		</div>
 		<div class="map-cover-container">
 			<img class="map-cover" :src="coverImageUrl" />
@@ -28,23 +36,42 @@ const coverImageUrl = computed(() => `${PROTOCOL}://${map.coverUrl}`);
 	box-sizing: border-box;
 	overflow: hidden;
 	position: relative;
-	cursor: pointer;
 }
 .map-info {
-	position: absolute;
 	width: 100%;
 	height: 100%;
-	left: 0;
-	top: 0;
 	z-index: 100;
+	position: absolute;
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+	padding: .2rem;
+	box-sizing: border-box;
 
-	& > .name {
-		width: auto;
+	& .name {
+		width: max-content;
 		display: inline-block;
-		padding: 0.6em 1em;
-		border-radius: 0 0.6em 0.6em 0.6em;
+		padding: 0.3rem 0.5rem;
+		border-radius: 0.6rem;
 		background-color: var(--color-second);
 		color: var(--color-text-white);
+	}
+
+	.bottom {
+		display: flex;
+		gap: 0.3rem;
+		align-items: start;
+		flex-direction: column;
+	}
+
+	& .author,
+	& .version {
+		width: max-content;
+		padding: 0.2rem 0.3rem;
+		border-radius: 0.4rem;
+		font-size: 0.7rem;
+		color: var(--color-text-regular);
+		background-color: var(--color-bg-transparent);
 	}
 }
 .map-cover-container {
@@ -56,6 +83,9 @@ const coverImageUrl = computed(() => `${PROTOCOL}://${map.coverUrl}`);
 	background-color: #ddd;
 	padding: 0.5rem;
 	box-sizing: border-box;
+	position: absolute;
+	left: 0;
+	top: 0;
 
 	.map-cover {
 		display: block;
