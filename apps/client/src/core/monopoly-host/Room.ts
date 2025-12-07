@@ -326,6 +326,7 @@ export class Room {
 
 			const res = await Promise.all(promiseArr);
 			if (res.some((r) => !r.confirm)) {
+				useLoading().hideLoading();
 				this.roomBroadcast({
 					type: SocketMsgType.MsgNotify,
 					source: SocketMsgSource.Server,

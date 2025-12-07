@@ -330,7 +330,7 @@ export class GameProcess implements IGameProcess {
 	private initProperties() {
 		this.properties.values().forEach((property) => {
 			property.commandBus.setHandler("property.arrived", async (payload) => {
-				const { arrivedPlayer, owner } = payload;
+				const { arrivedPlayer, owner, toll } = payload;
 				if (owner) {
 					//地皮有主人
 					if (owner.id === arrivedPlayer.id) {
@@ -359,14 +359,17 @@ export class GameProcess implements IGameProcess {
 						//地产是别人的
 						const ownerPlayer = this.getPlayerById(owner.id);
 						if (!ownerPlayer) return payload;
-						const passCost = await property.arrived(arrivedPlayer);
+						if (owner !== undefined && toll !== undefined) {
+							await owner.gain(toll);
+							await arrivedPlayer.cost(toll);
+						}
 						this.messageNotify([arrivedPlayer.id], {
 							type: "error",
-							content: `你到达了${owner.name}的地皮: ${property.name}，支付了${passCost}￥过路费`,
+							content: `你到达了${owner.name}的地皮: ${property.name}，支付了${toll}￥过路费`,
 						});
 						this.messageNotify([ownerPlayer.id], {
 							type: "success",
-							content: `${arrivedPlayer.name}到达了你的地皮: ${property.name}，支付了${passCost}￥过路费`,
+							content: `${arrivedPlayer.name}到达了你的地皮: ${property.name}，支付了${toll}￥过路费`,
 						});
 						this.messageNotify(
 							Array.from(this.players.values())
@@ -374,7 +377,7 @@ export class GameProcess implements IGameProcess {
 								.map((p) => p.id),
 							{
 								type: "info",
-								content: `${arrivedPlayer.name}到达了${owner.name}的地皮: ${property.name}，支付了${passCost}￥过路费`,
+								content: `${arrivedPlayer.name}到达了${owner.name}的地皮: ${property.name}，支付了${toll}￥过路费`,
 							}
 						);
 						this.gameDataBroadcast();
@@ -382,7 +385,7 @@ export class GameProcess implements IGameProcess {
 							`${this.createGameLinkItem(GameLinkItem.Player, arrivedPlayer.id)} 到达了 ${this.createGameLinkItem(
 								GameLinkItem.Player,
 								owner.id
-							)} 的地皮: ${this.createGameLinkItem(GameLinkItem.Property, property.id)}，支付了 ${passCost}￥ 过路费`
+							)} 的地皮: ${this.createGameLinkItem(GameLinkItem.Property, property.id)}，支付了 ${toll}￥ 过路费`
 						);
 					}
 				} else {

@@ -94,15 +94,6 @@ export class Property implements IProperty {
 			this.level = newLevel;
 			return payload;
 		});
-
-		this.commandBus.setHandler("property.arrived", async (payload) => {
-			const { owner, arrivedPlayer, toll } = payload;
-			if (owner !== undefined && toll !== undefined) {
-				await owner.gain(toll);
-				await arrivedPlayer.cost(toll);
-			}
-			return payload;
-		});
 	}
 
 	public getOriginalData = () => this.originalData;
