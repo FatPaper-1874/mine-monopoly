@@ -1,0 +1,4 @@
+(async (context, gameProcess) => {
+	const player = context.currentRoundPlayer;
+	await gameProcess.handleArriveEvent(player);
+}) as GameEventFunction<ArrivedEventContext>;

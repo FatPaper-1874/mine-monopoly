@@ -1,5 +1,14 @@
 import { GamePhaseInfo } from "@fatpaper-monopoly/types";
 import { GamePhaseMark } from "@fatpaper-monopoly/types/enums/game/game-process";
+import GameInitedPhaseDefault from "../default-code/game-inited-phase.txt?raw";
+import GameOverRuleDefault from "../default-code/game-over-rule.txt?raw";
+import GameRoundStartPhaseDefault from "../default-code/game-round-start-phase.txt?raw";
+import PlayerRoundStartPhaseDefault from "../default-code/player-round-start-phase.txt?raw";
+import RollDicePhaseDefault from "../default-code/roll-dice-phase.txt?raw";
+import ArrivedEventPhaseDefault from "../default-code/arrived-event-phase.txt?raw";
+import PlayerMovePhaseDefault from "../default-code/player-move-phase.txt?raw";
+import PlayerRoundEndPhaseDefault from "../default-code/player-round-end-phase.txt?raw";
+import GameRoundEndPhaseDefault from "../default-code/game-round-end-phase.txt?raw";
 
 export function getInitPhase() {
 	const gameRoundStartPhases: GamePhaseInfo[] = new Array<GamePhaseInfo>();
@@ -30,9 +39,7 @@ const gameOverRulePhase: GamePhaseInfo = {
 	description: "游戏结束判定规则, 返回一个布尔值, 当返回值为true时游戏结束",
 	from: "系统",
 	mark: GamePhaseMark.GameRoundStart,
-	initEventCode: `(async (context: GameContext, gameProcess: IGameProcess) => {
-	return false;
-});`,
+	initEventCode: GameOverRuleDefault,
 };
 
 const gameInitedPhase: GamePhaseInfo = {
@@ -41,9 +48,7 @@ const gameInitedPhase: GamePhaseInfo = {
 	description: "游戏初始化结束阶段",
 	from: "系统",
 	mark: GamePhaseMark.GameRoundStart,
-	initEventCode: `(async (context, gameProcess) => {
-
-}) as GameEventFunction<GameContext>;`,
+	initEventCode: GameInitedPhaseDefault,
 };
 
 const gameRoundStartPhase: GamePhaseInfo = {
@@ -52,9 +57,7 @@ const gameRoundStartPhase: GamePhaseInfo = {
 	description: "轮次开始阶段",
 	from: "系统",
 	mark: GamePhaseMark.GameRoundStart,
-	initEventCode: `(async (context, gameProcess) => {
-
-}) as GameEventFunction<GameRoundStartContext>;`,
+	initEventCode: GameRoundStartPhaseDefault,
 };
 
 const playerRoundStartPhase: GamePhaseInfo = {
@@ -63,13 +66,7 @@ const playerRoundStartPhase: GamePhaseInfo = {
 	description: "玩家回合开始阶段",
 	from: "系统",
 	mark: GamePhaseMark.PlayerRoundStart,
-	initEventCode: `(async (context, gameProcess) => {
-    console.log("玩家回合开始")
-	//通知玩家回合
-	gameProcess.roundTurnNotify(context.currentRoundPlayer.getId());
-	//开始倒计时
-	// gameProcess.roundTimeTimer.start();
-}) as GameEventFunction<PlayerRoundStartContext>;`,
+	initEventCode: PlayerRoundStartPhaseDefault,
 };
 
 const rollDicePhase: GamePhaseInfo = {
@@ -78,66 +75,7 @@ const rollDicePhase: GamePhaseInfo = {
 	description: "玩家操作阶段",
 	from: "系统",
 	mark: GamePhaseMark.RollDice,
-	initEventCode: `(async (context, gameProcess) => {
-	const currentPlayer = context.currentRoundPlayer;
-	const currentPlayerId = currentPlayer.getId();
-
-	//回合倒计时结束后自动掷骰子
-	// gameProcess.roundTimeTimer.setTimeOutFunction(() => {
-	//     gameProcess.emitPlayerOperation(currentPlayerId, OperateType.RollDice);
-	// })
-
-	//监听玩家使用机会卡
-	function listenPlayerUseCard() {
-		gameProcess.oncePlayerOperation(currentPlayerId, OperateType.UseChanceCard, async (res) => {
-			const { chanceCardId, targetIdList } = res;
-			const success = await gameProcess.handleUseChanceCard(context.currentRoundPlayer, chanceCardId, targetIdList);
-			if (success) {
-				//使用成功自动掷骰子
-				gameProcess.emitPlayerOperation(currentPlayerId, OperateType.RollDice);
-			} else {
-				//使用失败继续监听
-				listenPlayerUseCard();
-			}
-		});
-	}
-	listenPlayerUseCard();
-
-	//等待玩家点击旋转骰子按钮
-	await gameProcess.oncePlayerOperationAsync(currentPlayerId, OperateType.RollDice);
-	gameProcess.removePlayerAllOperationListener(currentPlayerId, OperateType.UseChanceCard);
-	
-	//倒计时停止走动
-	gameProcess.roundTimeTimer.pause();
-
-	//播放骰子旋转动画
-	gameProcess.gameBroadcast({ type: SocketMsgType.RollDiceStart, data: "" });
-
-	//让骰子转1.5秒
-	await new Promise((resolve) => setTimeout(resolve, 1500));
-
-	//将骰子结果写入上下文
-	if (!context.dice) {
-		gameProcess.diceUtil.roll();
-		context.dice = gameProcess.diceUtil.getResultArray();
-	}
-
-	//向客户端发送骰子结果
-	const msgToRollDice: ServerSocketMessage = {
-		type: SocketMsgType.RollDiceResult,
-		source: SocketMsgSource.Server,
-		data: {
-			rollDiceResult: gameProcess.diceUtil.getResultArray(),
-			rollDiceCount: gameProcess.diceUtil.getResultNumber(),
-			rollDicePlayerId: currentPlayer.getId(),
-		},
-		msg: {
-			type: "info",
-			content: currentPlayer.getName()} + "摇到的点数是: " + gameProcess.diceUtil.getResultArray().join("-"),
-		},
-	};
-	gameProcess.gameBroadcast(msgToRollDice);
-}) as GameEventFunction<RollDiceContext>;`,
+	initEventCode: RollDicePhaseDefault,
 };
 
 const playerMovePhase: GamePhaseInfo = {
@@ -146,12 +84,7 @@ const playerMovePhase: GamePhaseInfo = {
 	description: "玩家移动阶段",
 	from: "系统",
 	mark: GamePhaseMark.PlayerMove,
-	initEventCode: `(async (context, gameProcess) => {
-	//玩家移动
-	const player = context.currentRoundPlayer;
-	await player.walk(context.dice.reduce((p, c) => p + c, 0));
-	context.targetIndex = player.getPositionIndex();
-}) as GameEventFunction<PlayerMoveContext>;`,
+	initEventCode: PlayerMovePhaseDefault,
 };
 
 const arrivedEventPhase: GamePhaseInfo = {
@@ -160,10 +93,7 @@ const arrivedEventPhase: GamePhaseInfo = {
 	description: "到达事件阶段",
 	from: "系统",
 	mark: GamePhaseMark.ArrivedEvent,
-	initEventCode: `(async (context, gameProcess) => {
-	const player = context.currentRoundPlayer;
-	await gameProcess.handleArriveEvent(player);
-}) as GameEventFunction<ArrivedEventContext>;`,
+	initEventCode: ArrivedEventPhaseDefault,
 };
 
 const playerRoundEndPhase: GamePhaseInfo = {
@@ -172,9 +102,7 @@ const playerRoundEndPhase: GamePhaseInfo = {
 	description: "玩家回合结束阶段",
 	from: "系统",
 	mark: GamePhaseMark.PlayerRoundEnd,
-	initEventCode: `(async (context, gameProcess) => {
-	
-}) as GameEventFunction<PlayerRoundEndContext>;`,
+	initEventCode: PlayerRoundEndPhaseDefault,
 };
 
 const gameRoundEndPhase: GamePhaseInfo = {
@@ -183,7 +111,5 @@ const gameRoundEndPhase: GamePhaseInfo = {
 	description: "轮次结束阶段",
 	from: "系统",
 	mark: GamePhaseMark.GameRoundEnd,
-	initEventCode: `(async (context, gameProcess) => {
-	
-}) as GameEventFunction<GameRoundEndContext>;`,
+	initEventCode: GameRoundEndPhaseDefault,
 };

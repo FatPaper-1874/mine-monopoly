@@ -12,37 +12,13 @@ import {
 	CustomUI,
 } from "@fatpaper-monopoly/types/interfaces/game/item";
 import { eventBus } from "@src/utils/event-bus";
-import { getInitPhase } from "../views/map-editor/components/manager/process-manager/utils/init-phase";
+import { createDefaultMapData } from "../utils/file/index";
 
 export const useMapDataStore = defineStore("MapData", {
-	state: (): GameMap => ({
-		id: crypto.randomUUID(),
-		info: {
-			name: "",
-			author: "",
-			version: "0.0.0",
-			editorVersion: __APP_VERSION__,
-			backgroundImageId: "",
-			coverImageId: "",
-		},
-		mapItems: [],
-		chanceCards: [],
-		mapItemTypes: [],
-		mapIndex: [],
-		streets: [],
-		roles: [],
-		inUse: false,
-		mapEvents: [],
-		phases: getInitPhase(),
-		buildingModelIdList: ["", "", ""],
-		customUIs: [],
-		gameSettingForm: [
-			{ id: "initMoney", key: "initMoney", type: "number-input", label: "初始金钱", defaultValue: 10000 },
-		],
-	}),
+	state: createDefaultMapData,
 	actions: {
 		// MapInfo
-		updateMapInfo(info: { name: string; author: string; version: SemVer }) {
+		updateMapInfo(info: { name: string; author: string; version: SemVer; description: string }) {
 			Object.assign(this.info, info);
 		},
 
@@ -272,9 +248,16 @@ export const useResourceStore = defineStore("Resources", {
 		addModel(model: ResourcesType) {
 			this.models.push(model);
 		},
+		updateModel(model: ResourcesType) {
+			const index = this.models.findIndex((m) => m.id === model.id);
+			if (index > -1) {
+				Object.assign(this.models[index], model);
+			}
+		},
 		addImage(image: ResourcesType) {
 			this.images.push(image);
 		},
+
 		removeModel(id: string) {
 			const deleteIndex = this.models.findIndex((m) => m.id === id);
 			if (deleteIndex < 0) throw Error("找不到目标模型资源");

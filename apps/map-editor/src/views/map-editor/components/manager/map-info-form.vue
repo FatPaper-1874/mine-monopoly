@@ -34,6 +34,7 @@ async function handleUpdateInfo() {
 			name: mapInfoForm.name,
 			author: mapInfoForm.author,
 			version: mapInfoForm.version,
+			description: mapInfoForm.description,
 		});
 		message.success(`更新地图信息成功`, 1);
 	} catch (e: any) {
@@ -91,6 +92,10 @@ function handleClose() {
 				:rules="[{ required: true, validator: checkVersion, trigger: 'change' }]"
 			>
 				<a-input v-model:value="mapInfoForm.version" />
+			</a-form-item>
+
+			<a-form-item label="地图说明" name="description" :rules="[{ required: true, message: '请输入地图说明' }]">
+				<a-textarea style="height: 150px; width: 300px;" v-model:value="mapInfoForm.description" />
 			</a-form-item>
 
 			<a-form-item label="地图封面" name="cover-image">

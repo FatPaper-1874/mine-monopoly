@@ -1,0 +1,51 @@
+(async (context, gameProcess) => {
+	const currentPlayer = context.currentRoundPlayer;
+	const currentPlayerId = currentPlayer.id;
+
+	//回合倒计时结束后自动掷骰子
+	// gameProcess.roundTimeTimer.setTimeOutFunction(() => {
+	//     gameProcess.emitPlayerOperation(currentPlayerId, OperateType.RollDice);
+	// })
+
+	//监听玩家使用机会卡
+	function listenPlayerUseCard() {
+		gameProcess.oncePlayerOperation(currentPlayerId, OperateType.UseChanceCard, async (res) => {
+			const { chanceCardId, targetIdList } = res;
+			const success = await gameProcess.handleUseChanceCard(context.currentRoundPlayer, chanceCardId, targetIdList);
+			listenPlayerUseCard();
+		});
+	}
+	listenPlayerUseCard();
+
+	//等待玩家点击旋转骰子按钮
+	await gameProcess.oncePlayerOperationAsync(currentPlayerId, OperateType.RollDice);
+	gameProcess.removePlayerAllOperationListener(currentPlayerId, OperateType.UseChanceCard);
+
+	//倒计时停止走动
+	gameProcess.roundTimeTimer.pause();
+
+	//播放骰子旋转动画
+	gameProcess.gameBroadcast({ type: SocketMsgType.RollDiceStart, data: "", source: SocketMsgSource.Server });
+
+	//将骰子结果写入上下文
+	const diceResult = await currentPlayer.rollDices();
+	context.diceResult = diceResult;
+
+	//向客户端发送骰子结果
+	const msgToRollDice: ServerSocketMessage = {
+		type: SocketMsgType.RollDiceResult,
+		source: SocketMsgSource.Server,
+		data: {
+			rollDiceResult: context.diceResult,
+			rollDicePlayerId: currentPlayer.id,
+		},
+		msg: {
+			type: "info",
+			content: `${currentPlayer.name} 摇到的点数是: ${context.diceResult.map(d => d.result).join("-")}`,
+		},
+	};
+	gameProcess.gameBroadcast(msgToRollDice);
+
+	//等待动画
+	await new Promise((resolve) => setTimeout(resolve, 3000));
+}) as GameEventFunction<RollDiceContext>;

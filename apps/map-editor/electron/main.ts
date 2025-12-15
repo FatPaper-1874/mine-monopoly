@@ -135,13 +135,12 @@ ipcMain.handle("write-file", async (event, targetPath: string, data: string) => 
 	return targetPath;
 });
 
-ipcMain.handle("write-local-file", async (event, targetPath: string, data: string) => {
-    targetPath = path.join(process.cwd(), targetPath);
-    const dir = path.dirname(targetPath);
-    await mkdir(dir, { recursive: true });
-    await writeFile(targetPath, data);
-    
-    return targetPath;
+ipcMain.handle("write-local-file", async (event, targetPath: string, data: Uint8Array) => {
+	const finalPath = path.isAbsolute(targetPath) ? targetPath : path.join(process.cwd(), targetPath);
+	const dir = path.dirname(finalPath);
+	await mkdir(dir, { recursive: true });
+	await writeFile(finalPath, data);
+	return finalPath;
 });
 
 ipcMain.handle("copy-file", async (event, fromFilePath: string, toFilePathtoFilePath: string, newFileName: string) => {

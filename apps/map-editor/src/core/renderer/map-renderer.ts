@@ -296,7 +296,6 @@ export class MapRenderer {
 			const z = Math.floor(firstInstance.point.z);
 			const rotation = this.currentRotation;
 			const currentItemType = useEditorStore().currentMapItemType;
-			console.log("🚀 ~ MapRenderer ~ handleMouseClickInCreate ~ currentItemType:", currentItemType);
 			if (currentItemType) this.createMapItem(x, z, rotation, currentItemType);
 		}
 	}
@@ -504,8 +503,11 @@ export class MapRenderer {
 	public async loadMap(mapData: GameMap) {
 		mapData = { ...mapData };
 		useEditorStore().setLoading(true);
+		this.scene.background = new THREE.Color(0xbbbbbb);
 		this.mapItemGroup.clear();
 		this.itemTypesCache.clear();
+		this.linkLineGroup.clear();
+		this.mapEventGroup.clear();
 		const mapItemList = mapData.mapItems;
 		//加载MapItem
 		for (const mapItem of mapItemList) {

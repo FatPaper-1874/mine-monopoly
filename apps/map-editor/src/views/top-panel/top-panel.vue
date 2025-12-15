@@ -1,25 +1,36 @@
 <script setup lang="ts">
 import { useEditorStore, useMapDataStore, useResourceStore } from "@src/stores";
-import { handleOpenProtoFile, handleSaveAsOtherProtoFile, handleSaveProtoFile } from "@src/utils/file";
+import {
+	handleNewProtoFile,
+	handleOpenProtoFile,
+	handleSaveAsOtherProtoFile,
+	handleSaveProtoFile,
+} from "@src/utils/file";
 
 const editorStore = useEditorStore();
 
 enum OperationType {
+	NEW = "new",
 	OPEN = "open",
 	SAVE = "save",
 	SAVEAS = "saveas",
 }
 
-type MenuItem = { label: string; key: OperationType; icon: string };
+type MenuItem = { label: string; key: OperationType };
 
 const menus: MenuItem[] = [
-	{ label: "打开", key: OperationType.OPEN, icon: "folder-open" },
-	{ label: "保存 (ctrl+s)", key: OperationType.SAVE, icon: "floppy-disk" },
-	{ label: "另存为", key: OperationType.SAVEAS, icon: "file-export" },
+	{ label: "新建", key: OperationType.NEW },
+	{ label: "打开", key: OperationType.OPEN },
+	{ label: "保存 (ctrl+s)", key: OperationType.SAVE },
+	{ label: "另存为", key: OperationType.SAVEAS },
 ];
 
 function handleMenuClick(key: OperationType) {
 	switch (key) {
+		case OperationType.NEW:
+			handleNewProtoFile();
+			break;
+
 		case OperationType.OPEN:
 			handleOpenProtoFile();
 			break;

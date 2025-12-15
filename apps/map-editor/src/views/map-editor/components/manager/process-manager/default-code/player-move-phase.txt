@@ -1,0 +1,6 @@
+(async (context, gameProcess) => {
+	//玩家移动
+	const player = context.currentRoundPlayer;
+	await player.walk(context.diceResult.map(d => d.result).reduce((p, c) => p + c, 0));
+	context.targetIndex = player.positionIndex;
+}) as GameEventFunction<PlayerMoveContext>;

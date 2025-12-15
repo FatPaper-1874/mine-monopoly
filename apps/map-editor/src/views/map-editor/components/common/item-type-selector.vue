@@ -5,7 +5,7 @@ import { ModelPreviewerRenderer } from "@src/utils/three/ModelPreviewerRenderer"
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import itemTypeCreator from "./item-type-creator.vue";
 import { eventBus } from "@src/utils/event-bus";
-import { Select, message } from 'ant-design-vue';
+import { Modal, Select, message } from "ant-design-vue";
 
 const mapDataStroe = useMapDataStore();
 const editorStore = useEditorStore();
@@ -21,6 +21,8 @@ onMounted(() => {
 	const containerEl = document.getElementById("item-type-model-preview-canvas-container") as HTMLDivElement;
 	modelPreviewerRenderer = new ModelPreviewerRenderer(containerEl);
 });
+
+const currentMapItemType = computed(() => editorStore.currentMapItemTypeId);
 
 watch(
 	() => editorStore.currentMapItemTypeId,
@@ -40,9 +42,24 @@ watch(
 const createFormVisible = ref(false);
 
 function handleMapItemTypeSelected(id: string | undefined) {
-	useEditorStore().currentMapItemTypeId = id || "";
+	editorStore.currentMapItemTypeId = id || "";
 	eventBus.emit("map-item-type-selected", id);
 	selectRef.value && selectRef.value.blur();
+}
+
+function handleDeleteMapItemType() {
+	Modal.warning({
+		title: "删除物块类型",
+		content: "删除这个物块类型会导致基于这个类型的MapItem也一并删除",
+		okText: "确定",
+		cancelText: "取消",
+		onOk: () => {
+			if (!currentMapItemType.value) return;
+			useMapDataStore().removeMapItemType(currentMapItemType.value);
+			editorStore.currentMapItemTypeId = undefined;
+			eventBus.emit("map-item-type-selected", undefined);
+		},
+	});
 }
 </script>
 
@@ -67,11 +84,14 @@ function handleMapItemTypeSelected(id: string | undefined) {
 					style="width: 160px"
 				>
 					<a-select-option v-for="mapItemType in mapItemTypes" :value="mapItemType.id">
-						<span :style="mapItemType.color">{{ mapItemType.name }}</span>
+						<span :style="{ color: mapItemType.color }">{{ mapItemType.name }}</span>
 					</a-select-option>
 				</a-select>
 			</a-space>
 			<div id="item-type-model-preview-canvas-container"></div>
+			<a-button @click="handleDeleteMapItemType" v-if="currentMapItemType" style="width: 100%" type="primary" danger
+				>删除这个物块类型</a-button
+			>
 		</a-space>
 	</a-card>
 	<item-type-creator v-model="createFormVisible" />

@@ -1,0 +1,3 @@
+(async (context: GameContext, gameProcess: IGameProcess) => {
+	return false;
+});

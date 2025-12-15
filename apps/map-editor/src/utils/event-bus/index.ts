@@ -5,6 +5,8 @@ import mitt from "mitt";
 
 type Events = {
 	// 事件名: 事件参数类型
+	"change-model": string;
+
 	"renderer-ready": void;
 	"map-loaded": GameMap;
 	"change-operation-mode": OperationMode;

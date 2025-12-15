@@ -1,0 +1,3 @@
+(async (context, gameProcess) => {
+	gameProcess.currentRound += 1;
+}) as GameEventFunction<GameRoundEndContext>;

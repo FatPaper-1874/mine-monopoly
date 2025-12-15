@@ -2,7 +2,21 @@ import { GameMap } from "@fatpaper-monopoly/types";
 import { dataToProtoBuffer, loadFromProto, ProtoFileType } from "@fatpaper-monopoly/utils/protos";
 import { useEditorStore, useMapDataStore, useResourceStore } from "@src/stores";
 import { eventBus } from "@src/utils/event-bus";
+import { getInitPhase } from "@src/views/map-editor/components/manager/process-manager/utils/init-phase";
 import { message } from "ant-design-vue";
+
+export function getFileName(path: string): string {
+	return path.split(/[/\\]/).pop() || "";
+}
+
+export function getFileNameWithoutExt(path: string): string {
+	const fileName = getFileName(path);
+	const lastDotIndex = fileName.lastIndexOf(".");
+	if (lastDotIndex === -1 || lastDotIndex === 0) {
+		return fileName;
+	}
+	return fileName.substring(0, lastDotIndex);
+}
 
 export async function parseGameMapFromProtoFile(filePath: string) {
 	const buffer = await window.electronAPI.readFile(filePath);
@@ -54,14 +68,13 @@ export async function loadMapDataFromPath(path: string) {
 	const data = await parseGameMapFromProtoFile(path);
 	if (data) {
 		mapDataStore.$patch(data.mapData);
-		console.log("🚀 ~ MapData", data.mapData);
 		editorStore.setCurrentFilePath(path);
 
 		await window.electronAPI.clearTempDir();
 
 		const modelsList: typeof resourceStore.models = [];
 		for (const model of data.models) {
-			const newPath = await readBufferToFile(model.buffer, `/temp/${model.id}.${model.filetype}`);
+			const newPath = await readBufferToFile(model.buffer, `temp/${model.id}.${model.filetype}`);
 			const tempModel = {
 				id: model.id,
 				name: model.name,
@@ -74,7 +87,7 @@ export async function loadMapDataFromPath(path: string) {
 
 		const imagesList: typeof resourceStore.images = [];
 		for (const image of data.images) {
-			const newPath = await readBufferToFile(image.buffer, `/temp/${image.id}.${image.filetype}`);
+			const newPath = await readBufferToFile(image.buffer, `temp/${image.id}.${image.filetype}`);
 			const tempImage = {
 				id: image.id,
 				name: image.name,
@@ -84,13 +97,67 @@ export async function loadMapDataFromPath(path: string) {
 			imagesList.push(tempImage);
 		}
 		resourceStore.$patch({ images: imagesList });
-		console.log("🚀 ~ models:", resourceStore.models);
-		console.log("🚀 ~ images:", resourceStore.images);
 
 		eventBus.emit("map-loaded", data.mapData);
 		message.success("加载成功", 1);
 	}
 	useEditorStore().setLoading(false);
+}
+
+export function createDefaultMapData(): GameMap {
+	return {
+		id: crypto.randomUUID(),
+		info: {
+			name: "",
+			author: "",
+			version: "0.0.0",
+			editorVersion: __APP_VERSION__,
+			description: "",
+			backgroundImageId: "",
+			coverImageId: "",
+		},
+		mapItems: [],
+		chanceCards: [],
+		mapItemTypes: [],
+		mapIndex: [],
+		streets: [],
+		roles: [],
+		inUse: false,
+		mapEvents: [],
+		phases: getInitPhase(),
+		buildingModelIdList: ["", "", ""],
+		customUIs: [],
+		gameSettingForm: [
+			{ id: "initMoney", key: "initMoney", type: "number-input", label: "初始金钱", defaultValue: 10000 },
+		],
+	} as GameMap;
+}
+
+export async function handleNewProtoFile() {
+	const editorStore = useEditorStore();
+	const mapDataStore = useMapDataStore();
+	const resourceStore = useResourceStore();
+
+	try {
+		useEditorStore().setLoading(true);
+
+		await window.electronAPI.clearTempDir();
+		editorStore.setCurrentFilePath("");
+		resourceStore.$patch({
+			models: [],
+			images: [],
+		});
+		const defaultMap = createDefaultMapData();
+		mapDataStore.$patch(defaultMap);
+		eventBus.emit("map-loaded", defaultMap);
+
+		message.success("新建地图成功", 1);
+	} catch (error) {
+		console.error("新建地图失败:", error);
+		message.error("新建地图失败");
+	} finally {
+		useEditorStore().setLoading(false);
+	}
 }
 
 export async function handleOpenProtoFile() {
@@ -147,6 +214,37 @@ export async function readFileToTempDir(filePath: string, type: "model" | "image
 	return { newFilePath, id, fileType };
 }
 
+export async function updateExistingModel(id: string, name: string, filePath: string) {
+	const resourcesStore = useResourceStore();
+	const oldModel = resourcesStore.findModelById(id);
+	if (!oldModel) throw new Error("找不到该模型");
+
+	let finalFileType = oldModel.fileType;
+
+	if (filePath && filePath !== oldModel.url) {
+		try {
+			const buffer = await window.electronAPI.readFile(filePath);
+			await window.electronAPI.saveLocalFile(oldModel.url, new Uint8Array(buffer));
+			const newExt = filePath.split(".").pop();
+			if (newExt) {
+				finalFileType = newExt;
+			}
+		} catch (e: any) {
+			message.error(`覆盖文件失败: ${e.message}`);
+			return;
+		}
+	}
+
+	resourcesStore.updateModel({
+		id: id,
+		name: name,
+		fileType: finalFileType,
+		url: oldModel.url,
+	});
+	eventBus.emit("change-model", id);
+	message.success(`更新模型 "${name}" 成功`, 1);
+}
+
 export async function addNewModel(filePath: string, name: string) {
 	try {
 		const { newFilePath, id, fileType } = await readFileToTempDir(filePath, "model");
@@ -157,7 +255,6 @@ export async function addNewModel(filePath: string, name: string) {
 			fileType,
 			url: newFilePath,
 		});
-		message.success(`添加模型 "${name}" 成功`, 1);
 	} catch (e: any) {
 		message.error(e.message, 1);
 	}

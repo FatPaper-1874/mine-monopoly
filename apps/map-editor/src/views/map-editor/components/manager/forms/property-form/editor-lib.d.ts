@@ -885,6 +885,7 @@ interface GameMapInfo {
 	name: string;
 	author: string;
 	version: SemVer;
+	description: string;
 	editorVersion: string;
 	backgroundImageId: string;
 	coverImageId: string;
