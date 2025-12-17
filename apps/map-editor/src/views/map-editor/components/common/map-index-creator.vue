@@ -6,18 +6,24 @@ import { useMapDataStore } from "@src/stores/index";
 
 const mapItemslist = computed(() => useMapDataStore().mapItems);
 const itemTypeList = computed(() => useMapDataStore().mapItemTypes);
-console.log("🚀 ~ itemTypeList:", itemTypeList);
+
+const startMapItemId = ref("");
 const emits = defineEmits(["submit"]);
 
 const _itemTypeIdToAppendPath = ref<string[]>([]);
 const model = defineModel({ default: false });
 
 async function handleAppendMapIndex() {
+	let startMapItem: MapItem | undefined;
+	startMapItem = useMapDataStore().findMapItemById(startMapItemId.value);
+	if (!startMapItem) {
+		message.error(`找不到ID为: ${startMapItemId.value}的MapItem`);
+	}
 	const tempMapItemsList = mapItemslist.value.filter((item) => _itemTypeIdToAppendPath.value.includes(item.type.id));
 	if (tempMapItemsList.length > 0) {
 		let mapIndex: string[] = [];
 		try {
-			mapIndex = findPath(tempMapItemsList);
+			mapIndex = findPath(tempMapItemsList, startMapItem);
 			useMapDataStore().updateMapIndex(mapIndex);
 			message.success("更新路径索引成功", 1);
 			emits("submit");
@@ -28,14 +34,14 @@ async function handleAppendMapIndex() {
 	}
 }
 
-function findPath(mapItems: MapItem[]): string[] | never {
+function findPath(mapItems: MapItem[], startMapItem?: MapItem): string[] | never {
 	if (mapItems.length === 0) {
 		throw new Error("输入数组不能为空");
 	}
 
 	const itemsCopy: MapItem[] = JSON.parse(JSON.stringify(mapItems));
 
-	const startingPoint: MapItem = itemsCopy[0];
+	const startingPoint: MapItem = startMapItem ? startMapItem : itemsCopy[0];
 
 	const traversedItems: MapItem[] | null = traverseMap(itemsCopy, startingPoint);
 	if (!traversedItems || traversedItems.length == 0) {
@@ -104,6 +110,11 @@ function findNeighbors(node: MapItem, items: MapItem[]): MapItem[] {
 
 <template>
 	<a-modal :footer="null" v-model:open="model" title="建立地图路径索引">
+		<a-input
+			v-model:value="startMapItemId"
+			style="margin-bottom: 10px"
+			placeholder="输入起点MapItem的Id(可选)"
+		></a-input>
 		<a-select
 			clearable
 			v-model:value="_itemTypeIdToAppendPath"
