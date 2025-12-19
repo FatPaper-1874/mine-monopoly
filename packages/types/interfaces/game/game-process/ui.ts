@@ -47,7 +47,7 @@ export interface ItemSelectDialogOption<T = SelectorItem> extends Omit<DialogOpt
 	keyName?: keyof T;
 	multiple?: boolean;
 	column?: number;
-	selectedKey?: string | string[];
+	selectedKey?: string[];
 }
 
 export interface SelectorItem {
@@ -57,7 +57,7 @@ export interface SelectorItem {
 
 // 对应的返回结果定义
 export interface ItemSelectDialogResult {
-	selected: string | string[];
+	selected: string[];
 }
 
 // MessageCard

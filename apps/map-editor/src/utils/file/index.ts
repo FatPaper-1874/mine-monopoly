@@ -120,7 +120,6 @@ export function createDefaultMapData(): GameMap {
 		chanceCards: [],
 		mapItemTypes: [],
 		mapIndex: [],
-		streets: [],
 		roles: [],
 		inUse: false,
 		mapEvents: [],

@@ -12,7 +12,6 @@ export interface GameMap {
 	chanceCards: ChanceCardInfo[];
 	mapItemTypes: MapItemType[];
 	mapIndex: string[];
-	streets: Street[];
 	roles: Role[];
 	inUse: boolean;
 	mapEvents: MapEvent[];

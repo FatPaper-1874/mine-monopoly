@@ -11,7 +11,6 @@ import processManager from "../manager/process-manager/process-manager.vue";
 import ModelManager from "../manager/model-manager.vue";
 import EventManager from "../manager/event-manager.vue";
 import ChanceCardManager from "../manager/chancecard-manager.vue";
-import StreetManager from "../manager/street-manager.vue";
 import RoleManager from "../manager/role-manager.vue";
 import DefaultBuildingManager from "../manager/default-building-manager.vue";
 import customUiManager from "../manager/custom-ui-manager/custom-ui-manager.vue";
@@ -97,13 +96,6 @@ const buttonConfigs: ButtonConifg[] = [
 		},
 	},
 	{
-		text: "街道",
-		icon: "fas fa-road",
-		onClick: () => {
-			streetManagerVisible.value = true;
-		},
-	},
-	{
 		text: "地块事件",
 		icon: "fas fa-book",
 		onClick: () => {
@@ -155,7 +147,6 @@ const mapInfoFormVisible = ref(false);
 const roleManagerVisible = ref(false);
 const mapIndexCreatorVisible = ref(false);
 const processManagerVisible = ref(false);
-const streetManagerVisible = ref(false);
 const modelManagerVisible = ref(false);
 const eventManagerVisible = ref(false);
 const chanceCardManagerVisible = ref(false);
@@ -232,7 +223,6 @@ const gameSettingFormVisible = ref(false);
 		<role-manager v-model="roleManagerVisible" />
 		<map-index-creator v-model="mapIndexCreatorVisible" />
 		<process-manager v-model="processManagerVisible" />
-		<street-manager v-model="streetManagerVisible" />
 		<model-manager v-model="modelManagerVisible" />
 		<event-manager v-model="eventManagerVisible" />
 		<chance-card-manager v-model="chanceCardManagerVisible" />
@@ -249,6 +239,7 @@ const gameSettingFormVisible = ref(false);
 	padding: 10px;
 	justify-content: space-between;
 	pointer-events: initial;
+	gap: 10px;
 
 	& .right {
 		flex: 1;

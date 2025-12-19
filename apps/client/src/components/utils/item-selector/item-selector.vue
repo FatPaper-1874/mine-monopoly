@@ -1,6 +1,5 @@
 <script setup lang="ts">
-// script 部分保持不变
-import { toRaw, computed } from "vue";
+import { toRaw } from "vue";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import HtmlRenderer from "../ui-renderer/ui-renderer.vue";
 import { useGameData } from "@src/store/game";
@@ -10,46 +9,39 @@ interface Prop {
 	itemList: Array<any>;
 	keyName: string;
 	multiple: boolean;
-	selectedKey: string | string[]; // 接受 v-model 的值
+	selectedKey: string[];
 }
 
 const props = defineProps<Prop>();
 
 const emits = defineEmits(["select", "update:selectedKey"]);
 
-const gameDataStore = useGameData();
-
 const isItemSelected = (itemId: string): boolean => {
-	if (props.multiple) {
-		if (Array.isArray(props.selectedKey)) {
-			return props.selectedKey.includes(itemId);
-		}
-		return false;
-	} else {
-		return props.selectedKey === itemId;
-	}
+	const currentList = Array.isArray(props.selectedKey) ? props.selectedKey : [];
+	return currentList.includes(itemId);
 };
 
 function handleItemClick(item: any) {
 	const itemId: string = item[props.keyName];
-	let newSelectedKey: string | string[];
+	let currentList = (Array.isArray(props.selectedKey) ? [...toRaw(props.selectedKey)] : []) as string[];
 
 	if (props.multiple) {
-		let currentList = (Array.isArray(props.selectedKey) ? toRaw(props.selectedKey) : []) as string[];
-		const index = currentList.findIndex((key) => key === itemId);
-
+		const index = currentList.indexOf(itemId);
 		if (index !== -1) {
 			currentList.splice(index, 1);
 		} else {
 			currentList.push(itemId);
 		}
-		newSelectedKey = [...currentList];
 	} else {
-		newSelectedKey = props.selectedKey === itemId ? "" : itemId;
+		if (currentList.includes(itemId)) {
+			currentList = [];
+		} else {
+			currentList = [itemId];
+		}
 	}
 
-	emits("select", newSelectedKey);
-	emits("update:selectedKey", newSelectedKey);
+	emits("select", currentList);
+	emits("update:selectedKey", currentList);
 }
 </script>
 
@@ -76,6 +68,7 @@ function handleItemClick(item: any) {
 </template>
 
 <style lang="scss" scoped>
+/* style 保持不变 */
 .item-selector {
 	display: grid;
 	gap: 1.6rem;

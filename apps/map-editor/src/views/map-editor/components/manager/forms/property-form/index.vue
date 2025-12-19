@@ -12,7 +12,6 @@ const editorStore = useEditorStore();
 const mapDataStore = useMapDataStore();
 
 const currentMapItemId = computed(() => editorStore.currentMapItemId);
-const streetList = computed(() => mapDataStore.streets);
 
 const formRef = ref<FormInstance>();
 const submitting = ref(false);
@@ -26,8 +25,8 @@ const createDefaultData = (): PropertyInfo => ({
 	level: 0,
 	maxLevel: 2, // 建议在普通模式下由 costList.length - 1 决定
 	buildingModelIdList: undefined,
-	streetId: undefined as unknown as string, // 强制类型适配，或者给默认值
 	custom: undefined,
+	customData: {},
 });
 
 const formData = reactive<PropertyInfo>(createDefaultData());
@@ -37,7 +36,6 @@ const rules: Record<string, Rule[]> = {
 	name: [{ required: true, message: "请输入地皮名称", trigger: "blur" }],
 	sellCost: [{ required: true, message: "请输入空地价格", trigger: "change" }],
 	buildCost: [{ required: true, message: "请输入建楼价格", trigger: "change" }],
-	streetId: [{ required: true, message: "请选择所属街道", trigger: "change" }],
 	// 动态校验 costList
 	costList: [{ type: "array", required: true, message: "请配置过路费", trigger: "change" }],
 };
@@ -150,15 +148,6 @@ function onBuildingModelSubmit(ids: string[]) {
 					</a-form-item>
 				</a-col>
 
-				<a-col :span="12">
-					<a-form-item label="所属街道" name="streetId">
-						<a-select v-model:value="formData.streetId" placeholder="选择街道" allow-clear>
-							<a-select-option v-for="s in streetList" :key="s.id" :value="s.id">
-								{{ s.name }}
-							</a-select-option>
-						</a-select>
-					</a-form-item>
-				</a-col>
 				<a-col :span="12">
 					<a-form-item label="最大等级 (Max Level)" name="maxLevel">
 						<a-input-number

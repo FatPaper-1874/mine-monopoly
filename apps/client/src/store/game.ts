@@ -50,7 +50,6 @@ export const useMapData = defineStore("map-data", {
 		chanceCards: [],
 		mapItemTypes: [],
 		mapIndex: [],
-		streets: [],
 		roles: [],
 		inUse: false,
 		mapEvents: [],

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { MapEvent, Street } from "@fatpaper-monopoly/types/interfaces/game/item";
+import { MapEvent } from "@fatpaper-monopoly/types/interfaces/game/item";
 import CodeEditor from "@src/components/code-editor/index.vue";
 import libContent from "./editor-lib.d.ts?raw";
 import templateText from "./template-text?raw";

@@ -4,7 +4,6 @@ import { CameraMode, OperationMode } from "@src/enums";
 import {
 	MapItem,
 	MapItemType,
-	Street,
 	MapEvent,
 	Role,
 	GameMapInfo,
@@ -105,21 +104,6 @@ export const useMapDataStore = defineStore("MapData", {
 				this.removeMapItem(mapItemId);
 			});
 			this.mapItemTypes.splice(index, 1);
-		},
-
-		// Street
-		addStreet(street: Street) {
-			this.streets.push(street);
-		},
-		editStreet(street: Street) {
-			const index = this.streets.findIndex((s) => s.id === street.id);
-			if (index < 0) throw Error("找不到目标街道");
-			Object.assign(this.streets[index], street);
-		},
-		reomveStreet(id: string) {
-			const deleteIndex = this.streets.findIndex((s) => s.id === id);
-			if (deleteIndex < 0) throw Error("找不到目标街道");
-			this.streets.splice(deleteIndex, 1);
 		},
 
 		// MapEvent
@@ -341,11 +325,6 @@ const alertList: EditorAlert[] = [
 		type: "error",
 		message: "没有加入模型",
 		visible: () => useResourceStore().models.length === 0,
-	},
-	{
-		type: "error",
-		message: "没有设置街道",
-		visible: () => useMapDataStore().streets.length === 0,
 	},
 	{
 		type: "error",

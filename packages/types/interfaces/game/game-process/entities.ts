@@ -19,10 +19,11 @@ export interface IPlayer {
 	isBankrupted: boolean;
 	isOffline: boolean;
 	stop: number;
-	extras: Record<string, any>;
 	roundPhases: IGamePhase<GameContext>[];
 	dices: IDice[];
 	infoDisplay: UISchema;
+
+	customData: Record<string, any>;
 
 	getUser: () => UserInRoomInfo;
 
@@ -67,10 +68,11 @@ export interface IProperty {
 	sellCost: number;
 	buildCost: number;
 	costList: number[];
-	streetId: string;
 	buildingModelIdList: string[] | undefined;
 	custom: PropertyCustom | undefined;
 	owner: IPlayer | undefined;
+
+	customData: Record<string, any>;
 
 	getOriginalData: () => PropertyInfo;
 

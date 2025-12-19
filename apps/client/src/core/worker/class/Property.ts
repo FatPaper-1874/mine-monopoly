@@ -22,7 +22,6 @@ export class Property implements IProperty {
 	public buildCost: number;
 	public sellCost: number;
 	public costList: number[];
-	public streetId: string;
 	public buildingModelIdList: string[] | undefined;
 	public custom: PropertyCustom | undefined;
 	public owner: IPlayer | undefined = undefined;
@@ -30,6 +29,8 @@ export class Property implements IProperty {
 	public modifierManager: IModifierManager<PropertyCommandMap>;
 	public commandBus: ICommandBus<PropertyCommandMap>;
 	private originalData: PropertyInfo;
+
+	public customData: Record<string, any> = {};
 
 	private customPropertyInitFunction: ((property: IProperty, gameProcess: IGameProcess) => void) | undefined;
 
@@ -41,7 +42,6 @@ export class Property implements IProperty {
 		this.sellCost = property.sellCost;
 		this.costList = property.costList;
 		this.maxLevel = property.maxLevel;
-		this.streetId = property.streetId;
 		this.buildingModelIdList = property.buildingModelIdList;
 		this.custom = property.custom;
 		this.originalData = property;
@@ -111,7 +111,10 @@ export class Property implements IProperty {
 	}
 
 	public async setOwner(player: IPlayer | undefined) {
-		await this.commandBus.execute({ type: "property.owner.change", payload: { oldOwner: this.owner, newOwner: player } });
+		await this.commandBus.execute({
+			type: "property.owner.change",
+			payload: { oldOwner: this.owner, newOwner: player },
+		});
 	}
 
 	public async arrived(player: IPlayer) {
@@ -131,10 +134,10 @@ export class Property implements IProperty {
 			buildCost: this.buildCost,
 			sellCost: this.sellCost,
 			costList: this.costList,
-			streetId: this.streetId,
 			owner: owner ? owner.getUser() : undefined,
 			buildingModelIdList: this.buildingModelIdList,
 			custom: this.custom ? { effectCode: "", description: this.custom.description } : undefined,
+			customData: this.customData,
 		};
 		return propertyInfo;
 	}

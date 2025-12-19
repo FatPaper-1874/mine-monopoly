@@ -98,14 +98,14 @@ interface ItemSelectDialogOption<T = SelectorItem> extends Omit<DialogOption, "c
 	keyName?: keyof T;
 	multiple?: boolean;
 	column?: number;
-	selectedKey?: string | string[];
+	selectedKey?: string[];
 }
 interface SelectorItem {
 	id: string;
 	display: UISchema;
 }
 interface ItemSelectDialogResult {
-	selected: string | string[];
+	selected: string[];
 }
 interface MessageCardOption {
 	title: string;
@@ -149,6 +149,7 @@ interface PlayerInfo {
 	isBankrupted: boolean;
 	isOffline: boolean;
 	infoDisplay: UISchema;
+	customData: Record<string, any>;
 }
 interface PropertyInfo {
 	id: string;
@@ -158,10 +159,10 @@ interface PropertyInfo {
 	level: number;
 	maxLevel: number;
 	costList: number[];
-	streetId: string;
 	buildingModelIdList?: string[];
 	owner?: UserInRoomInfo;
 	custom?: PropertyCustom;
+	customData: Record<string, any>;
 }
 interface PropertyCustom {
 	effectCode: string;
@@ -410,7 +411,6 @@ interface GameMap {
 	chanceCards: ChanceCardInfo[];
 	mapItemTypes: MapItemType[];
 	mapIndex: string[];
-	streets: Street[];
 	roles: Role[];
 	inUse: boolean;
 	mapEvents: MapEvent[];
@@ -816,10 +816,10 @@ interface IPlayer {
 	isBankrupted: boolean;
 	isOffline: boolean;
 	stop: number;
-	extras: Record<string, any>;
 	roundPhases: IGamePhase<GameContext>[];
 	dices: IDice[];
 	infoDisplay: UISchema;
+	customData: Record<string, any>;
 	getUser: () => UserInRoomInfo;
 	setPropertiesList: (newPropertiesList: IProperty[]) => void;
 	gainProperty: (property: IProperty) => Promise<void>;
@@ -852,10 +852,10 @@ interface IProperty {
 	sellCost: number;
 	buildCost: number;
 	costList: number[];
-	streetId: string;
 	buildingModelIdList: string[] | undefined;
 	custom: PropertyCustom | undefined;
 	owner: IPlayer | undefined;
+	customData: Record<string, any>;
 	getOriginalData: () => PropertyInfo;
 	levelUp: () => Promise<void>;
 	levelDown: () => Promise<void>;
@@ -983,13 +983,6 @@ interface Role {
 	color: string;
 	imageId: string;
 	initCode: string;
-}
-interface Street {
-	id: string;
-	name: string;
-	description: string;
-	effectCode: string;
-	properties: string[];
 }
 interface MapItemType {
 	id: string;

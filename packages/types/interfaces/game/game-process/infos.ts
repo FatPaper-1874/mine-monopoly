@@ -26,6 +26,7 @@ export interface PlayerInfo {
 	isBankrupted: boolean;
 	isOffline: boolean;
 	infoDisplay: UISchema;
+	customData: Record<string, any>;
 }
 
 export interface PropertyInfo {
@@ -36,10 +37,10 @@ export interface PropertyInfo {
 	level: number;
 	maxLevel: number;
 	costList: number[];
-	streetId: string;
 	buildingModelIdList?: string[];
 	owner?: UserInRoomInfo;
 	custom?: PropertyCustom;
+	customData: Record<string, any>;
 }
 
 export interface PropertyCustom {

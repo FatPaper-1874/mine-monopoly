@@ -40,11 +40,12 @@ export class Player implements IPlayer {
 	public stop: number = 0;
 	public infoDisplay: UISchema;
 
-	public extras: Record<string, any> = {};
 	public roundPhases: IGamePhase<GameContext>[] = [];
 	public modifierManager: IModifierManager<PlayerCommandMap>;
 	public commandBus: ICommandBus<PlayerCommandMap>;
 	public dices: IDice[];
+
+	public customData: Record<string, any> = {};
 
 	private user: UserInRoomInfo;
 	private roleInitFunction: (player: IPlayer, gameProcess: IGameProcess) => void;
@@ -267,6 +268,7 @@ export class Player implements IPlayer {
 			isBankrupted: this.isBankrupted,
 			isOffline: this.isOffline,
 			infoDisplay: this.infoDisplay,
+			customData: this.customData,
 		};
 		return playerInfo;
 	}
