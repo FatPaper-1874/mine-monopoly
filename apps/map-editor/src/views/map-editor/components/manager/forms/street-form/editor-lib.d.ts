@@ -60,69 +60,6 @@ interface FormSchema {
 	defaultValue?: number | string;
 	options?: SelectOption[];
 }
-interface GameData {
-	exportData: {
-		[key: string]: any;
-	};
-	currentPlayerIdInRound: string;
-	currentRound: number;
-	currentMultiplier: number;
-	players: PlayerInfo[];
-	properties: PropertyInfo[];
-	isGameOver: boolean;
-}
-interface PlayerInfo {
-	id: string;
-	user: UserInRoomInfo;
-	dices: DiceInfo[];
-	money: number;
-	properties: PropertyInfo[];
-	chanceCards: ChanceCardClientInfo[];
-	buff: Buff[];
-	positionIndex: number;
-	stop: number;
-	isBankrupted: boolean;
-	isOffline: boolean;
-}
-interface PropertyInfo {
-	id: string;
-	name: string;
-	sellCost: number;
-	buildCost: number;
-	level: number;
-	maxLevel: number;
-	costList: number[];
-	streetId: string;
-	buildingModelIdList?: string[];
-	owner?: UserInRoomInfo;
-	custom?: PropertyCustom;
-}
-interface PropertyCustom {
-	effectCode: string;
-	description: string;
-}
-interface ChanceCardClientInfo extends Omit<ChanceCardInstanceInfo, "effectCode"> {
-}
-interface ChanceCardInstanceInfo extends ChanceCardInfo {
-	sourceId: string;
-}
-interface ChanceCardInfo {
-	id: string;
-	name: string;
-	description: string;
-	iconId: string;
-	color: string;
-	effectCode: string;
-	type: TargetSelectType;
-}
-interface Buff {
-	id: string;
-	name: string;
-	description: string;
-	source: string;
-	triggerTiming: string;
-	triggerTimes: number;
-}
 interface DialogOption {
 	title: string;
 	content: string | UISchema;
@@ -187,6 +124,70 @@ interface UISchema {
 	content?: string;
 	textBinding?: string;
 	children?: UISchema[];
+}
+interface GameData {
+	exportData: {
+		[key: string]: any;
+	};
+	currentPlayerIdInRound: string;
+	currentRound: number;
+	currentMultiplier: number;
+	players: PlayerInfo[];
+	properties: PropertyInfo[];
+	isGameOver: boolean;
+}
+interface PlayerInfo {
+	id: string;
+	user: UserInRoomInfo;
+	dices: DiceInfo[];
+	money: number;
+	properties: PropertyInfo[];
+	chanceCards: ChanceCardClientInfo[];
+	buff: Buff[];
+	positionIndex: number;
+	stop: number;
+	isBankrupted: boolean;
+	isOffline: boolean;
+	infoDisplay: UISchema;
+}
+interface PropertyInfo {
+	id: string;
+	name: string;
+	sellCost: number;
+	buildCost: number;
+	level: number;
+	maxLevel: number;
+	costList: number[];
+	streetId: string;
+	buildingModelIdList?: string[];
+	owner?: UserInRoomInfo;
+	custom?: PropertyCustom;
+}
+interface PropertyCustom {
+	effectCode: string;
+	description: string;
+}
+interface ChanceCardClientInfo extends Omit<ChanceCardInstanceInfo, "effectCode"> {
+}
+interface ChanceCardInstanceInfo extends ChanceCardInfo {
+	sourceId: string;
+}
+interface ChanceCardInfo {
+	id: string;
+	name: string;
+	description: string;
+	iconId: string;
+	color: string;
+	effectCode: string;
+	type: TargetSelectType;
+}
+interface Buff {
+	id: string;
+	name: string;
+	description: string;
+	source: string;
+	triggerTiming: string;
+	triggerTimes: number;
 }
 declare enum GamePhaseMark {
 	GameRoundStart = 0,
@@ -818,6 +819,7 @@ interface IPlayer {
 	extras: Record<string, any>;
 	roundPhases: IGamePhase<GameContext>[];
 	dices: IDice[];
+	infoDisplay: UISchema;
 	getUser: () => UserInRoomInfo;
 	setPropertiesList: (newPropertiesList: IProperty[]) => void;
 	gainProperty: (property: IProperty) => Promise<void>;

@@ -109,7 +109,7 @@ const chanceCardVisible = computed(() => {
 					font-size: 1.3rem;
 					text-align: center;
 					border-radius: 1.4rem;
-					padding: 0.8rem 1.5rem;
+					margin: auto;
 				}
 
 				& > .avatar {
@@ -146,15 +146,10 @@ const chanceCardVisible = computed(() => {
 				flex-direction: column;
 				border-radius: 1.2rem;
 				box-sizing: border-box;
-
-				& > .label {
-					padding: 1.2rem;
-					margin: 0;
-				}
+				position: relative;
 
 				& > .properyies-list {
 					padding: 1.2rem;
-					padding-top: 0.6rem;
 					flex: 1;
 					display: flex;
 					flex-direction: column;
@@ -194,14 +189,8 @@ const chanceCardVisible = computed(() => {
 			border-radius: 1.2rem;
 			box-sizing: border-box;
 
-			& > .label {
-				padding: 1.2rem;
-				margin: 0;
-			}
-
 			& > .buff-list {
 				padding: 1.2rem;
-				padding-top: 0;
 				flex: 1;
 				display: flex;
 				flex-direction: column;
@@ -212,11 +201,17 @@ const chanceCardVisible = computed(() => {
 		}
 	}
 }
-
 .label {
-	font-size: 1.2rem;
-	color: var(--color-second);
-	margin-bottom: 1.2rem;
-	text-shadow: var(--text-shadow-light);
+	position: absolute;
+	padding: 0.5rem 0.7rem;
+	top: -0.8rem;
+	left: 0.6rem;
+	margin: 0;
+	z-index: 1000;
+	background-color: var(--color-third);
+	background-image: var(--texture-felt);
+	border-radius: 0.5rem;
+	color: #ffffff;
+	box-shadow: var(--shadow-depth);
 }
 </style>

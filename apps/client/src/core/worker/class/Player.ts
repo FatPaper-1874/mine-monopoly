@@ -83,7 +83,7 @@ export class Player implements IPlayer {
 				{
 					id: "username-text",
 					type: "text",
-					textBinding: "user.username",
+					textBinding: "player.user.username",
 				},
 				{
 					id: "money-container",
@@ -97,7 +97,7 @@ export class Player implements IPlayer {
 						{
 							id: "money-text",
 							type: "text",
-							textBinding: "money",
+							textBinding: "player.money",
 						},
 					],
 				},

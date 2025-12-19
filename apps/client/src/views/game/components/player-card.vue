@@ -56,28 +56,34 @@ watch(
 		</div>
 
 		<div class="info" :style="{ color: _userInfo.color }">
-			<UiRenderer :schema="player.infoDisplay" :context="player" />
+			<UiRenderer :schema="player.infoDisplay" :context="{ player }" />
 		</div>
 	</div>
 </template>
 
 <style lang="scss" scoped>
+@import "@src/assets/variables.scss";
+
 .player-card {
+	@include felt-patch(#ffffff);
+	padding: 0.5rem 0.7rem;
 	width: 100%;
 	max-width: max-content;
 	min-width: 11rem;
 	display: flex;
 	justify-content: space-around;
 	align-items: center;
-	border-radius: 0.8rem;
-	padding: 0.4rem 0.6rem;
-	background-color: rgba($color: #ffffff, $alpha: 0.85);
-	backdrop-filter: blur(0.2rem);
-	border: 0.25rem solid rgba($color: #ffffff, $alpha: 0.85);
 	box-sizing: border-box;
 	user-select: none;
 	margin: 0.2rem 0;
 	cursor: pointer;
+
+	&::before {
+		top: 0.3rem;
+		bottom: 0.3rem;
+		left: 0.3rem;
+		right: 0.3rem;
+	}
 
 	& > .card-num {
 		position: absolute;

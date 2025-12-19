@@ -149,10 +149,6 @@ defineProps<{ buff: Buff }>();
 		padding: 2px 8px;
 		border-radius: 10px;
 
-		.icon {
-			font-size: 0.75rem;
-		}
-
 		&.is-infinite {
 			background: var(--color-bg-light);
 			color: var(--color-primary);
