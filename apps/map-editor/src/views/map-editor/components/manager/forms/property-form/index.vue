@@ -123,6 +123,15 @@ function onBuildingModelSubmit(ids: string[]) {
 	formData.buildingModelIdList = ids;
 	buildingModelVisible.value = false;
 }
+
+async function copyMapItemId() {
+	try {
+		await navigator.clipboard.writeText(formData.id);
+		message.success("ID 已复制到剪贴板");
+	} catch (err) {
+		message.error("复制失败，请手动选择复制");
+	}
+}
 </script>
 
 <template>
@@ -142,6 +151,15 @@ function onBuildingModelSubmit(ids: string[]) {
 
 		<a-form ref="formRef" :model="formData" :rules="rules" layout="vertical" class="scrollable-form" size="small">
 			<a-row :gutter="16">
+				<a-col :span="24">
+					<a-form-item label="地皮ID">
+						{{ formData.id }}
+						<a-button type="link" size="mini" @click="copyMapItemId">
+							<template #icon>复制ID</template>
+						</a-button>
+					</a-form-item>
+				</a-col>
+
 				<a-col :span="24">
 					<a-form-item label="地皮名称" name="name">
 						<a-input v-model:value="formData.name" placeholder="例如：贝克街" allow-clear />
