@@ -4,6 +4,7 @@ import { PropertyInfo } from "./infos"; // 引用 infos
 import { IPlayer } from "./entities"; // 引用 entities
 import { IGameProcess } from "./core"; // 引用 core
 import { DiceResult } from "../util";
+import { MapEvent } from "../item";
 
 // Host服务端 Worker
 export type GameContext = {
@@ -72,10 +73,14 @@ export interface PlayerRoundEndContext extends ArrivedEventContext {}
 export interface GameRoundEndContext extends GameContext {}
 
 export type GameRuntimeEvent = {
-	"game-round-start": void;
-	"game-round-end": void;
-	"player-round-start": { player: IPlayer };
-	"player-round-end": { player: IPlayer };
-	"player-arrived": { positionIndex: number; player: IPlayer };
-	"player-passed": { passedMapItemsId: string[]; player: IPlayer };
+	"game.round.start": void;
+	"game.round.end": void;
+	"player.round.start": { player: IPlayer };
+	"player.round.end": { player: IPlayer };
+	"player.arrived": { positionIndex: number; player: IPlayer };
+	"player.passed": { passedMapItemsId: string[]; player: IPlayer };
 } & Record<string, any>;
+
+export interface RuntimeMapEvent extends MapEvent {
+	fn: (player: IPlayer, gameProcess: IGameProcess) => Promise<void>;
+}

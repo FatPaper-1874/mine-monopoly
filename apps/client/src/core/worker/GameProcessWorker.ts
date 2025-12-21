@@ -34,6 +34,8 @@ import {
 	ItemSelectDialogResult,
 	MessageCardOption,
 	GameRuntimeEvent,
+	RuntimeMapEvent,
+	MapEventType,
 } from "@fatpaper-monopoly/types";
 
 import { RoundTimeTimer } from "./class/RoundTimeTimer";
@@ -118,7 +120,7 @@ export class GameProcess implements IGameProcess {
 	public properties: Map<string, Property> = new Map();
 	public chanceCardInfos: Map<string, ChanceCardInfo> = new Map();
 	public mapItems: Map<string, MapItem> = new Map();
-	public mapEvents: Map<string, MapEvent> = new Map();
+	public mapEvents: Map<string, RuntimeMapEvent> = new Map();
 
 	public gameRuntimeStack: GameRuntimeStack = new GameRuntimeStack();
 
@@ -220,10 +222,38 @@ export class GameProcess implements IGameProcess {
 		const { mapItems, mapEvents, chanceCards } = this.mapData;
 
 		mapEvents.forEach((mapEvent) => {
+			const effectCode = compileTsToJs(mapEvent.effectCode, GameProcessTypes);
 			this.mapEvents.set(mapEvent.id, {
 				...mapEvent,
-				effectCode: compileTsToJs(mapEvent.effectCode, GameProcessTypes),
+				effectCode,
+				fn: new Function(effectCode)(),
 			});
+		});
+
+		//处理经过事件
+		this.eventBus.on("player.passed", ({ passedMapItemsId, player }) => {
+			const passedEventFunctions: GameEvent<GameContext>[] = [];
+			for (const mapItemId of passedMapItemsId) {
+				const mapItem = this.mapItems.get(mapItemId);
+				if (!mapItem) throw Error("处理经过事件时, 找不到MapItem");
+				if (!mapItem.mapEventId) continue;
+				const mapEvent = this.mapEvents.get(mapItem.mapEventId);
+				if (!mapEvent) throw Error("处理经过事件时, 找不到MapEvent");
+				if (mapEvent.type !== MapEventType.PassedEvent) continue;
+				passedEventFunctions.push({
+					fn: async (context, gameProcess) => {
+						await mapEvent.fn(player, gameProcess);
+						gameProcess.gameMsgNotifyBroadcast("info", `${player.name} 经过了: ${mapEvent.name} 触发事件`);
+						gameProcess.gameLogBroadcast(
+							`${gameProcess.createGameLinkItem(
+								GameLinkItem.Player,
+								player.id
+							)} 触发了地图事件: ${gameProcess.createGameLinkItem(GameLinkItem.ArrivedEvent, mapEvent.id)}`
+						);
+					},
+				});
+			}
+			this.pushEventToStack(...passedEventFunctions);
 		});
 
 		mapItems.forEach((mapItem) => {
@@ -292,7 +322,7 @@ export class GameProcess implements IGameProcess {
 					}
 				});
 				clearTimeout(animationTimer);
-				this.eventBus.emit("player-passed", { passedMapItemsId, player });
+				this.eventBus.emit("player.passed", { passedMapItemsId, player });
 				return payload;
 			});
 
@@ -464,7 +494,7 @@ export class GameProcess implements IGameProcess {
 		//游戏循环
 		while (!this.isGameOver) {
 			//回合循环 加载回合开始阶段
-			this.eventBus.emit("game-round-start");
+			this.eventBus.emit("game.round.start");
 			const roundStartPhases = this.gameRoundPhase.roundStartPhase;
 			for (const phase of roundStartPhases) {
 				await this.runGamePhase(phase);
@@ -472,7 +502,7 @@ export class GameProcess implements IGameProcess {
 
 			//玩家回合
 			for (const player of Array.from(this.players.values())) {
-				this.eventBus.emit("player-round-start", { player });
+				this.eventBus.emit("player.round.start", { player });
 				const context: PlayerRoundContext = {
 					currentRoundPlayer: player,
 				};
@@ -480,7 +510,7 @@ export class GameProcess implements IGameProcess {
 				for (const phase of playerRoundPhases) {
 					await this.runGamePhase(phase, context);
 				}
-				this.eventBus.emit("player-round-end", { player });
+				this.eventBus.emit("player.round.end", { player });
 			}
 
 			//回合结束阶段
@@ -488,7 +518,7 @@ export class GameProcess implements IGameProcess {
 			for (const phase of roundEndPhases) {
 				await this.runGamePhase(phase);
 			}
-			this.eventBus.emit("game-round-end");
+			this.eventBus.emit("game.round.end");
 		}
 		this.roundTimeTimer.clearInterval();
 	}
@@ -697,30 +727,31 @@ export class GameProcess implements IGameProcess {
 		const arriveItemId = this.mapData.mapIndex[playerPositionIndex];
 		const arriveItem = this.mapItems.get(arriveItemId);
 		if (!arriveItem) return;
+		if (arriveItem.mapEventId) {
+			// 特殊地块
+			const mapEvent = this.mapEvents.get(arriveItem.mapEventId);
+			if (!mapEvent) throw Error("找不到对应的MapEvent");
+			// 是到达触发的事件
+			if (mapEvent.type === MapEventType.ArrivedEvent) {
+				await mapEvent.fn(arrivedPlayer, this);
+				this.gameMsgNotifyBroadcast("info", `${arrivedPlayer.name} 触发了地图事件: ${mapEvent.name}`);
+				this.gameLogBroadcast(
+					`${this.createGameLinkItem(GameLinkItem.Player, arrivedPlayer.id)} 触发了地图事件: ${this.createGameLinkItem(
+						GameLinkItem.ArrivedEvent,
+						mapEvent.id
+					)}`
+				);
+				this.gameDataBroadcast();
+			}
+		}
 		if (arriveItem.linkto) {
 			const linkMapItem = this.mapItems.get(arriveItem.linkto);
 			if (!linkMapItem || !linkMapItem.property) return;
 			const property = this.properties.get(linkMapItem.property.id);
 			if (!property) return;
 			await property.arrived(arrivedPlayer);
-		} else if (arriveItem.mapEventId) {
-			// 特殊地块
-			const mapEvent = this.mapEvents.get(arriveItem.mapEventId);
-			if (!mapEvent) throw Error("找不到对应的MapEvent");
-			const effectCode = mapEvent.effectCode;
-			if (effectCode) {
-				const arrivedFunction = new Function(effectCode)();
-				await arrivedFunction(arrivedPlayer, this);
-				this.gameMsgNotifyBroadcast("info", `${arrivedPlayer.name} 踩到了特殊地块: ${mapEvent.name}`);
-				this.gameLogBroadcast(
-					`${this.createGameLinkItem(GameLinkItem.Player, arrivedPlayer.id)} 踩到了特殊地块: ${this.createGameLinkItem(
-						GameLinkItem.ArrivedEvent,
-						mapEvent.id
-					)}`
-				);
-			}
+			this.gameDataBroadcast();
 		}
-		this.gameDataBroadcast();
 	}
 
 	private getPlayerById(id: string) {

@@ -7,6 +7,7 @@ declare enum TargetSelectType {
 }
 declare enum MapEventType {
 	ArrivedEvent = "ArrivedEvent",
+	PassedEvent = "PassedEvent",
 	NormalEvents = "NormalEvents"
 }
 declare enum GameLinkItem {
@@ -910,19 +911,19 @@ interface IGamePhase<Context extends GameContext> extends GamePhaseInfo {
 	getEventQueue(): GameEvent<Context>[];
 }
 type GameRuntimeEvent = {
-	"game-round-start": void;
-	"game-round-end": void;
-	"player-round-start": {
+	"game.round.start": void;
+	"game.round.end": void;
+	"player.round.start": {
 		player: IPlayer;
 	};
-	"player-round-end": {
+	"player.round.end": {
 		player: IPlayer;
 	};
-	"player-arrived": {
+	"player.arrived": {
 		positionIndex: number;
 		player: IPlayer;
 	};
-	"player-passed": {
+	"player.passed": {
 		passedMapItemsId: string[];
 		player: IPlayer;
 	};

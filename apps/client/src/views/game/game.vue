@@ -21,8 +21,6 @@ import Dices from "./components/dices.vue";
 import ChanceCardContainer from "./components/chance-card-container.vue";
 import CountdownTimer from "./components/countdown-timer.vue";
 import scoreboard from "./components/scoreboard.vue";
-import RoundInfo from "@src/views/game/components/round-info.vue";
-import ProgressBar from "@src/views/game/components/progress-bar.vue";
 import PlayerContainer from "./components/player-container.vue";
 import { useGameData, useMapData } from "@src/store/game";
 import { CustomUI, GameMap, UISchema } from "@fatpaper-monopoly/types";

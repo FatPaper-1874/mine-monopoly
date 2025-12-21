@@ -25,6 +25,7 @@ export enum RoleAnimations {
 
 export enum MapEventType {
 	ArrivedEvent = "ArrivedEvent",
+	PassedEvent = "PassedEvent",
 	NormalEvents = "NormalEvents",
 }
 

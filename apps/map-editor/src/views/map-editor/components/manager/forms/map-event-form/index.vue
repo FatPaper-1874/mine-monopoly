@@ -40,6 +40,12 @@ function getInitForm() {
 	return initForm;
 }
 
+const MapEventTypeLabel: Record<MapEventType, string> = {
+	[MapEventType.ArrivedEvent]: "到达触发",
+	[MapEventType.PassedEvent]: "经过触发",
+	[MapEventType.NormalEvents]: "普通事件",
+};
+
 const iconUrl = ref("");
 
 const mapEventForm = reactive<MapEvent>(props.mapEvent || getInitForm());
@@ -110,6 +116,13 @@ const iconRule = async (_rule: Rule, value: string) => {
 			<a-form-item label="事件名称" name="name" :rules="[{ required: true, message: '请输入事件名称' }]">
 				<a-input v-model:value="mapEventForm.name" />
 			</a-form-item>
+			<a-form-item label="触发类型" name="type" :rules="[{ required: true, message: '请输入事件名称' }]">
+				<a-select ref="select" v-model:value="mapEventForm.type" style="width: 120px">
+					<a-select-option v-for="eventType in MapEventType" :value="eventType">{{
+						MapEventTypeLabel[eventType]
+					}}</a-select-option>
+				</a-select>
+			</a-form-item>
 			<a-form-item label="事件描述" name="description" :rules="[{ required: true, message: '请输入事件描述' }]">
 				<a-input v-model:value="mapEventForm.description" />
 			</a-form-item>
@@ -132,7 +145,11 @@ const iconRule = async (_rule: Rule, value: string) => {
 					show-icon
 				/>
 			</span>
-			<code-editor v-model="mapEventForm.effectCode" :template-text="templateText" :extra-libs="[libContent, extraLibs]" />
+			<code-editor
+				v-model="mapEventForm.effectCode"
+				:template-text="templateText"
+				:extra-libs="[libContent, extraLibs]"
+			/>
 		</div>
 	</div>
 </template>

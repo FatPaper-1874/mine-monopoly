@@ -21,7 +21,7 @@ const iconUrl = computed(() => {
 </script>
 
 <template>
-	<div class="arrived-event-info" v-if="arrivedEvent">
+	<div class="arrived-event-info felt-card" v-if="arrivedEvent">
 		<div class="info">
 			<img :src="iconUrl" alt="" />
 			<span>{{ arrivedEvent.name }}</span>
@@ -38,10 +38,6 @@ const iconUrl = computed(() => {
 	flex-direction: column;
 	justify-content: space-around;
 	align-items: center;
-	padding: 0.6rem;
-	background-color: rgba(255, 255, 255, 0.65);
-	border-radius: 0.8rem;
-	border: 0.2rem solid var(--color-primary);
 
 	.info {
 		display: flex;
