@@ -307,7 +307,7 @@ const handleCostMoney: ServerMessageHandler<SocketMsgType.CostMoney> = (msg) => 
 const handleGameData: ServerMessageHandler<SocketMsgType.GameData> = (msg) => {
 	const gameDataStore = useGameData();
 	const gameData = msg.data;
-	console.log("🚀 ~ handleGameData ~ gameData:", gameData)
+	console.log("🚀 ~ handleGameData ~ gameData:", gameData);
 	if (gameData) {
 		gameDataStore.updateGameData(gameData);
 		const me = gameData.players.find((p) => p.id === useUserInfo().userId);
@@ -456,7 +456,7 @@ const handleItemSelectDialog: ServerMessageHandler<SocketMsgType.ItemSelectDialo
 				source: SocketMsgSource.Client,
 				data: {
 					operateType: OperateType.ItemSelectDialogResult,
-					data: { selected: "" },
+					data: { selected: [] },
 				},
 			});
 		});

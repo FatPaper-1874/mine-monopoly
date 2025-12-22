@@ -586,138 +586,133 @@ export class GameProcess implements IGameProcess {
 		return new ChanceCard(tempChanceCard);
 	}
 
-	public async handleUseChanceCard(sourcePlayer: IPlayer, chanceCardId: string, targetIdList: string[]) {
+	public async handleUseChanceCard(
+		sourcePlayer: IPlayer,
+		chanceCardId: string,
+		targetIdList: string[]
+	): Promise<boolean> {
 		this.roundTimeTimer.stop();
+		const _this = this;
+
 		const chanceCard = sourcePlayer.getCardById(chanceCardId);
-		if (chanceCard) {
-			let error = ""; //收集错误信息
-			try {
-				switch (
-					chanceCard.getType() //根据机会卡的类型执行不同操作
-				) {
-					case TargetSelectType.ToSelf:
-						await chanceCard.use(sourcePlayer, sourcePlayer, this); //直接使用
-						this.gameMsgNotifyBroadcast("info", `${sourcePlayer.name} 对自己使用了机会卡: "${chanceCard.getName()}"`);
-						this.gameLogBroadcast(
-							`${this.createGameLinkItem(
-								GameLinkItem.Player,
-								sourcePlayer.id
-							)} 对自己使用了机会卡: ${this.createGameLinkItem(GameLinkItem.ChanceCard, chanceCard.getSourceId())}`
-						);
-						break;
-					case TargetSelectType.ToOtherPlayer:
-					case TargetSelectType.ToPlayer:
-						const _targetPlayer = this.players.get(targetIdList[0]); //获取目标玩家对象
-						if (!_targetPlayer) {
-							error = "目标玩家不存在";
-							break;
-						}
-						await chanceCard.use(sourcePlayer, _targetPlayer, this);
-						this.gameMsgNotifyBroadcast(
-							"info",
-							`${sourcePlayer.name} 对玩家 ${_targetPlayer.name} 使用了机会卡: "${chanceCard.getName()}"`
-						);
-						this.gameLogBroadcast(
-							`${this.createGameLinkItem(GameLinkItem.Player, sourcePlayer.id)} 对玩家 ${this.createGameLinkItem(
-								GameLinkItem.Player,
-								_targetPlayer.id
-							)} 使用了机会卡: ${this.createGameLinkItem(GameLinkItem.ChanceCard, chanceCard.getSourceId())}`
-						);
-						break;
-					case TargetSelectType.ToProperty:
-						const _targetProperty = this.properties.get(targetIdList[0]);
-						if (!_targetProperty) {
-							error = "目标建筑/地皮不存在";
-							break;
-						}
-						await chanceCard.use(sourcePlayer, _targetProperty, this);
-						this.gameMsgNotifyBroadcast(
-							"info",
-							`${sourcePlayer.name} 对地皮 ${_targetProperty.name} 使用了机会卡: "${chanceCard.getName()}"`
-						);
-						this.gameLogBroadcast(
-							`${this.createGameLinkItem(GameLinkItem.Player, sourcePlayer.id)} 对地皮 ${this.createGameLinkItem(
-								GameLinkItem.Property,
-								_targetProperty.id
-							)} 使用了机会卡: ${this.createGameLinkItem(GameLinkItem.ChanceCard, chanceCard.getSourceId())}`
-						);
-						break;
-					case TargetSelectType.ToMapItem:
-						const _targetIdList = targetIdList as string[];
-						const _targetPlayerList: Player[] = [];
-						_targetIdList.forEach((id) => {
-							//获取目标玩家列表
-							const _tempPlayer = this.players.get(id);
-							if (_tempPlayer) {
-								_targetPlayerList.push(_tempPlayer);
-							}
-						});
-						if (_targetPlayerList.length === 0) {
-							error = "选中的玩家不存在";
-							break;
-						}
-						await chanceCard.use(sourcePlayer, _targetPlayerList, this);
-						break;
-				}
-			} catch (e: any) {
-				error = e.message;
-			}
-			if (error) {
-				const errorMsg: ServerSocketMessage = {
-					type: SocketMsgType.MsgNotify,
-					data: undefined,
-					source: SocketMsgSource.Server,
-					msg: {
-						type: "error",
-						content: error,
-					},
-				};
-				sendToUsers([sourcePlayer.id], errorMsg);
-				const callBackMsg: ServerSocketMessage = {
-					type: SocketMsgType.UseChanceCard,
-					data: { error: true },
-					source: SocketMsgSource.Server,
-				};
-				sendToUsers([sourcePlayer.id], callBackMsg);
-				return false;
-			} else {
-				sourcePlayer.loseCard(chanceCardId);
-				const successMsg: ServerSocketMessage = {
-					type: SocketMsgType.MsgNotify,
-					data: undefined,
-					source: SocketMsgSource.Server,
-					msg: {
-						type: "success",
-						content: `机会卡 ${chanceCard.getName()} 使用成功！`,
-					},
-				};
-				this.gameDataBroadcast();
 
-				// this.eventMsg = `等待 ${sourcePlayer.name} 掷骰子`;
-				// this.roundTimeTimer.setTimeOutFunction(handleUseChanceCardTimeOut);
-				sendToUsers([sourcePlayer.id], successMsg);
-				const callBackMsg: ServerSocketMessage = {
-					type: SocketMsgType.UseChanceCard,
-					data: { error: false },
-					source: SocketMsgSource.Server,
-				};
-				sendToUsers([sourcePlayer.id], callBackMsg);
-			}
-
-			this.gameDataBroadcast();
-			return true;
-		} else {
-			const errorMsg: ServerSocketMessage = {
-				type: SocketMsgType.MsgNotify,
-				data: undefined,
-				source: SocketMsgSource.Server,
-				msg: {
-					type: "error",
-					content: "机会卡使用失败: 未知的机会卡ID",
-				},
-			};
-			sendToUsers([sourcePlayer.id], errorMsg);
+		// 1. 卫语句：卡片不存在直接返回错误
+		if (!chanceCard) {
+			sendChanceCardCallback(sourcePlayer.id, true, "机会卡使用失败: 未知的机会卡ID");
 			return false;
+		}
+
+		try {
+			const cardName = chanceCard.getName();
+			const sourceLink = this.createGameLinkItem(GameLinkItem.Player, sourcePlayer.id);
+			const cardLink = this.createGameLinkItem(GameLinkItem.ChanceCard, chanceCard.getSourceId());
+
+			// 2. 根据类型执行逻辑 & 组装日志
+			// 我们在这里执行核心逻辑，如果有问题直接 throw new Error("原因")
+			switch (chanceCard.getType()) {
+				case TargetSelectType.ToSelf: {
+					await chanceCard.use(sourcePlayer, sourcePlayer, this);
+
+					this.gameMsgNotifyBroadcast("info", `${sourcePlayer.name} 对自己使用了机会卡: "${cardName}"`);
+					this.gameLogBroadcast(`${sourceLink} 对自己使用了机会卡: ${cardLink}`);
+					break;
+				}
+
+				case TargetSelectType.ToOtherPlayer:
+				case TargetSelectType.ToPlayer: {
+					const targetPlayer = this.players.get(targetIdList[0]);
+					if (!targetPlayer) throw new Error("目标玩家不存在");
+
+					await chanceCard.use(sourcePlayer, targetPlayer, this);
+
+					const targetLink = this.createGameLinkItem(GameLinkItem.Player, targetPlayer.id);
+					this.gameMsgNotifyBroadcast(
+						"info",
+						`${sourcePlayer.name} 对玩家 ${targetPlayer.name} 使用了机会卡: "${cardName}"`
+					);
+					this.gameLogBroadcast(`${sourceLink} 对玩家 ${targetLink} 使用了机会卡: ${cardLink}`);
+					break;
+				}
+
+				case TargetSelectType.ToProperty: {
+					const targetProperty = this.properties.get(targetIdList[0]);
+					if (!targetProperty) throw new Error("目标建筑/地皮不存在");
+
+					await chanceCard.use(sourcePlayer, targetProperty, this);
+
+					const targetLink = this.createGameLinkItem(GameLinkItem.Property, targetProperty.id);
+					this.gameMsgNotifyBroadcast(
+						"info",
+						`${sourcePlayer.name} 对地皮 ${targetProperty.name} 使用了机会卡: "${cardName}"`
+					);
+					this.gameLogBroadcast(`${sourceLink} 对地皮 ${targetLink} 使用了机会卡: ${cardLink}`);
+					break;
+				}
+
+				case TargetSelectType.ToMapItem: {
+					// 优化：使用 filter + map 简洁获取有效玩家列表
+					const targetPlayers = targetIdList.map((id) => this.players.get(id)).filter((p): p is Player => !!p); // 利用类型谓词过滤 undefined
+
+					if (targetPlayers.length === 0) throw new Error("选中的玩家不存在");
+
+					await chanceCard.use(sourcePlayer, targetPlayers, this);
+					// MapItem 类型通常可能涉及群体效果，日志可以在 use 内部处理，或者这里补充通用日志
+					break;
+				}
+
+				default:
+					throw new Error(`未知的机会卡目标类型: ${chanceCard.getType()}`);
+			}
+
+			// 3. 成功后的通用处理
+			sourcePlayer.loseCard(chanceCardId); // 扣除卡片
+
+			// 发送成功通知给当前玩家
+			this.sendToPlayer(sourcePlayer.id, {
+				type: SocketMsgType.MsgNotify,
+				source: SocketMsgSource.Server,
+				data: undefined,
+				msg: {
+					type: "success",
+					content: `机会卡 ${cardName} 使用成功！`,
+				},
+			});
+
+			// 发送操作回调
+			sendChanceCardCallback(sourcePlayer.id, false);
+
+			// 广播最新游戏数据
+			this.gameDataBroadcast();
+
+			return true;
+		} catch (e: any) {
+			// 4. 统一错误处理
+			const errorMessage = e.message || "未知错误";
+
+			// 发送错误通知
+			sendChanceCardCallback(sourcePlayer.id, true, errorMessage);
+
+			return false;
+		}
+
+		function sendChanceCardCallback(playerId: string, isError: boolean, errorMsgContent?: string) {
+			// 1. 如果有错误内容，先发 Notify
+			if (isError && errorMsgContent) {
+				_this.sendToPlayer(playerId, {
+					type: SocketMsgType.MsgNotify,
+					source: SocketMsgSource.Server,
+					data: undefined,
+					msg: { type: "error", content: errorMsgContent },
+				});
+			}
+
+			// 2. 发送 UseChanceCard 回调指令
+			const callBackMsg: ServerSocketMessage = {
+				type: SocketMsgType.UseChanceCard,
+				data: { error: isError },
+				source: SocketMsgSource.Server,
+			};
+			sendToUsers([playerId], callBackMsg);
 		}
 	}
 

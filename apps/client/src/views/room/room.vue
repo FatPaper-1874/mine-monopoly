@@ -44,22 +44,22 @@ const isReady = computed(() => roomInfoStore.userList.find((user) => user.userId
 const mapList = ref<GameMapInDb[]>([]);
 const mapSelectorVisible = ref(false);
 const currentMap = computed(() => roomInfoStore.mapInfo);
-const tempMapSelectedId = ref<string>(roomInfoStore.mapId || "");
+const tempMapSelectedId = ref<string[]>(roomInfoStore.mapId ? [roomInfoStore.mapId] : []);
 
 function handleChangeMap() {
-	if (socketClient && tempMapSelectedId.value !== currentMap.value?.id) {
-		socketClient.changeGameMap({ from: "server", data: tempMapSelectedId.value });
+	if (socketClient && tempMapSelectedId.value[0] !== currentMap.value?.id) {
+		socketClient.changeGameMap({ from: "server", data: tempMapSelectedId.value[0] });
 	}
 }
 
 // 角色相关
 const roleList = computed(() => roomInfoStore.roleList);
 const roleSelectorVisible = ref(false);
-const tempRoleSelectedId = ref<string>("");
+const tempRoleSelectedId = ref<string[]>([]);
 
 function handleChangeRole() {
-	if (socketClient && tempMapSelectedId.value !== currentMap.value?.id) {
-		socketClient.changeRole(tempRoleSelectedId.value);
+	if (socketClient && tempMapSelectedId.value[0] !== currentMap.value?.id) {
+		socketClient.changeRole(tempRoleSelectedId.value[0]);
 	}
 }
 

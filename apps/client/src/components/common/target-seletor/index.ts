@@ -21,6 +21,7 @@ export async function showTargetSelector(
 			confirmText: option?.confirmText,
 		})
 			.then(() => {
+				console.log("🚀 ~ showTargetSelector ~ targetSelectedIdList:", targetSelectedIdList);
 				resolve(targetSelectedIdList);
 			})
 			.catch((e) => {

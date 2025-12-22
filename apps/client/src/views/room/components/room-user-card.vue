@@ -28,6 +28,7 @@ const role = computed(() => {
 	if (!user.value) return undefined;
 	return useMapData().getRoleById(user.value?.roleId);
 });
+
 const roleImageUrl = computed(() => {
 	if (!role.value) return undefined;
 	return useResourceStore().getRecourceById(role.value.imageId)?.url;

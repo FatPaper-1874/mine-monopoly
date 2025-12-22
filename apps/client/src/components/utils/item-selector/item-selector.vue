@@ -75,6 +75,9 @@ function handleItemClick(item: any) {
 	padding: 0.7rem;
 
 	& > .items {
+		display: flex;
+		justify-content: center;
+		align-items: center;
 		position: relative;
 		background-color: #ffffff;
 		border-radius: 0.8rem;

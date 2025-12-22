@@ -191,6 +191,7 @@ const chanceCardVisible = computed(() => {
 
 			& > .buff-list {
 				padding: 1.2rem;
+				padding-top: 2rem;
 				flex: 1;
 				display: flex;
 				flex-direction: column;

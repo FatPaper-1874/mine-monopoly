@@ -11,11 +11,16 @@ const props = defineProps<{ targetType: TargetSelectType }>();
 const emits = defineEmits(["targetSelected"]);
 
 const targetIdList = ref<string[]>([]);
+
 provide("targetIdList", targetIdList);
 
-function handleTargetSelected(newTargetIdList: string[]) {
-	emits("targetSelected", newTargetIdList);
-}
+watch(
+	targetIdList,
+	(newVal) => {
+		emits("targetSelected", newVal);
+	},
+	{ deep: true }
+);
 
 let selectorComponent;
 switch (props.targetType) {
@@ -39,7 +44,7 @@ switch (props.targetType) {
 
 <template>
 	<div class="container">
-		<component :is="selectorComponent" @targetSelected="handleTargetSelected" />
+		<component :is="selectorComponent" />
 	</div>
 </template>
 
