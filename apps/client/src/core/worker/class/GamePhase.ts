@@ -1,11 +1,11 @@
 import {
-	EventTiggerTime,
 	GameContext,
 	GameEvent,
 	GameEventFunction,
 	GamePhaseInfo,
 	GamePhaseMark,
 	IGamePhase,
+	ModifierTiming,
 } from "@fatpaper-monopoly/types";
 import { compileTsToJs } from "@src/utils";
 import GameProcessTypes from "../editor-lib.d.ts?raw";
@@ -38,8 +38,8 @@ export class GamePhase implements IGamePhase<GameContext> {
 		this.eventQueue.push(gameEvent);
 	}
 
-	use(tiggerTime: EventTiggerTime, gameEventFn: GameEventFunction<GameContext>, key?: string): void {
-		if (tiggerTime === EventTiggerTime.After) {
+	use(tiggerTime: ModifierTiming, gameEventFn: GameEventFunction<GameContext>, key?: string): void {
+		if (tiggerTime === "after") {
 			this.eventQueue.push({ fn: gameEventFn, key });
 		} else {
 			this.eventQueue.unshift({ fn: gameEventFn, key });

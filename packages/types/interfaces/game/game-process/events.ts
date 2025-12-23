@@ -1,5 +1,5 @@
 import { PlayerMoveType } from "../../../../types/enums/game/game";
-import { GamePhaseMark, EventTiggerTime } from "../../../../types/enums/game/game-process";
+import { GamePhaseMark } from "../../../../types/enums/game/game-process";
 import { PropertyInfo } from "./infos"; // 引用 infos
 import { IPlayer } from "./entities"; // 引用 entities
 import { IGameProcess } from "./core"; // 引用 core
@@ -40,9 +40,10 @@ export interface GamePhaseInfo {
 	initEventCode: string;
 }
 
+type ModifierTiming = "before" | "after";
 export interface IGamePhase<Context extends GameContext> extends GamePhaseInfo {
 	eventQueue: GameEvent<Context>[];
-	use(tiggerTime: EventTiggerTime, fn: GameEventFunction<Context>, key?: string): void;
+	use(tiggerTime: ModifierTiming, fn: GameEventFunction<Context>, key?: string): void;
 	getEventQueue(): GameEvent<Context>[];
 }
 

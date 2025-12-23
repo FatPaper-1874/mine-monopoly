@@ -71,4 +71,5 @@ export interface Buff {
 	source: string;
 	triggerTiming: string;
 	triggerTimes: number;
+	tags?: string[];
 }

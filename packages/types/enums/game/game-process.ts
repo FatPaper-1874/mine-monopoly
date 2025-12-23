@@ -11,11 +11,6 @@ export enum GamePhaseMark {
 	GameRoundEnd,
 }
 
-export enum EventTiggerTime {
-	Before = "BEFORE",
-	After = "AFTER",
-}
-
 export enum OperateType {
 	GameInitFinished = "GameInitFinished", //前端加载完毕
 	RollDice = "RollDice", //前端掷骰子

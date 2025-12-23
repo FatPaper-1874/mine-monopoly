@@ -108,7 +108,7 @@ async function handleCreateRole() {
 
 async function handleAddRole() {
 	const res = await window.electronAPI.showOpenDialog({
-		filters: [{ name: "纸片人", extensions: ["png"] }],
+		filters: [{ name: "纸片人", extensions: ["png", "webp"] }],
 		properties: ["openFile"],
 	});
 	if (res.filePaths.length > 0) {

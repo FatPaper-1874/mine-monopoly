@@ -190,6 +190,7 @@ interface Buff {
 	source: string;
 	triggerTiming: string;
 	triggerTimes: number;
+	tags?: string[];
 }
 declare enum GamePhaseMark {
 	GameRoundStart = 0,
@@ -199,10 +200,6 @@ declare enum GamePhaseMark {
 	ArrivedEvent = 4,
 	PlayerRoundEnd = 5,
 	GameRoundEnd = 6
-}
-declare enum EventTiggerTime {
-	Before = "BEFORE",
-	After = "AFTER"
 }
 declare enum OperateType {
 	GameInitFinished = "GameInitFinished",//前端加载完毕
@@ -388,22 +385,35 @@ interface PlayerCommandMap extends ICommandMap {
 	};
 }
 type ModifierTiming = "before" | "after";
+type ModifierMeta = {
+	name: string;
+	timingName: string;
+	description: string;
+	source: string;
+	tags?: string[];
+};
 interface ModifierDescriptor<C extends ICommandMap, K extends keyof C = keyof C> {
 	id: string;
 	timing: ModifierTiming;
 	commandType: K;
 	remainingTriggers: number;
 	priority?: number;
-	meta?: {
-		name: string;
-		timingName: string;
-		description: string;
-		source: string;
-	};
+	meta?: ModifierMeta;
 }
 interface IModifier<C extends ICommandMap, K extends keyof C = keyof C> {
 	descriptor: ModifierDescriptor<C, K>;
 	fn(command: ICommand<C, K>, context: ICommandContext<C, K>): Promise<void> | void;
+}
+interface IModifierManager<C extends ICommandMap, K extends keyof C = keyof C> {
+	add(mod: IModifier<C, K>): string;
+	removeById(id: string): boolean;
+	clear(): void;
+	removeByTag(tag: string): void;
+	hasBuffWithTag(tag: string): boolean;
+	getBuffs(): Buff[];
+	getModifiersList(): IModifier<C, K>[];
+	getFor(cmd: ICommand<C, K>, timing: ModifierTiming): IModifier<C, K>[];
+	decayAfterExecution(ids: string[]): void;
 }
 interface GameMap {
 	id: string;
@@ -848,7 +858,7 @@ interface IPlayer {
 	addDice: (diceValue?: number[]) => Promise<IDice>;
 	removeDice: (id: string) => Promise<IDice | undefined>;
 	commandBus: ICommandBus<PlayerCommandMap>;
-	registerModifier<K extends keyof PlayerCommandMap>(modifier: IModifier<PlayerCommandMap, K>): void;
+	modifierManager: IModifierManager<PlayerCommandMap>;
 	getPlayerInfo: () => PlayerInfo;
 	getRoundPhases: () => IGamePhase<GameContext>[];
 }
@@ -909,9 +919,10 @@ interface GamePhaseInfo {
 	from: string;
 	initEventCode: string;
 }
+type ModifierTiming$1 = "before" | "after";
 interface IGamePhase<Context extends GameContext> extends GamePhaseInfo {
 	eventQueue: GameEvent<Context>[];
-	use(tiggerTime: EventTiggerTime, fn: GameEventFunction<Context>, key?: string): void;
+	use(tiggerTime: ModifierTiming$1, fn: GameEventFunction<Context>, key?: string): void;
 	getEventQueue(): GameEvent<Context>[];
 }
 interface GameRoundStartContext extends GameContext {

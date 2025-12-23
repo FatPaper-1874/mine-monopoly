@@ -1,5 +1,5 @@
 import { TargetSelectType } from "../../../../types/enums/game/game";
-import { ICommandBus, IModifier, PlayerCommandMap, PropertyCommandMap } from "../action-system";
+import { ICommandBus, IModifier, IModifierManager, PlayerCommandMap, PropertyCommandMap } from "../action-system";
 import { UserInRoomInfo } from "../item";
 import { DiceResult, IDice } from "../util";
 import { GameContext, IGamePhase } from "./events"; // 引用 events
@@ -54,7 +54,7 @@ export interface IPlayer {
 	removeDice: (id: string) => Promise<IDice | undefined>;
 
 	commandBus: ICommandBus<PlayerCommandMap>;
-	registerModifier<K extends keyof PlayerCommandMap>(modifier: IModifier<PlayerCommandMap, K>): void;
+	modifierManager: IModifierManager<PlayerCommandMap>;
 
 	getPlayerInfo: () => PlayerInfo;
 	getRoundPhases: () => IGamePhase<GameContext>[];

@@ -226,22 +226,7 @@ export class Player implements IPlayer {
 	}
 
 	public getBuff() {
-		return this.modifierManager
-			.getModifiersList()
-			.filter((m) => m.descriptor.meta !== undefined)
-			.map((m) => {
-				const descriptor = m.descriptor;
-				const meta = descriptor.meta!;
-				const buff: Buff = {
-					id: descriptor.id,
-					name: meta.name,
-					description: meta.description,
-					source: meta.source,
-					triggerTiming: meta.timingName,
-					triggerTimes: descriptor.remainingTriggers,
-				};
-				return buff;
-			});
+		return this.modifierManager.getBuffs();
 	}
 
 	public getCardById(id: string) {
@@ -322,9 +307,5 @@ export class Player implements IPlayer {
 
 	public async removeDice(id: string) {
 		return (await this.commandBus.execute({ type: "player.dice.remove", payload: { diceId: id } })).removeDice;
-	}
-
-	public registerModifier(modifier: IModifier<PlayerCommandMap>) {
-		this.modifierManager.add(modifier);
 	}
 }
