@@ -4,18 +4,18 @@ import { clone, result } from "lodash";
 class Dice implements IDice {
 	public id: string;
 	public diceValues: number[] = [1, 2, 3, 4, 5, 6];
-	public diceProphecyQueue: number[] = [];
+	public prophecy: number | undefined = undefined;
 
 	constructor(diceValues?: number[]) {
 		this.id = crypto.randomUUID();
-		diceValues && this.setDiceValues(diceValues);
+		diceValues && this.setValues(diceValues);
 	}
 
-	public addDiceprophecy(prophecy: number) {
-		this.diceProphecyQueue.push(prophecy);
+	public setProphecy(prophecy: number | undefined) {
+		this.prophecy = prophecy;
 	}
 
-	public setDiceValues(values: number[]): void {
+	public setValues(values: number[]): void {
 		this.diceValues = clone(values);
 	}
 
@@ -23,9 +23,9 @@ class Dice implements IDice {
 		let r: number;
 		let prophecy = undefined;
 		// 预言
-		if (this.diceProphecyQueue.length > 0) {
-			prophecy = this.diceProphecyQueue.shift() as number;
-			r = prophecy;
+		if (this.prophecy) {
+			r = this.prophecy;
+			this.prophecy = undefined;
 		} else {
 			r = this.getRandomInteger();
 		}
@@ -40,7 +40,7 @@ class Dice implements IDice {
 		return {
 			id: this.id,
 			diceValues: this.diceValues,
-			diceProphecyQueue: this.diceProphecyQueue,
+			prophecy: this.prophecy,
 		};
 	}
 }

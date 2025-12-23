@@ -44,8 +44,8 @@ const displayDices = computed(() => {
 		let isLooping = false;
 
 		// 优先级 1: 预言 (最高，直接定死显示)
-		if (dice.diceProphecyQueue && dice.diceProphecyQueue.length > 0) {
-			value = dice.diceProphecyQueue[0];
+		if (dice.prophecy && dice.prophecy) {
+			value = dice.prophecy;
 			type = "prophecy";
 		}
 		// 优先级 2: 真实值

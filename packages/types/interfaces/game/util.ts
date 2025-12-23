@@ -11,16 +11,16 @@ export interface IRoundTimeTimer {
 }
 
 export interface IDice extends DiceInfo {
-	addDiceprophecy(prophecy: number): void;
-	setDiceValues(values: number[]): void;
+	setProphecy(prophecy: number | undefined): void;
+	setValues(values: number[]): void;
 	roll(): DiceResult;
 	getInfo(): DiceInfo;
 }
 
 export interface DiceInfo {
 	id: string;
+	prophecy: number | undefined;
 	diceValues: number[];
-	diceProphecyQueue: number[];
 }
 
 export interface DiceResult {
