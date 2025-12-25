@@ -1,191 +1,264 @@
 <script setup lang="ts">
 import { MapItem, PlayerInfo } from "@fatpaper-monopoly/types";
 import { useGameData, useMapData } from "@src/store/game";
-import { onMounted, nextTick, computed, toRaw } from "vue";
+import { computed, toRaw } from "vue";
 
-const mapDataStore = useMapData();
+const props = defineProps<{
+	highLightList: string[];
+	selectedId: string;
+}>();
 
-const props = defineProps<{ highLightList: string[]; selectedId: string }>();
 const emits = defineEmits(["update:selectedId"]);
 
-const properties = useGameData().properties;
-const playerList = useGameData().players;
-const indexList = useMapData().mapIndex;
-const myInfo = useGameData().myGameInfo;
+const mapDataStore = useMapData();
+const gameDataStore = useGameData();
 
-type MapItemWithPlayer = MapItem & {
+// 获取基础数据
+const properties = gameDataStore.properties;
+const playerList = gameDataStore.players;
+const indexList = mapDataStore.mapIndex;
+
+const mapBounds = computed(() => {
+	const items = mapDataStore.mapItems;
+	if (!items.length) return { minX: 0, maxX: 0, minY: 0, maxY: 0, width: 0, height: 0 };
+
+	const xs = items.map((i) => i.x);
+	const ys = items.map((i) => i.y);
+	const minX = Math.min(...xs);
+	const maxX = Math.max(...xs);
+	const minY = Math.min(...ys);
+	const maxY = Math.max(...ys);
+
+	return {
+		minX,
+		maxX,
+		minY,
+		maxY,
+		width: maxX - minX + 1,
+		height: maxY - minY + 1,
+	};
+});
+
+const gridStyle = computed(() => {
+	const { width, height } = mapBounds.value;
+	const size = width > 12 || height > 12 ? "2.2rem" : "3rem";
+
+	return {
+		gridTemplateColumns: `repeat(${width}, ${size})`,
+		gridTemplateRows: `repeat(${height}, ${size})`,
+	};
+});
+
+type MapItemWithContext = MapItem & {
 	players: PlayerInfo[];
+	normalizedX: number;
+	normalizedY: number;
+	isDisabled: boolean;
 };
-const mapItemsList = computed(() => {
-	const mapItemsList = <MapItemWithPlayer[]>toRaw(mapDataStore.mapItems);
-	const minX = Math.min(...mapItemsList.map((item) => item.x));
-	const minY = Math.min(...mapItemsList.map((item) => item.y));
 
-	return mapItemsList.map((item) => {
-		item.players = [];
-		item.x = item.x - minX;
-		item.y = item.y - minY;
+const processedMapItems = computed<MapItemWithContext[]>(() => {
+	const rawItems = toRaw(mapDataStore.mapItems);
+	if (!rawItems.length) return [];
+
+	const { minX, minY } = mapBounds.value;
+
+	return rawItems.map((item) => {
+		const newItem = { ...item } as MapItemWithContext;
+
+		newItem.normalizedX = item.x - minX;
+		newItem.normalizedY = item.y - minY;
+
+		newItem.isDisabled = !props.highLightList.includes(item.id);
+		newItem.players = [];
+
+		// 绑定地皮信息
 		if (item.property) {
-			const propertyId = item.property.id;
-			const livePropertyInfo = properties.find((p) => p.id === propertyId);
-			if (livePropertyInfo) {
-				item.property.owner = livePropertyInfo.owner;
+			const clonedProperty = { ...item.property };
+
+			const liveProperty = properties.find((p) => p.id === item.property?.id);
+			if (liveProperty && liveProperty.owner) {
+				clonedProperty.owner = liveProperty.owner;
 			}
+
+			newItem.property = clonedProperty;
 		}
+
 		for (const player of playerList) {
 			if (item.id === indexList[player.positionIndex]) {
-				item.players.push(player);
+				newItem.players.push(player);
 			}
 		}
-		return item;
+
+		return newItem;
 	});
 });
 
-function handleMapItemClick(mapItem: MapItem) {
-	emits("update:selectedId", mapItem.id);
-}
-
-onMounted(() => {
-	nextTick(initMiniMap);
-});
-
-function initMiniMap() {
-	const miniMapContainer = document.getElementsByClassName("mini-map-container")[0] as HTMLElement;
-	if (!miniMapContainer) return;
-	const mapItemsList = mapDataStore.mapItems;
-	const maxX = Math.max(...mapItemsList.map((item) => item.x));
-	const maxY = Math.max(...mapItemsList.map((item) => item.y));
-
-	// 动态设置 CSS Grid 行列数
-	miniMapContainer.style.gridTemplateColumns = `repeat(${maxX + 1}, ${maxX > 12 || maxY > 12 ? "2rem" : "3rem"})`; // 列数为最大 x + 1
-	miniMapContainer.style.gridTemplateRows = `repeat(${maxY + 1}, ${maxX > 12 || maxY > 12 ? "2rem" : "3rem"})`; // 行数为最大 y + 1
+function handleMapItemClick(item: MapItemWithContext) {
+	if (item.isDisabled) return;
+	emits("update:selectedId", item.id);
 }
 </script>
 
 <template>
-	<div class="mini-map-container">
-		<div
-			@click="handleMapItemClick(mapItem)"
-			:disable="!props.highLightList.includes(mapItem.id)"
-			class="map-item"
-			:class="{
-				highlight: props.highLightList.includes(mapItem.id),
-				selected: props.selectedId === mapItem.id,
-				road: indexList.includes(mapItem.id),
-			}"
-			:style="{
-				gridRowStart: mapItem.y + 1,
-				gridColumnStart: mapItem.x + 1,
-				color: mapItem.property ? (mapItem.property.owner ? mapItem.property.owner.color : 'white') : 'white',
-				borderColor: mapItem.property ? (mapItem.property.owner ? mapItem.property.owner.color : 'white') : 'white',
-			}"
-			v-for="mapItem in mapItemsList"
-			:key="mapItem.id"
-		>
-			{{ mapItem.property?.owner?.username[0] }}
+	<div class="mini-map-wrapper">
+		<div class="mini-map-container" :style="gridStyle">
 			<div
-				v-for="(player, index) in mapItem.players"
-				:key="player.id"
-				:style="{ backgroundColor: player.user.color, animationDelay: `${index * 1}s` }"
-				class="player-block"
+				v-for="mapItem in processedMapItems"
+				:key="mapItem.id"
+				class="map-item"
+				@click="handleMapItemClick(mapItem)"
+				:class="{
+					'is-disabled': mapItem.isDisabled,
+					'is-highlight': !mapItem.isDisabled,
+					'is-selected': props.selectedId === mapItem.id,
+					'is-road': indexList.includes(mapItem.id),
+				}"
+				:style="{
+					gridColumnStart: mapItem.normalizedX + 1,
+					gridRowStart: mapItem.normalizedY + 1,
+					color: mapItem.property?.owner?.color || '#ccc',
+				}"
 			>
-				{{ player.user.username[0] }}
+				<span class="owner-initial" v-if="mapItem.property?.owner">
+					{{ mapItem.property.owner.username?.[0] || "" }}
+				</span>
+
+				<div
+					v-for="(player, index) in mapItem.players"
+					:key="player.id"
+					class="player-block"
+					:style="{
+						backgroundColor: player.user.color,
+						transform: mapItem.players.length > 1 ? `translate(${index * 4 - 2}px, ${index * 4 - 2}px)` : 'none',
+						zIndex: 10 + index,
+					}"
+				>
+					{{ player.user.username[0] }}
+				</div>
 			</div>
 		</div>
 	</div>
 </template>
 
 <style lang="scss" scoped>
-.mini-map-container {
-	display: grid;
-	padding: 1rem;
+.mini-map-wrapper {
+	width: 100%;
+	height: 100%;
+	overflow: auto;
+	display: flex;
+	justify-content: center;
+	align-items: center;
 	background-color: #3b3b3b;
 	border-radius: 0.8rem;
-	margin-bottom: 2rem;
-	justify-items: center;
-	align-items: center;
+	padding: 1rem;
+}
 
-	$map-item-size: 80%;
-	& > .map-item {
-		width: $map-item-size;
-		height: $map-item-size;
-		border-radius: 10%;
-		background-color: #414141;
+.mini-map-container {
+	display: grid;
+	gap: 4px;
+}
+
+.map-item {
+	width: 100%;
+	height: 100%;
+	border-radius: 15%;
+	background-color: #414141;
+	box-sizing: border-box;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	font-size: 0.9rem;
+	position: relative;
+	transition: transform 0.2s;
+
+	// 【关键修改】默认无边框 (透明)，不再显示地皮颜色的边框
+	border: 2px solid transparent;
+
+	&.is-road {
+		background-color: #5a5a5a;
+	}
+
+	&.is-disabled {
+		opacity: 0.3;
+		cursor: not-allowed;
+		filter: grayscale(100%);
+	}
+
+	&.is-highlight {
 		cursor: pointer;
-		box-sizing: border-box;
+		background-color: #fff;
+		border-color: #fff;
+		color: #333 !important;
+		font-weight: bold;
+		animation: pulse 1.5s infinite alternate;
+
+		&:hover {
+			transform: scale(1.1);
+			z-index: 50;
+			box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+		}
+	}
+
+	&.is-selected {
+		z-index: 60;
+
+		// 选中框：绝对居中
+		&::after {
+			content: "";
+			position: absolute;
+			top: 50%;
+			left: 50%;
+			transform: translate(-50%, -50%);
+			width: 120%;
+			height: 120%;
+			border: 3px solid var(--color-primary, #409eff);
+			border-radius: 20%;
+			pointer-events: none;
+			animation: select-pulse 1s infinite alternate;
+		}
+	}
+
+	.owner-initial {
+		z-index: 1;
+		font-family: monospace;
+		font-weight: bold;
+		text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+	}
+
+	.player-block {
+		position: absolute;
+		width: 60%;
+		height: 60%;
+		border-radius: 50%;
 		display: flex;
 		justify-content: center;
 		align-items: center;
-		font-size: 80%;
+		color: white; // 玩家字母始终白色
+		font-size: 0.6rem;
+		font-weight: bold;
 
-		& .player-block {
-			// $block-size: calc($map-item-size - 0.6rem);
-			$block-size: 80%;
-			width: $block-size;
-			height: $block-size;
-			border-radius: 50%;
-			display: flex;
-			justify-content: center;
-			align-items: center;
-			line-height: $block-size;
-			text-align: center;
-			vertical-align: middle;
-			aspect-ratio: 1/1;
-		}
+		border: 1.5px solid rgba(255, 255, 255, 0.8);
+		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+	}
+}
 
-		&.highlight {
-			background-color: #fff;
-			border: 0.2rem solid #fff;
-			line-height: $map-item-size;
-			text-align: center;
-			vertical-align: middle;
-			animation: pulse-highlight 0.6s infinite alternate;
+@keyframes pulse {
+	from {
+		transform: scale(1);
+		opacity: 0.85;
+	}
+	to {
+		transform: scale(1.05);
+		opacity: 1;
+	}
+}
 
-			@keyframes pulse-highlight {
-				0% {
-					transform: scale(1);
-					opacity: 0.8;
-				}
-				100% {
-					transform: scale(1.03);
-					opacity: 1;
-				}
-			}
-		}
-
-		&.selected {
-			position: relative;
-			&::after {
-				content: "";
-				position: absolute;
-				width: 100%;
-				height: 100%;
-				border: 0.3rem solid var(--color-primary);
-				border-radius: 0.6rem;
-				animation: pulse-selected 0.6s infinite alternate;
-				z-index: 999;
-				@keyframes pulse-selected {
-					0% {
-						transform: scale(1);
-						opacity: 0.8;
-					}
-					100% {
-						transform: scale(1.1);
-						opacity: 1;
-					}
-				}
-			}
-		}
-
-		&.road {
-			background-color: #707070;
-		}
-
-		&[disable="true"] {
-			user-select: none;
-			pointer-events: none;
-			cursor: not-allowed;
-		}
+@keyframes select-pulse {
+	from {
+		transform: translate(-50%, -50%) scale(1);
+	}
+	to {
+		transform: translate(-50%, -50%) scale(1.1);
 	}
 }
 </style>
