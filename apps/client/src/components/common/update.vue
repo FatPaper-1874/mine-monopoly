@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from "vue";
-import FpDialog from "@src/components/utils/fp-dialog/fp-dialog.vue"; // 请根据实际路径调整
+import FpDialog from "@src/components/utils/fp-dialog/fp-dialog.vue";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
+import FpMessage from "@src/components/utils/fp-message";
 
 // 定义状态类型
 type UpdateStatus = "checking" | "available" | "downloading" | "downloaded" | "error";
@@ -10,7 +11,7 @@ type UpdateStatus = "checking" | "available" | "downloading" | "downloaded" | "e
 const visible = ref(false);
 const status = ref<UpdateStatus>();
 const version = ref("");
-const releaseNote = ref(""); // 更新日志
+const releaseNote = ref("");
 const downloadPercent = ref(0);
 const errorMsg = ref("");
 
@@ -48,12 +49,10 @@ const close = () => {
 };
 
 onMounted(() => {
-	// 仅在 Electron 环境下运行
 	if (window.updateAPI) {
-		// 1. 启动检查
+		status.value = "checking";
 		window.updateAPI.checkForUpdate();
 
-		// 2. 注册监听
 		removeListener = window.updateAPI.onUpdateStatus((data: any) => {
 			console.log("[Updater]", data);
 
@@ -61,7 +60,6 @@ onMounted(() => {
 				case "available":
 					status.value = "available";
 					version.value = data.info.version;
-					// 兼容纯文本或简单的 HTML 描述
 					releaseNote.value = (data.info.releaseNotes as string) || "修复了一些已知问题，优化了游戏体验。";
 					visible.value = true;
 					break;
@@ -69,19 +67,28 @@ onMounted(() => {
 				case "progress":
 					status.value = "downloading";
 					downloadPercent.value = Math.floor(data.progress.percent);
+					if (!visible.value) visible.value = true;
 					break;
 
 				case "downloaded":
 					status.value = "downloaded";
-					visible.value = true; // 确保下载完弹窗是开着的
+					visible.value = true;
 					break;
 
 				case "error":
-					// 仅在下载过程中报错才弹窗提示，检查报错静默处理
+					const errorDetail = data.error || "未知原因";
+
 					if (status.value === "downloading") {
 						status.value = "error";
 						errorMsg.value = "网络连接中断，请稍后重试。";
+					} else {
+						status.value = "error";
+						FpMessage.error(`检查更新失败: ${errorDetail}`);
 					}
+					break;
+
+				case "checking":
+					status.value = "checking";
 					break;
 			}
 		});

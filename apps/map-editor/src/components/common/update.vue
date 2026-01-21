@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from "vue";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
+// 1. 引入 message 组件
+import { message } from "ant-design-vue";
 
 // 定义状态类型
 type UpdateStatus = "checking" | "available" | "downloading" | "downloaded" | "error";
@@ -9,13 +11,12 @@ type UpdateStatus = "checking" | "available" | "downloading" | "downloaded" | "e
 const visible = ref(false);
 const status = ref<UpdateStatus>();
 const version = ref("");
-const releaseNote = ref(""); // 更新日志
+const releaseNote = ref("");
 const downloadPercent = ref(0);
 const errorMsg = ref("");
 
 let removeListener: (() => void) | null = null;
 
-// 动态计算弹窗标题
 const title = computed(() => {
 	switch (status.value) {
 		case "available":
@@ -31,8 +32,6 @@ const title = computed(() => {
 	}
 });
 
-// --- 核心逻辑 ---
-
 const startDownload = () => {
 	status.value = "downloading";
 	window.updateAPI.startDownload();
@@ -47,12 +46,10 @@ const close = () => {
 };
 
 onMounted(() => {
-	// 仅在 Electron 环境下运行
 	if (window.updateAPI) {
-		// 1. 启动检查
+		status.value = "checking";
 		window.updateAPI.checkForUpdate();
 
-		// 2. 注册监听
 		removeListener = window.updateAPI.onUpdateStatus((data: any) => {
 			console.log("[Updater]", data);
 
@@ -67,6 +64,7 @@ onMounted(() => {
 				case "progress":
 					status.value = "downloading";
 					downloadPercent.value = Math.floor(data.progress.percent);
+					if (!visible.value) visible.value = true;
 					break;
 
 				case "downloaded":
@@ -75,10 +73,18 @@ onMounted(() => {
 					break;
 
 				case "error":
+					const serverErrorMsg = data.error || "未知错误";
+
 					if (status.value === "downloading") {
 						status.value = "error";
 						errorMsg.value = "网络连接中断，请稍后重试。";
+					} else {
+						status.value = "error";
+						message.error(`检查更新失败: ${serverErrorMsg}`);
 					}
+					break;
+				case "checking":
+					status.value = "checking";
 					break;
 			}
 		});
