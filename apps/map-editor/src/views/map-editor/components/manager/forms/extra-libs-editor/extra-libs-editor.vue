@@ -40,7 +40,7 @@ function handleClose() {
 		cancel-text="取消"
 		width="70%"
 		v-model:open="visible"
-		title="地图信息"
+		title="全局TS类型"
 	>
 		<div class="editor-container">
 			<code-editor v-model="localEffectCode" :template-text="''" :extra-libs="[libContent]" />

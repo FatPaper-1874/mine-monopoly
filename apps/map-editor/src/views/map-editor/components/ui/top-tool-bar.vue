@@ -109,7 +109,7 @@ const toolbarItems: ToolbarItem[] = [
 	},
 	{
 		key: "ExtraLibs",
-		text: "代码Lib",
+		text: "TS类型",
 		icon: "fas fa-code",
 		type: "modal",
 		component: defineAsyncComponent(() => import("../manager/forms/extra-libs-editor/extra-libs-editor.vue")),

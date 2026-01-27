@@ -111,6 +111,7 @@ interface MessageCardOption {
 }
 interface UITemplate {
 	id: string;
+	slug: string;
 	name: string;
 	template: UISchema;
 }

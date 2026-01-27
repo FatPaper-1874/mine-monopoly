@@ -69,6 +69,7 @@ export interface MessageCardOption {
 
 export interface UITemplate {
 	id: string;
+	slug: string;
 	name: string;
 	template: UISchema;
 }

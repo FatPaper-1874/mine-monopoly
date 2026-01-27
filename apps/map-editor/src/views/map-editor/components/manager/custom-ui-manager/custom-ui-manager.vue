@@ -37,6 +37,7 @@ function handleCreateTemplate() {
 	const newTemplate: UITemplate = {
 		id: generateUUID(),
 		name: "新组件_" + Math.floor(Math.random() * 1000),
+		slug: "",
 		template: {
 			id: generateUUID(),
 			type: "div", // 根节点类型
@@ -150,6 +151,7 @@ function closeEditor() {
 					<div v-for="item in mapStore.uiTemplates" :key="item.id" class="schema-card">
 						<div class="card-info">
 							<div class="card-name">{{ item.name }}</div>
+							<div class="card-slug">{{ item.slug }}</div>
 							<div class="card-id">ID: {{ item.id }}</div>
 						</div>
 						<div class="card-actions">
@@ -271,7 +273,14 @@ function closeEditor() {
 .card-name {
 	font-weight: 600;
 	font-size: 16px;
-	margin-bottom: 4px;
+	margin-bottom: 2px;
+}
+
+.card-slug {
+	font-size: 12px;
+	color: #58afff;
+	font-weight: 600;
+	margin-bottom: 2px;
 }
 
 .card-id {

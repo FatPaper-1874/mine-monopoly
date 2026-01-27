@@ -39,9 +39,9 @@ function addPhase(group: PhaseGroupKey, insertIndex: number) {
 		name: "新阶段",
 		description: "新阶段",
 		from: "系统",
-		initEventCode: `return (async (context, next) => {
-	
-}) as Middleware<GameContext>;`,
+		initEventCode: `(async (context, gameProcess) => {
+    
+}) as GameEventFunction<GameContext>;`,
 	};
 	mapDataStore.phases[group].splice(insertIndex + 1, 0, newPhase);
 	currentGroupKey.value = group;

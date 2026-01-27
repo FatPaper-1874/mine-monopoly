@@ -185,28 +185,57 @@ export class GameProcess implements IGameProcess {
 	}
 
 	private preprocessingEffectCode() {
-		const { mapEvents, chanceCards, roles, mapItems, phases } = this.mapData;
+		const { mapEvents, chanceCards, roles, mapItems, phases, uiTemplates } = this.mapData;
+
+		const uiReplacements = (uiTemplates || [])
+			.filter((t) => t.slug && t.template)
+			.map((t) => ({
+				token: `$ui__${t.slug}`,
+				json: JSON.stringify(t.template),
+			}))
+			.sort((a, b) => b.token.length - a.token.length);
+
+		/**
+		 * 核心处理函数：
+		 * 1. 替换 $ui__xxx 为 JSON 对象
+		 * 2. 包装 return 语句
+		 */
+		const processCode = (code: string | undefined | null): string => {
+			if (!code || !code.trim()) return "";
+
+			let processedCode = code;
+
+			// 执行全局替换
+			for (const { token, json } of uiReplacements) {
+				processedCode = processedCode.split(token).join(json);
+			}
+
+			return `return ${processedCode}`;
+		};
+
+		// --- 2. 批量应用 ---
+
 		for (const mapEvent of mapEvents) {
-			mapEvent.effectCode = `return ${mapEvent.effectCode}`;
+			mapEvent.effectCode = processCode(mapEvent.effectCode);
 		}
 
 		for (const chanceCard of chanceCards) {
-			chanceCard.effectCode = `return ${chanceCard.effectCode}`;
+			chanceCard.effectCode = processCode(chanceCard.effectCode);
 		}
 
 		for (const role of roles) {
-			role.initCode = `return ${role.initCode}`;
+			role.initCode = processCode(role.initCode);
 		}
 
 		for (const mapItem of mapItems) {
 			if (mapItem.property && mapItem.property.custom) {
-				mapItem.property.custom.effectCode = `return ${mapItem.property.custom.effectCode}`;
+				mapItem.property.custom.effectCode = processCode(mapItem.property.custom.effectCode);
 			}
 		}
 
 		Object.values(phases).forEach((phaseList) => {
 			for (const phase of phaseList) {
-				phase.initEventCode = `return ${phase.initEventCode}`;
+				phase.initEventCode = processCode(phase.initEventCode);
 			}
 		});
 	}
@@ -247,8 +276,8 @@ export class GameProcess implements IGameProcess {
 						gameProcess.gameLogBroadcast(
 							`${gameProcess.createGameLinkItem(
 								GameLinkItem.Player,
-								player.id
-							)} 触发了地图事件: ${gameProcess.createGameLinkItem(GameLinkItem.ArrivedEvent, mapEvent.id)}`
+								player.id,
+							)} 触发了地图事件: ${gameProcess.createGameLinkItem(GameLinkItem.ArrivedEvent, mapEvent.id)}`,
 						);
 					},
 				});
@@ -440,14 +469,14 @@ export class GameProcess implements IGameProcess {
 							{
 								type: "info",
 								content: `${arrivedPlayer.name}到达了${owner.name}的地皮: ${property.name}，支付了${toll}￥过路费`,
-							}
+							},
 						);
 						this.gameDataBroadcast();
 						this.gameLogBroadcast(
 							`${this.createGameLinkItem(GameLinkItem.Player, arrivedPlayer.id)} 到达了 ${this.createGameLinkItem(
 								GameLinkItem.Player,
-								owner.id
-							)} 的地皮: ${this.createGameLinkItem(GameLinkItem.Property, property.id)}，支付了 ${toll}￥ 过路费`
+								owner.id,
+							)} 的地皮: ${this.createGameLinkItem(GameLinkItem.Property, property.id)}，支付了 ${toll}￥ 过路费`,
 						);
 					}
 				} else {
@@ -536,8 +565,8 @@ export class GameProcess implements IGameProcess {
 			this.gameLogBroadcast(
 				`${this.createGameLinkItem(GameLinkItem.Player, player.id)} 买下了地皮 ${this.createGameLinkItem(
 					GameLinkItem.Property,
-					property.id
-				)}`
+					property.id,
+				)}`,
 			);
 			await player.cost(property.sellCost);
 		} else {
@@ -559,8 +588,8 @@ export class GameProcess implements IGameProcess {
 			this.gameLogBroadcast(
 				`${this.createGameLinkItem(GameLinkItem.Player, player.id)} 把地皮 ${this.createGameLinkItem(
 					GameLinkItem.Property,
-					property.id
-				)} 升到了 ${property.level} 级`
+					property.id,
+				)} 升到了 ${property.level} 级`,
 			);
 			await player.cost(property.sellCost);
 		} else {
@@ -589,7 +618,7 @@ export class GameProcess implements IGameProcess {
 	public async handleUseChanceCard(
 		sourcePlayer: IPlayer,
 		chanceCardId: string,
-		targetIdList: string[]
+		targetIdList: string[],
 	): Promise<boolean> {
 		this.roundTimeTimer.stop();
 		const _this = this;
@@ -628,7 +657,7 @@ export class GameProcess implements IGameProcess {
 					const targetLink = this.createGameLinkItem(GameLinkItem.Player, targetPlayer.id);
 					this.gameMsgNotifyBroadcast(
 						"info",
-						`${sourcePlayer.name} 对玩家 ${targetPlayer.name} 使用了机会卡: "${cardName}"`
+						`${sourcePlayer.name} 对玩家 ${targetPlayer.name} 使用了机会卡: "${cardName}"`,
 					);
 					this.gameLogBroadcast(`${sourceLink} 对玩家 ${targetLink} 使用了机会卡: ${cardLink}`);
 					break;
@@ -643,7 +672,7 @@ export class GameProcess implements IGameProcess {
 					const targetLink = this.createGameLinkItem(GameLinkItem.Property, targetProperty.id);
 					this.gameMsgNotifyBroadcast(
 						"info",
-						`${sourcePlayer.name} 对地皮 ${targetProperty.name} 使用了机会卡: "${cardName}"`
+						`${sourcePlayer.name} 对地皮 ${targetProperty.name} 使用了机会卡: "${cardName}"`,
 					);
 					this.gameLogBroadcast(`${sourceLink} 对地皮 ${targetLink} 使用了机会卡: ${cardLink}`);
 					break;
@@ -733,8 +762,8 @@ export class GameProcess implements IGameProcess {
 				this.gameLogBroadcast(
 					`${this.createGameLinkItem(GameLinkItem.Player, arrivedPlayer.id)} 触发了地图事件: ${this.createGameLinkItem(
 						GameLinkItem.ArrivedEvent,
-						mapEvent.id
-					)}`
+						mapEvent.id,
+					)}`,
 				);
 				this.gameDataBroadcast();
 			}
@@ -756,7 +785,7 @@ export class GameProcess implements IGameProcess {
 	public onPlayerOperation<T extends OperateType>(
 		playerId: string,
 		operationType: T,
-		callback: (res: PlayerOperationResult[T]) => void
+		callback: (res: PlayerOperationResult[T]) => void,
 	): void {
 		operationListener.on(playerId, operationType, callback);
 	}
@@ -764,21 +793,21 @@ export class GameProcess implements IGameProcess {
 	public oncePlayerOperation<T extends OperateType>(
 		playerId: string,
 		operationType: T,
-		callback: (res: PlayerOperationResult[T]) => void
+		callback: (res: PlayerOperationResult[T]) => void,
 	): void {
 		operationListener.once(playerId, operationType, callback);
 	}
 
 	public async onPlayerOperationAsync<T extends OperateType>(
 		playerId: string,
-		operationType: T
+		operationType: T,
 	): Promise<PlayerOperationResult[T]> {
 		return await operationListener.onAsync(playerId, operationType);
 	}
 
 	public async oncePlayerOperationAsync<T extends OperateType>(
 		playerId: string,
-		operationType: T
+		operationType: T,
 	): Promise<PlayerOperationResult[T]> {
 		return await operationListener.onceAsync(playerId, operationType);
 	}
@@ -786,7 +815,7 @@ export class GameProcess implements IGameProcess {
 	public emitPlayerOperation<T extends OperateType>(
 		playerId: string,
 		operationType: T,
-		data: PlayerOperationResult[T]
+		data: PlayerOperationResult[T],
 	) {
 		operationListener.emit(playerId, operationType, data);
 	}
@@ -794,7 +823,7 @@ export class GameProcess implements IGameProcess {
 	public removePlayerOperationListener<T extends OperateType>(
 		playerId: string,
 		operationType: T,
-		listener: (...args: any[]) => PlayerOperationResult[T]
+		listener: (...args: any[]) => PlayerOperationResult[T],
 	): void {
 		operationListener.remove(playerId, operationType, listener);
 	}
@@ -839,7 +868,7 @@ export class GameProcess implements IGameProcess {
 
 	public async showConfirmDialog<I extends InputOptionItem<string, any>[]>(
 		playerId: string,
-		option: ConfirmDialogOption<I>
+		option: ConfirmDialogOption<I>,
 	): Promise<ConfirmDialogResult<I>> {
 		sendToUsers([playerId], {
 			type: SocketMsgType.ConfirmDialog,
@@ -854,7 +883,7 @@ export class GameProcess implements IGameProcess {
 
 	public async showTargetSelectDialog<I extends TargetSelectType>(
 		playerId: string,
-		option: TargetSelectDialogOption<I>
+		option: TargetSelectDialogOption<I>,
 	): Promise<TargetSelectDialogResult<I>> {
 		sendToUsers([playerId], {
 			type: SocketMsgType.TargetSelectDialog,
@@ -866,7 +895,7 @@ export class GameProcess implements IGameProcess {
 		});
 		return (await operationListener.onceAsync(
 			playerId,
-			OperateType.TargetSelectDialogResult
+			OperateType.TargetSelectDialogResult,
 		)) as TargetSelectDialogResult<I>;
 	}
 
@@ -932,7 +961,7 @@ export class GameProcess implements IGameProcess {
 		msg: {
 			type: "info" | "success" | "warning" | "error";
 			content: string;
-		}
+		},
 	) {
 		sendToUsers(playerIdList, { type: SocketMsgType.MsgNotify, source: SocketMsgSource.Server, data: undefined, msg });
 	}
@@ -1001,7 +1030,7 @@ export class GameProcess implements IGameProcess {
 	public gameBroadcast(msg: ServerSocketMessage) {
 		sendToUsers(
 			Array.from(this.players.values()).map((p) => p.id),
-			msg
+			msg,
 		);
 	}
 
