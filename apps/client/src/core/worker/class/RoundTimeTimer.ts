@@ -1,6 +1,6 @@
-import { IRoundTimeTimer } from "@fatpaper-monopoly/types";
+import { IRoundTimeTimer } from "@mine-monopoly/types";
 
-export class RoundTimeTimer implements IRoundTimeTimer{
+export class RoundTimeTimer implements IRoundTimeTimer {
 	private roundTime: number;
 	private intervalMs: number = 1000;
 	private intervalTimer: any;

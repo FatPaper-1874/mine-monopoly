@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, watch } from "vue";
 import { __PROTOCOL__ } from "@src/../global.config";
-import { ChanceCardClientInfo } from "@fatpaper-monopoly/types";
+import { ChanceCardClientInfo } from "@mine-monopoly/types";
 import { useResourceStore } from "@src/store/game";
 
 const props = defineProps<{ chanceCard: ChanceCardClientInfo; disable: boolean }>();

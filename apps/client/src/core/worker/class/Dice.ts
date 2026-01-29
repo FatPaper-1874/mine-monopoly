@@ -1,4 +1,4 @@
-import { DiceInfo, IDice } from "@fatpaper-monopoly/types";
+import { DiceInfo, IDice } from "@mine-monopoly/types";
 import { clone, result } from "lodash";
 
 class Dice implements IDice {

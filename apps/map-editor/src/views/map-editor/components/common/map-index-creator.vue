@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { MapItemType, MapItem } from "@fatpaper-monopoly/types";
+import { MapItemType, MapItem } from "@mine-monopoly/types";
 import { message } from "ant-design-vue";
 import { computed, onBeforeMount, ref } from "vue";
 import { useMapDataStore } from "@src/stores/index";

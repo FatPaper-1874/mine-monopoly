@@ -146,7 +146,7 @@ initSettingStore();
 import { gsap } from "gsap";
 import MotionPathPlugin from "gsap/MotionPathPlugin";
 import { isPC } from "./utils/platform";
-import { FPMessage } from "@fatpaper-monopoly/ui";
+import { FPMessage } from "@mine-monopoly/ui";
 
 gsap.registerPlugin(MotionPathPlugin);
 

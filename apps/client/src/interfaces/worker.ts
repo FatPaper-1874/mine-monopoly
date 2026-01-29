@@ -1,6 +1,6 @@
 import { WorkerCommType } from "@src/enums/worker";
-import {GameMap, GameSetting, PlayerOperationResult, ServerSocketMessage, UserInRoomInfo} from "@fatpaper-monopoly/types";
-import { OperateType } from "@fatpaper-monopoly/types";
+import { GameMap, GameSetting, PlayerOperationResult, ServerSocketMessage, UserInRoomInfo } from "@mine-monopoly/types";
+import { OperateType } from "@mine-monopoly/types";
 
 export type WorkerCommMsg = {
 	[K in keyof WorkerCommDataTypeMap]: {
@@ -9,7 +9,7 @@ export type WorkerCommMsg = {
 	};
 }[keyof WorkerCommDataTypeMap];
 
-type EmitOperationResult<T extends OperateType> = { userId: string; operateType: T; data: PlayerOperationResult[T] }
+type EmitOperationResult<T extends OperateType> = { userId: string; operateType: T; data: PlayerOperationResult[T] };
 
 interface WorkerCommDataTypeMap {
 	//Worker Receive

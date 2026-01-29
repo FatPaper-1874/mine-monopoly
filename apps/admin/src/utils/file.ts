@@ -1,5 +1,5 @@
-import { GameMap } from "@fatpaper-monopoly/types";
-import { loadFromProto } from "@fatpaper-monopoly/utils";
+import { GameMap } from "@mine-monopoly/types";
+import { loadFromProto } from "@mine-monopoly/utils";
 
 export async function readMapFile(file: File) {
 	const fileArrayBuffer = await file.arrayBuffer();
@@ -22,7 +22,7 @@ export function uint8ArrayToFile(
 	uint8Array: Uint8Array,
 	fileName: string,
 	mimeType: string = "image/png",
-	lastModified: number = Date.now()
+	lastModified: number = Date.now(),
 ): File {
 	const cleanBuffer = uint8Array.slice().buffer; // 保证是 ArrayBuffer
 	const blob = new Blob([cleanBuffer], { type: mimeType });

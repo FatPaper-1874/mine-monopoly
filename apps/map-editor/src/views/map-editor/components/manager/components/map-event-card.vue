@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { MapEvent } from "@fatpaper-monopoly/types/interfaces/game/item";
+import { MapEvent } from "@mine-monopoly/types/interfaces/game/item";
 import { useResourceStore } from "@src/stores";
 import { computed } from "vue";
 import { convertToFpUrl } from "@src/utils/file";

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChanceCardInfo } from "@fatpaper-monopoly/types";
+import { ChanceCardInfo } from "@mine-monopoly/types";
 import { useMapDataStore } from "@src/stores";
 import { computed, ref } from "vue";
 import ChanceCardForm from "./forms/chance-card-form/index.vue";

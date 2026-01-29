@@ -1,6 +1,6 @@
 import { AmbientLight, Box3, Color, PerspectiveCamera, Scene, Vector3, WebGLRenderer } from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
-import { ThreeSceneBase } from "@fatpaper-monopoly/utils";
+import { ThreeSceneBase } from "@mine-monopoly/utils";
 import { createModelFromImage } from "./role";
 
 export class RolePreviewerRenderer extends ThreeSceneBase {

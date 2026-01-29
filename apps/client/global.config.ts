@@ -1,9 +1,4 @@
-import {
-	FATPAPER_DOMAIN,
-	ICE_SERVER_PORT,
-	PROTOCOL,
-	SERVER_PORT,
-} from "@fatpaper-monopoly/config";
+import { FATPAPER_DOMAIN, ICE_SERVER_PORT, PROTOCOL, SERVER_PORT } from "@mine-monopoly/config";
 
 export const __PROTOCOL__ = PROTOCOL;
 export const __MONOPOLYSERVER__ = `${PROTOCOL}://${FATPAPER_DOMAIN}:${SERVER_PORT}`;

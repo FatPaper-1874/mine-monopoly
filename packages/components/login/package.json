@@ -1,5 +1,5 @@
 {
-	"name": "@fatpaper-monopoly/login",
+	"name": "@mine-monopoly/login",
 	"main": "main.ts",
 	"private": true,
 	"version": "0.0.0",
@@ -12,8 +12,8 @@
 	"dependencies": {
 		"@fingerprintjs/fingerprintjs": "^4.1.0",
 		"jsencrypt": "^3.3.2",
-		"@fatpaper-monopoly/config": "workspace:*",
-		"@fatpaper-monopoly/ui": "workspace:*"
+		"@mine-monopoly/config": "workspace:*",
+		"@mine-monopoly/ui": "workspace:*"
 	},
 	"devDependencies": {}
 }

@@ -3,10 +3,10 @@ import playerCard from "@src/views/game/components/player-card.vue";
 import propertyInfoCard from "@src/views/game/utils/components/property-info-card.vue";
 import chanceCard from "@src/views/game/components/chance-card.vue";
 import arrivedEventCard from "@src/views/game/utils/components/map-event-card.vue";
-import { GameLog, GameLogLinkItem } from "@fatpaper-monopoly/types";
+import { GameLog, GameLogLinkItem } from "@mine-monopoly/types";
 import { useDeviceStatus } from "@src/store";
 import { App, Component, computed, createApp, h, ref, render, toRaw } from "vue";
-import { MapEvent, ChanceCardInfo, PlayerInfo, PropertyInfo } from "@fatpaper-monopoly/types";
+import { MapEvent, ChanceCardInfo, PlayerInfo, PropertyInfo } from "@mine-monopoly/types";
 import { useGameData, useMapData } from "@src/store/game";
 
 const props = defineProps<{ gameLog: GameLog }>();
@@ -170,7 +170,7 @@ const logTime = computed(() => {
 			<span
 				v-else
 				class="link-item"
-				:style="{color: (log.content as LinkDataItem).color}"
+				:style="{ color: (log.content as LinkDataItem).color }"
 				@click="generatePopItem($event, (log.content as LinkDataItem).type, (log.content as LinkDataItem).data)"
 			>
 				{{ (log.content as LinkDataItem).text }}

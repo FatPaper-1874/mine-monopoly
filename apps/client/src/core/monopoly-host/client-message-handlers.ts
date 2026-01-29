@@ -7,10 +7,10 @@ import {
 	PropertyInfo,
 	SocketMessage,
 	SocketMsgType,
-} from "@fatpaper-monopoly/types";
+} from "@mine-monopoly/types";
 import { debounce } from "@src/utils";
-import { SocketMsgSource } from "@fatpaper-monopoly/types";
-import { FPMessage } from "@fatpaper-monopoly/ui";
+import { SocketMsgSource } from "@mine-monopoly/types";
+import { FPMessage } from "@mine-monopoly/ui";
 import { FPMessageBox } from "@src/components/utils/fp-message-box";
 import router from "@src/router";
 import useEventBus from "@src/utils/event-bus";
@@ -22,14 +22,14 @@ type ClientMessageHandler<T extends SocketMsgType> = (
 	conn: DataConnection,
 	msg: SocketMessage<T, SocketMsgSource.Client>,
 	host: MonopolyHost,
-	clientId: string
+	clientId: string,
 ) => void;
 
 export function handleClientSocketMessage(
 	conn: DataConnection,
 	msg: ClientSocketMessage,
 	host: MonopolyHost,
-	clientId: string
+	clientId: string,
 ) {
 	switch (msg.type) {
 		case SocketMsgType.Heart:

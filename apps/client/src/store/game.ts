@@ -1,4 +1,4 @@
-import { ResourcesType, GameMap, PlayerInfo, PropertyInfo, GameData } from "@fatpaper-monopoly/types";
+import { ResourcesType, GameMap, PlayerInfo, PropertyInfo, GameData } from "@mine-monopoly/types";
 import { defineStore } from "pinia";
 import { useUserInfo } from ".";
 import useEventBus from "@src/utils/event-bus";

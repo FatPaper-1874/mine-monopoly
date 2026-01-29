@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import { message } from "ant-design-vue";
-import { CustomUI, UITemplate } from "@fatpaper-monopoly/types";
+import { CustomUI, UITemplate } from "@mine-monopoly/types";
 import { useMapDataStore } from "@src/stores";
 
 // 组件引入

@@ -6,7 +6,7 @@ import {
 	GamePhaseMark,
 	IGamePhase,
 	ModifierTiming,
-} from "@fatpaper-monopoly/types";
+} from "@mine-monopoly/types";
 import { compileTsToJs } from "@src/utils";
 import GameProcessTypes from "../editor-lib.d.ts?raw";
 

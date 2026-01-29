@@ -26,6 +26,9 @@ importers:
       axios:
         specifier: 1.11.0
         version: 1.11.0
+      electron-updater:
+        specifier: ^6.6.2
+        version: 6.6.2
       express:
         specifier: 4.18.2
         version: 4.18.2
@@ -93,6 +96,15 @@ importers:
       dts-bundle-generator:
         specifier: 9.5.1
         version: 9.5.1
+      electron:
+        specifier: 37.2.6
+        version: 37.2.6
+      electron-builder:
+        specifier: 26.0.12
+        version: 26.0.12(electron-builder-squirrel-windows@26.0.12)
+      electron-log:
+        specifier: ^5.4.3
+        version: 5.4.3
       rollup-plugin-external-globals:
         specifier: 0.10.0
         version: 0.10.0(rollup@4.53.3)
@@ -145,16 +157,16 @@ importers:
         specifier: ^0.50.0
         version: 0.50.0
     devDependencies:
-      '@fatpaper-monopoly/config':
+      '@mine-monopoly/config':
         specifier: workspace:*
         version: link:../../packages/configs
-      '@fatpaper-monopoly/login':
+      '@mine-monopoly/login':
         specifier: workspace:*
         version: link:../../packages/components/login
-      '@fatpaper-monopoly/types':
+      '@mine-monopoly/types':
         specifier: workspace:*
         version: link:../../packages/types
-      '@fatpaper-monopoly/utils':
+      '@mine-monopoly/utils':
         specifier: workspace:*
         version: link:../../packages/utils
       cross-env:
@@ -172,68 +184,43 @@ importers:
 
   apps/client:
     dependencies:
-      '@fatpaper-monopoly/config':
+      '@mine-monopoly/config':
         specifier: workspace:*
         version: link:../../packages/configs
-      '@fatpaper-monopoly/login':
+      '@mine-monopoly/login':
         specifier: workspace:*
         version: link:../../packages/components/login
-      '@fatpaper-monopoly/types':
+      '@mine-monopoly/types':
         specifier: workspace:*
         version: link:../../packages/types
-      '@fatpaper-monopoly/ui':
+      '@mine-monopoly/ui':
         specifier: workspace:*
         version: link:../../packages/components/ui
-      '@fatpaper-monopoly/utils':
+      '@mine-monopoly/utils':
         specifier: workspace:*
         version: link:../../packages/utils
       cannon-es:
         specifier: ^0.20.0
         version: 0.20.0
-      electron-updater:
-        specifier: ^6.6.2
-        version: 6.6.2
       eventemitter3:
         specifier: ^5.0.0
         version: 5.0.1
       peerjs:
         specifier: ^1.5.4
         version: 1.5.5
-    devDependencies:
-      electron:
-        specifier: 37.2.6
-        version: 37.2.6
-      electron-builder:
-        specifier: 26.0.12
-        version: 26.0.12(electron-builder-squirrel-windows@26.0.12)
-      electron-log:
-        specifier: ^5.4.3
-        version: 5.4.3
 
   apps/map-editor:
     dependencies:
-      '@fatpaper-monopoly/types':
+      '@mine-monopoly/types':
         specifier: workspace:*
         version: link:../../packages/types
-      '@fatpaper-monopoly/ui':
+      '@mine-monopoly/ui':
         specifier: workspace:*
         version: link:../../packages/components/ui
-      '@fatpaper-monopoly/utils':
+      '@mine-monopoly/utils':
         specifier: workspace:*
         version: link:../../packages/utils
-      electron-updater:
-        specifier: ^6.6.2
-        version: 6.6.2
     devDependencies:
-      electron:
-        specifier: 37.2.6
-        version: 37.2.6
-      electron-builder:
-        specifier: 26.0.12
-        version: 26.0.12(electron-builder-squirrel-windows@26.0.12)
-      electron-log:
-        specifier: ^5.4.3
-        version: 5.4.3
       ts-morph:
         specifier: 26.0.0
         version: 26.0.0
@@ -292,10 +279,10 @@ importers:
         specifier: ^3.8.2
         version: 3.18.3
     devDependencies:
-      '@fatpaper-monopoly/config':
+      '@mine-monopoly/config':
         specifier: workspace:*
         version: link:../../packages/configs
-      '@fatpaper-monopoly/types':
+      '@mine-monopoly/types':
         specifier: workspace:*
         version: link:../../packages/types
       '@types/body-parser':
@@ -334,15 +321,15 @@ importers:
 
   packages/components/login:
     dependencies:
-      '@fatpaper-monopoly/config':
-        specifier: workspace:*
-        version: link:../../configs
-      '@fatpaper-monopoly/ui':
-        specifier: workspace:*
-        version: link:../ui
       '@fingerprintjs/fingerprintjs':
         specifier: ^4.1.0
         version: 4.6.2
+      '@mine-monopoly/config':
+        specifier: workspace:*
+        version: link:../../configs
+      '@mine-monopoly/ui':
+        specifier: workspace:*
+        version: link:../ui
       jsencrypt:
         specifier: ^3.3.2
         version: 3.5.4
@@ -514,8 +501,8 @@ packages:
     resolution: {integrity: sha512-Qkzpg2s9GnVV2I2BjRksUi43U5e6+zaQMcjoJy0C+C5oxaKl+fmckGDQFtRpZpZV0NQekuZZ+tGz7EA9TVnQtQ==}
     engines: {node: '>=12'}
 
-  '@electron/node-gyp@git+https://github.com/electron/node-gyp.git#06b29aafb7708acef8b3669835c8a7857ebc92d2':
-    resolution: {commit: 06b29aafb7708acef8b3669835c8a7857ebc92d2, repo: https://github.com/electron/node-gyp.git, type: git}
+  '@electron/node-gyp@https://codeload.github.com/electron/node-gyp/tar.gz/06b29aafb7708acef8b3669835c8a7857ebc92d2':
+    resolution: {tarball: https://codeload.github.com/electron/node-gyp/tar.gz/06b29aafb7708acef8b3669835c8a7857ebc92d2}
     version: 10.2.0-electron.1
     engines: {node: '>=12.13.0'}
     hasBin: true
@@ -4522,7 +4509,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@electron/node-gyp@git+https://github.com/electron/node-gyp.git#06b29aafb7708acef8b3669835c8a7857ebc92d2':
+  '@electron/node-gyp@https://codeload.github.com/electron/node-gyp/tar.gz/06b29aafb7708acef8b3669835c8a7857ebc92d2':
     dependencies:
       env-paths: 2.2.1
       exponential-backoff: 3.1.3
@@ -4559,7 +4546,7 @@ snapshots:
 
   '@electron/rebuild@3.7.0':
     dependencies:
-      '@electron/node-gyp': git+https://github.com/electron/node-gyp.git#06b29aafb7708acef8b3669835c8a7857ebc92d2
+      '@electron/node-gyp': https://codeload.github.com/electron/node-gyp/tar.gz/06b29aafb7708acef8b3669835c8a7857ebc92d2
       '@malept/cross-spawn-promise': 2.0.0
       chalk: 4.1.2
       debug: 4.4.3

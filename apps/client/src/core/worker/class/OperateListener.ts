@@ -1,4 +1,4 @@
-import { OperateType, PlayerOperationResult } from "@fatpaper-monopoly/types";
+import { OperateType, PlayerOperationResult } from "@mine-monopoly/types";
 
 type OperateListenerItem = {
 	isOnce: boolean;
@@ -16,7 +16,7 @@ export class OperateListener {
 		playerId: string,
 		eventType: T,
 		fn: (args: PlayerOperationResult[T]) => void,
-		isOnce: boolean
+		isOnce: boolean,
 	) {
 		if (!this.evetnMap.has(playerId)) {
 			this.evetnMap.set(playerId, new Map());
@@ -48,7 +48,7 @@ export class OperateListener {
 	public once<T extends OperateType>(
 		playerId: string,
 		eventType: T,
-		listener: (res: PlayerOperationResult[T]) => void
+		listener: (res: PlayerOperationResult[T]) => void,
 	) {
 		this.setOperateListener(playerId, eventType, listener, true);
 	}
@@ -56,7 +56,7 @@ export class OperateListener {
 	public remove<T extends OperateType>(
 		playerId: string,
 		eventType: T,
-		listener: (...args: any[]) => PlayerOperationResult[T]
+		listener: (...args: any[]) => PlayerOperationResult[T],
 	) {
 		const playerEvents = this.evetnMap.get(playerId);
 		if (!playerEvents) return;

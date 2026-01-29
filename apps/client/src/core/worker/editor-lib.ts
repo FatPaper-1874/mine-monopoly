@@ -1,4 +1,2 @@
 //@need-to-parse
-export type {
-	IGameProcess,
-} from "@fatpaper-monopoly/types";
+export type { IGameProcess } from "@mine-monopoly/types";

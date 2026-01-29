@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { createGameMap, updateGameMap } from "@/utils/api/game-map";
-import { GameMapInDb } from "@fatpaper-monopoly/types";
+import { GameMapInDb } from "@mine-monopoly/types";
 import { FormInstance, message, UploadChangeParam, UploadFile, UploadProps } from "ant-design-vue";
-import { dataToProtoBuffer, loadFromProto, ProtoFileType } from "@fatpaper-monopoly/utils";
+import { dataToProtoBuffer, loadFromProto, ProtoFileType } from "@mine-monopoly/utils";
 import { onMounted, reactive, ref, watch } from "vue";
 import { calculateFileHash, readMapFile, uint8ArrayToFile, uint8ArrayToObjectURL } from "@/utils/file";
 import { Rule } from "ant-design-vue/es/form";
-import { PROTOCOL } from "@fatpaper-monopoly/config";
+import { PROTOCOL } from "@mine-monopoly/config";
 
 const { gameMap } = defineProps<{ gameMap: GameMapInDb | undefined }>();
 const formRef = ref<FormInstance>();
@@ -61,7 +61,7 @@ async function handleFileChange(info: UploadChangeParam) {
 	coverImageFile.value = uint8ArrayToFile(
 		imageResource.buffer,
 		`cover-image.${imageResource.filetype}`,
-		imageResource.filetype
+		imageResource.filetype,
 	);
 }
 

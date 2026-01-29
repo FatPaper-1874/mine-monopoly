@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { MapEvent } from "@fatpaper-monopoly/types/interfaces/game/item";
+import { MapEvent } from "@mine-monopoly/types/interfaces/game/item";
 import CodeEditor from "@src/components/code-editor/index.vue";
 import libContent from "./editor-lib.d.ts?raw";
 import templateText from "./template-text?raw";
 import { computed, reactive, ref, watch } from "vue";
 import { useMapDataStore, useResourceStore } from "@src/stores";
 import { message } from "ant-design-vue";
-import { MapEventType } from "@fatpaper-monopoly/types";
+import { MapEventType } from "@mine-monopoly/types";
 import { addNewImage, convertToFpUrl } from "@src/utils/file";
 import { Rule } from "ant-design-vue/es/form";
 import { cloneDeep } from "lodash";

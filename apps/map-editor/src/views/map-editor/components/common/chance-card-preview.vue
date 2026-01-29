@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
-import { ChanceCardInfo } from "@fatpaper-monopoly/types";
+import { ChanceCardInfo } from "@mine-monopoly/types";
 import { message } from "ant-design-vue";
 import { useResourceStore } from "@src/stores";
 
@@ -22,7 +22,7 @@ watch(
 			_iconPreview.value = "";
 		}
 	},
-	{ immediate: true }
+	{ immediate: true },
 );
 </script>
 

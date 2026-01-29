@@ -1,6 +1,6 @@
 import { _axios } from "../axios";
 import { getEncryption } from "../index";
-import { FPMessage } from "@fatpaper-monopoly/ui";
+import { FPMessage } from "@mine-monopoly/ui";
 
 export const getUserInfo = async () => {
 	const res = await _axios.get("/user/info");

@@ -4,14 +4,14 @@ import router from "@src/router";
 import { __PROTOCOL__ } from "@src/../global.config";
 import { getUserByToken } from "@src/utils/api/user";
 import { exitFullScreen, randomString, setTimeOutAsync } from "@src/utils";
-import { FPMessage } from "@fatpaper-monopoly/ui";
+import { FPMessage } from "@mine-monopoly/ui";
 import { useUserInfo } from "@src/store";
 import { LoginDiceRenderer } from "@src/core/three/LoginDiceRenderer";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import FpPopover from "@src/components/utils/fp-popover/fp-popover.vue";
 import LoginExtra from "@src/views/login/components/login-extra.vue";
 import FpDialog from "@src/components/utils/fp-dialog/fp-dialog.vue";
-import { Login } from "@fatpaper-monopoly/login";
+import { Login } from "@mine-monopoly/login";
 
 let loginCodeRenderer: LoginDiceRenderer | null;
 let diceRotate: boolean = true;
@@ -142,7 +142,7 @@ function toRoomList() {
 <template>
 	<div @click.once="handleFirstClick" class="login-page">
 		<div class="title">
-			<span>FatPaper的大富翁</span>
+			<span>MineMonopoly</span>
 		</div>
 
 		<div class="front-cover" v-show="!firstClick">
@@ -416,7 +416,7 @@ function toRoomList() {
 
 		&::before,
 		&::after {
-			content: "FatPaper的大富翁";
+			content: "MineMonopoly";
 		}
 
 		&:before,

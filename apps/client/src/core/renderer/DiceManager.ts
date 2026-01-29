@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import * as CANNON from "cannon-es";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
-import { DiceResult } from "@fatpaper-monopoly/types";
+import { DiceResult } from "@mine-monopoly/types";
 
 export interface DiceObject {
 	mesh: THREE.Mesh;
@@ -238,14 +238,14 @@ export class DiceManager {
 				// 施加力
 				obj.body.applyImpulse(
 					new CANNON.Vec3((Math.random() - 0.5) * 8, 10, (Math.random() - 0.5) * 8),
-					obj.body.position
+					obj.body.position,
 				);
 
 				// 施加旋转
 				obj.body.angularVelocity.set(
 					(Math.random() - 0.5) * 15,
 					(Math.random() - 0.5) * 15,
-					(Math.random() - 0.5) * 15
+					(Math.random() - 0.5) * 15,
 				);
 			});
 
@@ -271,7 +271,7 @@ export class DiceManager {
 	private _createDiceFaceTexture(
 		value: number | string,
 		baseColor: string,
-		isProphecy: boolean = false
+		isProphecy: boolean = false,
 	): THREE.MeshStandardMaterial {
 		const canvas = document.createElement("canvas");
 		const size = 512;

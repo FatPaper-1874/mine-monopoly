@@ -7,7 +7,7 @@ import { ref, reactive, onMounted, onBeforeUnmount, computed } from "vue";
 import CodeEditor from "@src/components/code-editor/index.vue";
 import libContent from "./editor-lib.d.ts?raw";
 import templateText from "./template-text?raw";
-import { Role } from "@fatpaper-monopoly/types";
+import { Role } from "@mine-monopoly/types";
 
 const { role } = defineProps<{ role: Role | undefined }>();
 const extraLibs = computed(() => useMapDataStore().extraLibs);

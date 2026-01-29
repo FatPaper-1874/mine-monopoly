@@ -23,7 +23,7 @@ import CountdownTimer from "./components/countdown-timer.vue";
 import scoreboard from "./components/scoreboard.vue";
 import PlayerContainer from "./components/player-container.vue";
 import { useGameData, useMapData } from "@src/store/game";
-import { CustomUI, GameMap, UISchema } from "@fatpaper-monopoly/types";
+import { CustomUI, GameMap, UISchema } from "@mine-monopoly/types";
 import { compileTsToJs } from "@src/utils";
 import { storeToRefs } from "pinia";
 import HtmlRender from "@src/components/utils/ui-renderer/ui-renderer.vue";

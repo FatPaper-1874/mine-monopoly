@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted } from "vue";
-import { PROTOCOL } from "@fatpaper-monopoly/config";
-import { RoleInRoom } from "@fatpaper-monopoly/types";
+import { PROTOCOL } from "@mine-monopoly/config";
+import { RoleInRoom } from "@mine-monopoly/types";
 
 const { role } = defineProps<{ role: RoleInRoom }>();
 

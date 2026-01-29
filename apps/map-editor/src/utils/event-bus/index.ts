@@ -1,5 +1,5 @@
-import { GameMap } from "@fatpaper-monopoly/types";
-import { MapItem, MapItemType } from "@fatpaper-monopoly/types/interfaces/game/item";
+import { GameMap } from "@mine-monopoly/types";
+import { MapItem, MapItemType } from "@mine-monopoly/types/interfaces/game/item";
 import { CameraMode, OperationMode } from "@src/enums";
 import mitt from "mitt";
 

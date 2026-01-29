@@ -1,5 +1,5 @@
-import { GamePhaseInfo } from "@fatpaper-monopoly/types";
-import { GamePhaseMark } from "@fatpaper-monopoly/types/enums/game/game-process";
+import { GamePhaseInfo } from "@mine-monopoly/types";
+import { GamePhaseMark } from "@mine-monopoly/types/enums/game/game-process";
 import GameInitedPhaseDefault from "../default-code/game-inited-phase.txt?raw";
 import GameOverRuleDefault from "../default-code/game-over-rule.txt?raw";
 import GameRoundStartPhaseDefault from "../default-code/game-round-start-phase.txt?raw";

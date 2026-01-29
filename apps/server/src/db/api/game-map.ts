@@ -1,4 +1,4 @@
-import { GameMapInDb } from "@fatpaper-monopoly/types";
+import { GameMapInDb } from "@mine-monopoly/types";
 import { AppDataSource } from "../dbConnecter";
 import { GameMap } from "../entities/GameMap";
 import { deleteFiles } from "src/utils/file-uploader";

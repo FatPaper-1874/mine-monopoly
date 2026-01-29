@@ -1,5 +1,5 @@
 import { Entity, Column, PrimaryGeneratedColumn, PrimaryColumn, BeforeInsert } from "typeorm";
-import { GameMapInDb } from '@fatpaper-monopoly/types';
+import { GameMapInDb } from "@mine-monopoly/types";
 
 @Entity()
 export class GameMap implements GameMapInDb {
@@ -18,7 +18,7 @@ export class GameMap implements GameMapInDb {
 	@Column({ type: "varchar", nullable: false })
 	coverUrl: string;
 
-  @Column({ type: "varchar", nullable: false })
+	@Column({ type: "varchar", nullable: false })
 	mapUrl: string;
 
 	@Column({ type: "varchar", nullable: false })

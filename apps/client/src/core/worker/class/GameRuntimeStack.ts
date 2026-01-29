@@ -1,4 +1,4 @@
-import { GameContext, GameEvent, IGameProcess, IGameRuntimeStack } from "@fatpaper-monopoly/types";
+import { GameContext, GameEvent, IGameProcess, IGameRuntimeStack } from "@mine-monopoly/types";
 
 export class GameRuntimeStack implements IGameRuntimeStack<GameContext> {
 	public stack: GameEvent<GameContext>[] = [];

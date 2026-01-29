@@ -1,18 +1,18 @@
 {
-	"name": "@fatpaper-monopoly/root",
+	"name": "@mine-monopoly/root",
 	"version": "2.0.0",
 	"description": "",
 	"main": "index.js",
 	"type": "module",
 	"scripts": {
 		"dev": "node scripts/start-dev-all.js",
-		"dev-client": "pnpm --filter @fatpaper-monopoly/client run dev",
-		"dev-server": "pnpm --filter @fatpaper-monopoly/server run dev",
-		"dev-editor": "pnpm --filter @fatpaper-monopoly/map-editor run dev",
+		"dev-client": "pnpm --filter @mine-monopoly/client run dev",
+		"dev-server": "pnpm --filter @mine-monopoly/server run dev",
+		"dev-editor": "pnpm --filter @mine-monopoly/map-editor run dev",
 		"build": "",
-		"build-client": "pnpm --filter @fatpaper-monopoly/client run build",
-		"build-server": "pnpm --filter @fatpaper-monopoly/server run build",
-		"build-editor": "pnpm --filter @fatpaper-monopoly/map-editor run build"
+		"build-client": "pnpm --filter @mine-monopoly/client run build",
+		"build-server": "pnpm --filter @mine-monopoly/server run build",
+		"build-editor": "pnpm --filter @mine-monopoly/map-editor run build"
 	},
 	"keywords": [],
 	"author": "",
@@ -38,7 +38,8 @@
 		"protobufjs": "7.5.3",
 		"three": "0.179.1",
 		"vue": "3.5.18",
-		"vue-router": "^4.6.3"
+		"vue-router": "^4.6.3",
+		"electron-updater": "^6.6.2"
 	},
 	"devDependencies": {
 		"@changesets/cli": "^2.29.8",
@@ -60,6 +61,9 @@
 		"vite-plugin-electron-renderer": "0.14.6",
 		"vite-plugin-monaco-editor-esm": "2.0.2",
 		"vite-plugin-static-copy": "3.1.1",
-		"vue-tsc": "1.0.24"
+		"vue-tsc": "1.0.24",
+		"electron": "37.2.6",
+		"electron-builder": "26.0.12",
+		"electron-log": "^5.4.3"
 	}
 }

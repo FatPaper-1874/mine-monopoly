@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { GameMapInfo } from "@fatpaper-monopoly/types";
+import { GameMapInfo } from "@mine-monopoly/types";
 import { useMapDataStore, useResourceStore } from "@src/stores";
 import { addNewImage } from "@src/utils/file";
 import { message } from "ant-design-vue";

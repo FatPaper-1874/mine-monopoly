@@ -11,8 +11,8 @@
 		"baseUrl": ".",
 		"paths": {
 			"@G/*": ["./*"],
-			"@fatpaper-monopoly/types": ["packages/types/index.ts"],
-			"@fatpaper-monopoly/types/*": ["packages/types/*"]
+			"@mine-monopoly/types": ["packages/types/index.ts"],
+			"@mine-monopoly/types/*": ["packages/types/*"]
 		},
 		"resolveJsonModule": true,
 

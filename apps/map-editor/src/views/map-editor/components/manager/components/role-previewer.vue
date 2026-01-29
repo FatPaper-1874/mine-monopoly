@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Role } from "@fatpaper-monopoly/types";
+import { Role } from "@mine-monopoly/types";
 import { useMapDataStore, useResourceStore } from "@src/stores";
 import { RolePreviewerRenderer } from "@src/utils/three/RolePreviewerRenderer";
 import { message } from "ant-design-vue";
@@ -36,7 +36,7 @@ watch(
 			rolePreviewer.loadRole(image.url);
 		}
 	},
-	{ deep: true }
+	{ deep: true },
 );
 
 function handleEdit() {

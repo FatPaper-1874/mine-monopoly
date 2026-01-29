@@ -2,7 +2,7 @@
 import MapPreviewer from "@src/views/room/components/map-previewer.vue";
 import roomUserCard from "@src/views/room/components/room-user-card.vue";
 import FpDialog from "@src/components/utils/fp-dialog/fp-dialog.vue";
-import { FPMessage } from "@fatpaper-monopoly/ui";
+import { FPMessage } from "@mine-monopoly/ui";
 import ItemSelector from "@src/components/utils/item-selector/item-selector.vue";
 import router from "@src/router";
 import { useLoading, useRoomInfo } from "@src/store";
@@ -13,13 +13,13 @@ import { computed, onBeforeMount, onBeforeUnmount, onMounted, reactive, ref, toR
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { copyToClipboard, getDisplayValueByFormSchema } from "@src/utils";
 import { setRoomPrivate } from "@src/utils/api/room-router";
-import { FormSchema, GameMapInDb, GameSetting, RoleInRoom } from "@fatpaper-monopoly/types";
-import { PROTOCOL } from "@fatpaper-monopoly/config";
+import { FormSchema, GameMapInDb, GameSetting, RoleInRoom } from "@mine-monopoly/types";
+import { PROTOCOL } from "@mine-monopoly/config";
 import { loadGameMapFromServer } from "@src/utils/file/game-map";
 import RolePreviewer from "./components/role-previewer.vue";
 import { useResourceStore } from "@src/store/game";
 import FpPopover from "@src/components/utils/fp-popover/fp-popover.vue";
-import { arrayBufferToBase64 } from "@fatpaper-monopoly/utils";
+import { arrayBufferToBase64 } from "@mine-monopoly/utils";
 import CustomForm from "@src/components/utils/custom-form/index.vue";
 
 let socketClient: MonopolyClient;
@@ -97,7 +97,7 @@ const canStart = computed(
 			Boolean(roomInfoStore.mapInfo) &&
 			roomInfoStore.userList.every((user) => Boolean(user.roleId) || user.userId === ownerId.value || user.isReady) &&
 			!useLoading().loading
-		)
+		),
 );
 
 async function handleSetPrivate() {
@@ -363,7 +363,9 @@ async function handleUploadMap() {
 		display: flex;
 		justify-content: center;
 		align-items: center;
-		box-shadow: 0 0.15rem 0 darken($color-second, 12%), 0 0.2rem 0.3rem rgba(0, 0, 0, 0.15);
+		box-shadow:
+			0 0.15rem 0 darken($color-second, 12%),
+			0 0.2rem 0.3rem rgba(0, 0, 0, 0.15);
 	}
 }
 

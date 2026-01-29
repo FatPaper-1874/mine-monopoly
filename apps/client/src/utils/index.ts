@@ -1,4 +1,4 @@
-import { FormSchema } from "@fatpaper-monopoly/types";
+import { FormSchema } from "@mine-monopoly/types";
 import { isEqual } from "lodash";
 import * as THREE from "three";
 import * as ts from "typescript";
@@ -136,7 +136,7 @@ export function debounce(fn: (...args: any[]) => void, delay_ms: number): () => 
 export function debounce(
 	fn: (...args: any[]) => void,
 	delay_ms: number,
-	needCancel: boolean
+	needCancel: boolean,
 ): { fn: (...args: any[]) => void; cancel: () => void };
 export function debounce(fn: (...args: any[]) => void, delay_ms: number, needCancel: boolean = false) {
 	let timer: ReturnType<typeof setTimeout>;
@@ -307,7 +307,7 @@ export function compareObjectArrays<T extends Record<string, any>>(
 	oldArray: T[],
 	newArray: T[],
 	idKey: keyof T,
-	callback: <Key extends keyof T>(itemId: string, key: Key, oldValue: T[Key], newValue: T[Key]) => void
+	callback: <Key extends keyof T>(itemId: string, key: Key, oldValue: T[Key], newValue: T[Key]) => void,
 ): void {
 	const oldMap = new Map<string, T>(oldArray.map((item) => [String(item[idKey]), item]));
 

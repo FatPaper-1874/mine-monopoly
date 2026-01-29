@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { PropertyInfo } from "@fatpaper-monopoly/types";
-import UiRenderer from '@src/components/utils/ui-renderer/ui-renderer.vue';
+import { PropertyInfo } from "@mine-monopoly/types";
+import UiRenderer from "@src/components/utils/ui-renderer/ui-renderer.vue";
 import { useMapData } from "@src/store/game";
 
 const { property } = defineProps<{ property: PropertyInfo | null }>();
@@ -15,7 +15,7 @@ function getUiTemplateById(id: string) {
 <template>
 	<div class="property-info" v-if="property">
 		<template v-if="property.customUI">
-			<UiRenderer :schema="getUiTemplateById(property.customUI)" :context="{property}"/>
+			<UiRenderer :schema="getUiTemplateById(property.customUI)" :context="{ property }" />
 		</template>
 		<template v-else>
 			<div class="name">

@@ -1,4 +1,4 @@
-import { FPMessage } from "@fatpaper-monopoly/ui";
+import { FPMessage } from "@mine-monopoly/ui";
 import { useChat, useGameLog, useLoading, useRoomInfo, useUserInfo, useUtil } from "@src/store";
 import { emitHostPeerId, joinRoomApi } from "@src/utils/api/room-router";
 import { PeerClient } from "./PeerClient";
@@ -16,14 +16,14 @@ import {
 	SocketMsgType,
 	User,
 	ClientSocketMessage,
-} from "@fatpaper-monopoly/types";
+} from "@mine-monopoly/types";
 import { MonopolyHost } from "../monopoly-host/MonopolyHost";
 import { handleServerSocketMessage } from "./host-message-handlers";
 import { useRouter } from "vue-router";
 import router from "@src/router";
 import { debounce } from "@src/utils";
 import { useGameData } from "@src/store/game";
-import { arrayBufferToBase64 } from "@fatpaper-monopoly/utils";
+import { arrayBufferToBase64 } from "@mine-monopoly/utils";
 
 type MonopolyClientOptions = {
 	iceServer: {
@@ -90,7 +90,7 @@ export class MonopolyClient {
 					roomId,
 					this.iceServerHost,
 					this.iceServerPort,
-					data.deleteIntervalMs
+					data.deleteIntervalMs,
 				);
 				this.gameHost.addDestoryListener(() => {
 					this.gameHost = null;
@@ -137,7 +137,7 @@ export class MonopolyClient {
 				setInterval(() => {
 					this.sendHeartTime = Date.now();
 					this.sendMsg({ type: SocketMsgType.Heart, source: SocketMsgSource.Client, data: undefined });
-				}, 3000)
+				}, 3000),
 			);
 
 			this.conn.on("data", (_data: any) => {
@@ -206,7 +206,7 @@ export class MonopolyClient {
 			});
 		},
 		5000,
-		true
+		true,
 	);
 
 	public sendRoomChatMessage(message: string, roomId: string) {
@@ -297,7 +297,7 @@ export class MonopolyClient {
 					if (value === Infinity) return "Infinity";
 					if (value === -Infinity) return "-Infinity";
 					return value;
-				})
+				}),
 			);
 		}
 	}

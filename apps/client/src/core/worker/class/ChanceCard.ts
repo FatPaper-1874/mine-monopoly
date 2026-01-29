@@ -6,7 +6,7 @@ import {
 	IGameProcess,
 	IPlayer,
 	IProperty,
-} from "@fatpaper-monopoly/types";
+} from "@mine-monopoly/types";
 import { GameProcess } from "../GameProcessWorker";
 import { randomString } from "@src/utils";
 
@@ -46,7 +46,7 @@ export class ChanceCard implements IChanceCard {
 	public async use(
 		sourcePlayer: IPlayer,
 		target: IPlayer | IProperty | IPlayer[] | IProperty[],
-		gameProcess: IGameProcess
+		gameProcess: IGameProcess,
 	) {
 		try {
 			await this.effectFunction(sourcePlayer, target, gameProcess);

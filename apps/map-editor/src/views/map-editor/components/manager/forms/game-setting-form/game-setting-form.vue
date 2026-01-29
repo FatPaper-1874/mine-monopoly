@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { FormSchema } from "@fatpaper-monopoly/types";
+import { FormSchema } from "@mine-monopoly/types";
 import { useMapDataStore } from "@src/stores";
 import { message } from "ant-design-vue";
 import { clone } from "lodash";
@@ -52,83 +52,83 @@ function save() {
 </script>
 
 <template>
-		<div class="editor-wrapper">
-			<div class="toolbar">
-				<div>
-					<a-button @click="addField('number-input')" style="margin-right: 6px"> + 添加数字输入 </a-button>
-					<a-button @click="addField('select')"> + 添加下拉选择 </a-button>
-				</div>
-				<a-button type="primary" @click="save"> 保存 </a-button>
+	<div class="editor-wrapper">
+		<div class="toolbar">
+			<div>
+				<a-button @click="addField('number-input')" style="margin-right: 6px"> + 添加数字输入 </a-button>
+				<a-button @click="addField('select')"> + 添加下拉选择 </a-button>
 			</div>
-
-			<a-empty v-if="schemaList.length === 0" description="点击上方按钮添加表单项" />
-
-			<div class="schema-list">
-				<a-card v-for="(field, index) in schemaList" :key="field.id" size="small" class="field-card" :hoverable="true">
-					<template #title>
-						<span class="card-title">
-							<span class="tag" :class="field.type">
-								{{ field.type === "number-input" ? "数字" : "下拉" }}
-							</span>
-							{{ field.key }}
-						</span>
-					</template>
-
-					<template #extra>
-						<a-button type="link" danger size="small" @click="removeField(index)"> 删除字段 </a-button>
-					</template>
-
-					<a-form layout="vertical">
-						<a-row :gutter="16">
-							<a-col :span="8">
-								<a-form-item label="显示标题 (Label)">
-									<a-input v-model:value="field.label" placeholder="例如：年龄" />
-								</a-form-item>
-							</a-col>
-							<a-col :span="8">
-								<a-form-item label="字段名 (Key)">
-									<a-input v-model:value="field.key" placeholder="例如：age" />
-								</a-form-item>
-							</a-col>
-							<a-col :span="8">
-								<a-form-item label="默认值">
-									<a-input-number
-										v-if="field.type === 'number-input'"
-										v-model:value="field.defaultValue as number"
-										style="width: 100%"
-										placeholder="默认数字"
-									/>
-									<a-select
-										v-else
-										v-model:value="field.defaultValue"
-										style="width: 100%"
-										placeholder="选择默认项"
-										allowClear
-									>
-										<a-select-option v-for="(opt, i) in field.options" :key="i" :value="opt.value">
-											{{ opt.label }}
-										</a-select-option>
-									</a-select>
-								</a-form-item>
-							</a-col>
-						</a-row>
-
-						<div v-if="field.type === 'select'" class="options-area">
-							<div class="options-header">选项列表：</div>
-
-							<div v-for="(opt, i) in field.options" :key="i" class="option-row">
-								<span class="option-index">{{ i + 1 }}.</span>
-								<a-input v-model:value="opt.label" placeholder="显示名" />
-								<a-input v-model:value="opt.value" placeholder="值" />
-								<a-button size="small" danger @click="removeOption(field, i)"> 删除 </a-button>
-							</div>
-
-							<a-button type="dashed" block style="margin-top: 10px" @click="addOption(field)"> + 添加新选项 </a-button>
-						</div>
-					</a-form>
-				</a-card>
-			</div>
+			<a-button type="primary" @click="save"> 保存 </a-button>
 		</div>
+
+		<a-empty v-if="schemaList.length === 0" description="点击上方按钮添加表单项" />
+
+		<div class="schema-list">
+			<a-card v-for="(field, index) in schemaList" :key="field.id" size="small" class="field-card" :hoverable="true">
+				<template #title>
+					<span class="card-title">
+						<span class="tag" :class="field.type">
+							{{ field.type === "number-input" ? "数字" : "下拉" }}
+						</span>
+						{{ field.key }}
+					</span>
+				</template>
+
+				<template #extra>
+					<a-button type="link" danger size="small" @click="removeField(index)"> 删除字段 </a-button>
+				</template>
+
+				<a-form layout="vertical">
+					<a-row :gutter="16">
+						<a-col :span="8">
+							<a-form-item label="显示标题 (Label)">
+								<a-input v-model:value="field.label" placeholder="例如：年龄" />
+							</a-form-item>
+						</a-col>
+						<a-col :span="8">
+							<a-form-item label="字段名 (Key)">
+								<a-input v-model:value="field.key" placeholder="例如：age" />
+							</a-form-item>
+						</a-col>
+						<a-col :span="8">
+							<a-form-item label="默认值">
+								<a-input-number
+									v-if="field.type === 'number-input'"
+									v-model:value="field.defaultValue as number"
+									style="width: 100%"
+									placeholder="默认数字"
+								/>
+								<a-select
+									v-else
+									v-model:value="field.defaultValue"
+									style="width: 100%"
+									placeholder="选择默认项"
+									allowClear
+								>
+									<a-select-option v-for="(opt, i) in field.options" :key="i" :value="opt.value">
+										{{ opt.label }}
+									</a-select-option>
+								</a-select>
+							</a-form-item>
+						</a-col>
+					</a-row>
+
+					<div v-if="field.type === 'select'" class="options-area">
+						<div class="options-header">选项列表：</div>
+
+						<div v-for="(opt, i) in field.options" :key="i" class="option-row">
+							<span class="option-index">{{ i + 1 }}.</span>
+							<a-input v-model:value="opt.label" placeholder="显示名" />
+							<a-input v-model:value="opt.value" placeholder="值" />
+							<a-button size="small" danger @click="removeOption(field, i)"> 删除 </a-button>
+						</div>
+
+						<a-button type="dashed" block style="margin-top: 10px" @click="addOption(field)"> + 添加新选项 </a-button>
+					</div>
+				</a-form>
+			</a-card>
+		</div>
+	</div>
 </template>
 
 <style scoped>

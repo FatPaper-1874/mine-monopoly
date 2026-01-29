@@ -1,6 +1,6 @@
-import { PROTOCOL } from "@fatpaper-monopoly/config";
-import { GameMap, GameMapInDb, Role } from "@fatpaper-monopoly/types";
-import { loadFromProto, ProtoFileType } from "@fatpaper-monopoly/utils";
+import { PROTOCOL } from "@mine-monopoly/config";
+import { GameMap, GameMapInDb, Role } from "@mine-monopoly/types";
+import { loadFromProto, ProtoFileType } from "@mine-monopoly/utils";
 import { useLoading } from "@src/store";
 import { getGameMapById } from "../api/map";
 import { useMapData, useResourceStore } from "@src/store/game";

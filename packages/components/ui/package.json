@@ -1,8 +1,8 @@
 {
-	"name": "@fatpaper-monopoly/ui",
+	"name": "@mine-monopoly/ui",
 	"version": "1.0.0",
 	"main": "index.ts",
-  "type": "module",
+	"type": "module",
 	"scripts": {
 		"test": "echo \"Error: no test specified\" && exit 1"
 	},

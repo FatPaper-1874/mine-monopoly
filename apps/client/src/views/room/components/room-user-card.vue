@@ -2,11 +2,11 @@
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { lightenColor, randomString } from "@src/utils";
 import { computed, ref, reactive, onMounted, watch, nextTick, onBeforeUnmount } from "vue";
-import { ChangeRoleOperate, UserInRoomInfo } from "@fatpaper-monopoly/types";
+import { ChangeRoleOperate, UserInRoomInfo } from "@mine-monopoly/types";
 import { useMonopolyClient } from "@src/core/monopoly-client/MonopolyClient";
 import { RolePreviewer } from "@src/views/room/utils/RolePreviewer";
 import { __PROTOCOL__ } from "@src/../global.config";
-import { PROTOCOL } from "@fatpaper-monopoly/config";
+import { PROTOCOL } from "@mine-monopoly/config";
 import { useUserInfo, useRoomInfo } from "@src/store";
 import { useMapData, useResourceStore } from "@src/store/game";
 

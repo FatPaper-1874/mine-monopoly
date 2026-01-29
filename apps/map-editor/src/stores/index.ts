@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { ChanceCardInfo, FormSchema, GameMap, PropertyInfo, UITemplate } from "@fatpaper-monopoly/types";
+import { ChanceCardInfo, FormSchema, GameMap, PropertyInfo, UITemplate } from "@mine-monopoly/types";
 import { CameraMode, OperationMode } from "@src/enums";
 import {
 	MapItem,
@@ -9,7 +9,7 @@ import {
 	GameMapInfo,
 	SemVer,
 	CustomUI,
-} from "@fatpaper-monopoly/types/interfaces/game/item";
+} from "@mine-monopoly/types/interfaces/game/item";
 import { eventBus } from "@src/utils/event-bus";
 import { createDefaultMapData } from "../utils/file/index";
 import { cloneDeep } from "lodash";

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { __PROTOCOL__ } from "@src/../global.config";
-import { MapEvent } from "@fatpaper-monopoly/types";
+import { MapEvent } from "@mine-monopoly/types";
 import { useResourceStore } from "@src/store/game";
 
 const props = defineProps<{ mapEvent: MapEvent | null }>();
@@ -49,7 +49,11 @@ const iconUrl = computed(() => {
 		border-radius: 8px;
 		color: var(--color-primary);
 		margin-bottom: 0.6rem;
-		text-shadow: #fff -1px 0 0, #fff 1px 0 0, #fff 0 1px 0, #fff 0 -1px 0;
+		text-shadow:
+			#fff -1px 0 0,
+			#fff 1px 0 0,
+			#fff 0 1px 0,
+			#fff 0 -1px 0;
 
 		$icon_size: 1.6em;
 
@@ -62,7 +66,11 @@ const iconUrl = computed(() => {
 
 	.description {
 		color: #2b2b2b;
-		text-shadow: #fff -1px 0 0, #fff 1px 0 0, #fff 0 1px 0, #fff 0 -1px 0;
+		text-shadow:
+			#fff -1px 0 0,
+			#fff 1px 0 0,
+			#fff 0 1px 0,
+			#fff 0 -1px 0;
 	}
 }
 </style>

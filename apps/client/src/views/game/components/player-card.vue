@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PlayerInfo } from "@fatpaper-monopoly/types";
+import { PlayerInfo } from "@mine-monopoly/types";
 import { PropType, computed, ref, watch } from "vue";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { __PROTOCOL__ } from "@src/../global.config";
@@ -33,7 +33,7 @@ watch(
 			},
 		});
 	},
-	{ immediate: true }
+	{ immediate: true },
 );
 </script>
 

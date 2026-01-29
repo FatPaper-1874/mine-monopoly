@@ -2,7 +2,7 @@
 import { reactive, ref, computed, watch, toRaw } from "vue";
 import type { FormInstance, Rule } from "ant-design-vue/es/form";
 import { message } from "ant-design-vue";
-import { PropertyInfo, MapItem } from "@fatpaper-monopoly/types";
+import { PropertyInfo, MapItem } from "@mine-monopoly/types";
 import { useEditorStore, useMapDataStore } from "@src/stores";
 import EffectEditor from "./effect-editor.vue";
 import BuildingModelSeletor from "../../components/building-model-seletor.vue";

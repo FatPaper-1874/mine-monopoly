@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Buff } from "@fatpaper-monopoly/types";
+import { Buff } from "@mine-monopoly/types";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 
 defineProps<{ buff: Buff }>();
@@ -56,7 +56,9 @@ defineProps<{ buff: Buff }>();
 
 	display: flex;
 	margin-bottom: 0.8rem; // 列表项间距
-	transition: transform 0.2s, box-shadow 0.2s;
+	transition:
+		transform 0.2s,
+		box-shadow 0.2s;
 
 	&:hover {
 		transform: translateY(-2px);

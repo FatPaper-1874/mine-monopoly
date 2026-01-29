@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 import MapForm from "./components/map-form.vue";
-import { GameMapInDb } from "@fatpaper-monopoly/types";
+import { GameMapInDb } from "@mine-monopoly/types";
 import { getGameMapInfo, getGameMapList } from "@/utils/api/game-map";
 import MapItem from "./components/map-item.vue";
 

@@ -1,11 +1,4 @@
-import {
-	ICommandMap,
-	ICommandBus,
-	IModifier,
-	ICommand,
-	ICommandContext,
-	IModifierManager,
-} from "@fatpaper-monopoly/types";
+import { ICommandMap, ICommandBus, IModifier, ICommand, ICommandContext, IModifierManager } from "@mine-monopoly/types";
 
 export class CommandBus<C extends ICommandMap> implements ICommandBus<C> {
 	private handlers = new Map<keyof C, (payload: any) => any>();

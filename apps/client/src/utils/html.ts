@@ -1,4 +1,4 @@
-import { PropertyInfo } from "@fatpaper-monopoly/types";
+import { PropertyInfo } from "@mine-monopoly/types";
 
 export function generatePropertyHtml(property: PropertyInfo): string {
 	if (!property) return "";
@@ -47,7 +47,7 @@ export function generatePropertyHtml(property: PropertyInfo): string {
       <span class="label" style="${styles.label}">LV${index} 过路费</span>
       <span class="data" style="${styles.data}">${cost}</span>
     </div>
-  `
+  `,
 		)
 		.join("");
 

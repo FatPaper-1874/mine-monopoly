@@ -1,4 +1,4 @@
-import { Buff, ICommand, ICommandMap, IModifier, IModifierManager, ModifierTiming } from "@fatpaper-monopoly/types";
+import { Buff, ICommand, ICommandMap, IModifier, IModifierManager, ModifierTiming } from "@mine-monopoly/types";
 import { clone, cloneDeep } from "lodash";
 
 export class ModifierManager<C extends ICommandMap, K extends keyof C = keyof C> implements IModifierManager<C> {

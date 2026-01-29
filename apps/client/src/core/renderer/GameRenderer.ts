@@ -9,7 +9,7 @@ import {
 	PropertyInfo,
 	GameMap,
 	DiceResult,
-} from "@fatpaper-monopoly/types";
+} from "@mine-monopoly/types";
 import { useDeviceStatus, useLoading, useSettig, useUserInfo } from "@src/store";
 import { Component, ComponentPublicInstance, createApp, toRaw, watch, WatchStopHandle } from "vue";
 import { loadItemTypeModules } from "@src/utils/three/itemtype-loader";
@@ -31,7 +31,7 @@ import { __PROTOCOL__ } from "@src/../global.config";
 import { TextSprite } from "../three/TextSprite";
 import { useGameData, useMapData, useResourceStore } from "@src/store/game";
 import { getModelById } from "@src/utils/file/game-map";
-import { PlayerModel } from "@fatpaper-monopoly/utils";
+import { PlayerModel } from "@mine-monopoly/utils";
 import { DiceManager } from "./DiceManager";
 import { loadModel } from "@src/utils/three/model-loader";
 import { clone } from "lodash";
@@ -112,12 +112,12 @@ export class GameRenderer {
 		this.chanceCardTargetOutlinePass = new OutlinePass(
 			new THREE.Vector2(canvas.clientWidth, canvas.clientHeight),
 			this.scene,
-			this.camera
+			this.camera,
 		);
 		this.playerInRoundOutlinePass = new OutlinePass(
 			new THREE.Vector2(canvas.clientWidth, canvas.clientHeight),
 			this.scene,
-			this.camera
+			this.camera,
 		);
 		const pixelRatio = this.renderer.getPixelRatio();
 		// width、height是canva画布的宽高度
@@ -135,7 +135,7 @@ export class GameRenderer {
 			PropertyInfoCard,
 			{
 				property: null,
-			}
+			},
 		);
 		this.propertyInfoLabel = propertyCSS2DObject;
 		this.propertyInfoLabelInstance = propertyInfoLabelInstance;
@@ -144,7 +144,7 @@ export class GameRenderer {
 			MapEventCard,
 			{
 				property: null,
-			}
+			},
 		);
 		this.arrivedEventInfoLabel = arrivedEventCSS2DObject;
 		this.arrivedEventInfoLabelInstance = arrivedEventLabelInstance;
@@ -378,7 +378,7 @@ export class GameRenderer {
 				64,
 				"#000000",
 				10,
-				82
+				82,
 			);
 			// textSprite.getSprite().scale.set(2.5, 2.5, 2.5);
 			this.housesItems.set(property.id, {
@@ -613,7 +613,7 @@ export class GameRenderer {
 					32,
 					playerInfo.user.color,
 					5,
-					0
+					0,
 				);
 				const nameSprite = textSprite.getSprite();
 				nameSprite.renderOrder = 999;
@@ -631,7 +631,7 @@ export class GameRenderer {
 		controls: OrbitControls,
 		targetObject: THREE.Object3D,
 		followDistance: number,
-		followAngleY: number
+		followAngleY: number,
 	) {
 		if (!targetObject) return;
 		controls.enabled = false;
@@ -745,21 +745,21 @@ export class GameRenderer {
 					if (newProperty.owner) {
 						houseItem.textSprite.updateText(
 							`${newProperty.name}\n过路费: ${Math.round(
-								costList[newProperty.level] * useGameData().currentMultiplier
+								costList[newProperty.level] * useGameData().currentMultiplier,
 							)}￥`,
-							newProperty.owner.color
+							newProperty.owner.color,
 						);
 					} else {
 						houseItem.textSprite.updateText(
 							`${newProperty.name}\n可购买: ${Math.round(newProperty.sellCost)}￥`,
-							"#000000"
+							"#000000",
 						);
 					}
 					const textSpriteModel = houseItem.textSprite.getSprite();
 					const box = new THREE.Box3().setFromObject(propertyBuildModel);
 					// 计算边界框的高度
 					const size = box.getSize(new THREE.Vector3());
-					console.log("🚀 ~ GameRenderer ~ updateBuilding ~ size:", size)
+					console.log("🚀 ~ GameRenderer ~ updateBuilding ~ size:", size);
 					textSpriteModel.position.y = 1;
 					propertyBuildModel.add(textSpriteModel);
 					houseItem.group = propertyBuildModel;
@@ -797,7 +797,7 @@ export class GameRenderer {
 				(mutation, state) => {
 					animationShouldStop = state.isFocus;
 				},
-				{ once: true }
+				{ once: true },
 			);
 
 			try {
@@ -849,7 +849,7 @@ export class GameRenderer {
 								duration: duration,
 								ease: "power2.inOut",
 							},
-							0
+							0,
 						);
 
 						// --- 3. 动态形变 ---
@@ -867,7 +867,7 @@ export class GameRenderer {
 										}
 									},
 								},
-								duration * 0.5
+								duration * 0.5,
 							);
 
 							currentAnimation.to(
@@ -879,7 +879,7 @@ export class GameRenderer {
 									duration: duration * 0.2,
 									ease: "power2.in",
 								},
-								duration * 0.5
+								duration * 0.5,
 							);
 
 							currentAnimation.to(
@@ -889,7 +889,7 @@ export class GameRenderer {
 									duration: duration * 0.5,
 									ease: "power2.out",
 								},
-								0
+								0,
 							);
 
 							currentAnimation.to(
@@ -901,7 +901,7 @@ export class GameRenderer {
 									duration: duration * 0.5,
 									ease: "power2.out",
 								},
-								duration * 0.5
+								duration * 0.5,
 							);
 
 							currentAnimation.to(
@@ -911,7 +911,7 @@ export class GameRenderer {
 									duration: duration * 0.2,
 									ease: "sine.out",
 								},
-								duration * 0.9
+								duration * 0.9,
 							);
 
 							currentAnimation.to(
@@ -923,7 +923,7 @@ export class GameRenderer {
 									duration: duration * 0.2,
 									ease: "sine.out",
 								},
-								duration * 0.9
+								duration * 0.9,
 							);
 						}
 
@@ -1086,7 +1086,7 @@ export class GameRenderer {
 			x: number,
 			y: number,
 			r: number,
-			n: number
+			n: number,
 		): {
 			offsetX: number;
 			offsetY: number;
@@ -1113,7 +1113,7 @@ export class GameRenderer {
 		playerId: string,
 		component: Component,
 		props?: Record<string, any>,
-		delay?: number
+		delay?: number,
 	) {
 		const playerEntity = this.playerEntities.get(playerId);
 		if (!playerEntity) return;

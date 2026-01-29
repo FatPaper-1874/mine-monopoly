@@ -16,7 +16,7 @@ import {
 	SocketMessageDataType,
 	PlayerOperationResult,
 	RoomMapInfo,
-} from "@fatpaper-monopoly/types";
+} from "@mine-monopoly/types";
 import { WorkerCommType } from "@src/enums/worker";
 import { WorkerCommMsg } from "@src/interfaces/worker";
 import { useLoading, useDeviceStatus } from "@src/store";
@@ -27,9 +27,9 @@ import { DataConnection } from "peerjs";
 import GameProcessWorker from "@src/core/worker/GameProcessWorker?worker";
 import { getGameMap } from "@src/utils/file/game-map";
 import { useMapData } from "@src/store/game";
-import { FPMessage } from "@fatpaper-monopoly/ui";
+import { FPMessage } from "@mine-monopoly/ui";
 import { OperateListener } from "../worker/class/OperateListener";
-import { base64ToArrayBuffer } from "@fatpaper-monopoly/utils";
+import { base64ToArrayBuffer } from "@mine-monopoly/utils";
 
 interface UserInRoom extends UserInRoomInfo {
 	socketClient: DataConnection;
@@ -129,7 +129,7 @@ export class Room {
 					if (value === Infinity) return "Infinity";
 					if (value === -Infinity) return "-Infinity";
 					return value;
-				})
+				}),
 			);
 		});
 	}
@@ -191,7 +191,7 @@ export class Room {
 					type: "warning",
 					content: "你已在房间中",
 				},
-				this.roomId
+				this.roomId,
 			);
 			return false;
 		} else {
@@ -212,7 +212,7 @@ export class Room {
 					type: "success",
 					content: "加入房间成功",
 				},
-				this.roomId
+				this.roomId,
 			);
 			this.roomBroadcast({
 				type: SocketMsgType.MsgNotify,
@@ -435,7 +435,7 @@ export class Room {
 					if (value === Infinity) return "Infinity";
 					if (value === -Infinity) return "-Infinity";
 					return value;
-				})
+				}),
 			);
 			// console.log("🚀 ~ Room ~ handleWorkerReady ~ mapData:", mapData)
 			// console.log("🚀 ~ Room ~ handleWorkerReady ~ this.mapId:", this.mapId)
@@ -529,7 +529,7 @@ export class Room {
 			type: "info" | "success" | "warning" | "error";
 			content: string;
 		},
-		extra: any = undefined
+		extra: any = undefined,
 	) {
 		const user = this.userList.get(id);
 		if (!user) return;
@@ -544,7 +544,7 @@ export class Room {
 			type: "info" | "success" | "warning" | "error";
 			content: string;
 		},
-		extra: any = undefined
+		extra: any = undefined,
 	) {
 		const msgToSend: SocketMessage = {
 			type,
@@ -560,7 +560,7 @@ export class Room {
 					if (value === Infinity) return "Infinity";
 					if (value === -Infinity) return "-Infinity";
 					return value;
-				})
+				}),
 			);
 	}
 

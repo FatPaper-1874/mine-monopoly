@@ -1,5 +1,5 @@
 import axios from "axios";
-import { FPMessage } from "@fatpaper-monopoly/ui";
+import { FPMessage } from "@mine-monopoly/ui";
 import { __MONOPOLYSERVER__ } from "@src/../global.config";
 
 axios.defaults.baseURL = __MONOPOLYSERVER__;
@@ -16,7 +16,7 @@ axios.interceptors.request.use(
 	},
 	function (error) {
 		return Promise.reject(error);
-	}
+	},
 );
 
 // 响应拦截器
@@ -77,5 +77,5 @@ axios.interceptors.response.use(
 			}
 		}
 		return Promise.reject(error.response.data.msg || message);
-	}
+	},
 );

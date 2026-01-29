@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, defineAsyncComponent, watch } from "vue";
 import { message } from "ant-design-vue";
-import { UISchema } from "@fatpaper-monopoly/types";
+import { UISchema } from "@mine-monopoly/types";
 
 const props = defineProps<{ modelValue: UISchema }>();
 const emit = defineEmits(["update:modelValue"]);
@@ -23,7 +23,7 @@ watch(
 	(val) => {
 		if (val && selectedKeys.value.length === 0) selectedKeys.value = [val.id];
 	},
-	{ immediate: true }
+	{ immediate: true },
 );
 
 // --- Computed ---

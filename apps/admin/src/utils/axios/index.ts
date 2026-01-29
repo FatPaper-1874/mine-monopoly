@@ -1,6 +1,6 @@
 import axios from "axios";
 import router from "@/router";
-import { FATPAPER_DOMAIN, PROTOCOL, SERVER_PORT } from "@fatpaper-monopoly/config";
+import { FATPAPER_DOMAIN, PROTOCOL, SERVER_PORT } from "@mine-monopoly/config";
 import { message } from "ant-design-vue";
 
 export const _axios = axios.create({
@@ -23,7 +23,7 @@ _axios.interceptors.request.use(
 	},
 	function (error) {
 		return Promise.reject(error);
-	}
+	},
 );
 
 // 响应拦截器
@@ -73,5 +73,5 @@ _axios.interceptors.response.use(
 			}, duration);
 		}
 		return Promise.reject(error);
-	}
+	},
 );

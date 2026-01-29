@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChanceCardClientInfo, ChanceCardInfo } from "@fatpaper-monopoly/types";
+import { ChanceCardClientInfo, ChanceCardInfo } from "@mine-monopoly/types";
 import { useGameData, useMapData } from "@src/store/game";
 import { computed, nextTick, onBeforeMount, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import PlayerCard from "@src/views/game/components/player-card.vue";

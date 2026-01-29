@@ -152,7 +152,7 @@ interface PlayerInfo {
 	isBankrupted: boolean;
 	isOffline: boolean;
 	infoDisplay: UISchema;
-	customData: Record<string, any>;
+	exportData: Record<string, any>;
 }
 interface PropertyInfo {
 	id: string;
@@ -165,7 +165,7 @@ interface PropertyInfo {
 	buildingModelIdList?: string[];
 	owner?: UserInRoomInfo;
 	custom?: PropertyCustom;
-	customData: Record<string, any>;
+	exportData: Record<string, any>;
 	customUI: string | undefined;
 }
 interface PropertyCustom {
@@ -823,6 +823,8 @@ interface IGameProcess extends IGameProcessCustomFields {
 	showMessageCard(playerIds: string[], option: MessageCardOption): Promise<void>;
 	checkGameOver(): Promise<void>;
 }
+interface IPlayerExportData {
+}
 interface IPlayerCustomFields {
 }
 interface IPlayer extends IPlayerCustomFields {
@@ -840,7 +842,7 @@ interface IPlayer extends IPlayerCustomFields {
 	roundPhases: IGamePhase<GameContext>[];
 	dices: IDice[];
 	infoDisplay: UISchema;
-	customData: Record<string, any>;
+	exportData: IPlayerExportData & Record<string, any>;
 	getUser: () => UserInRoomInfo;
 	setPropertiesList: (newPropertiesList: IProperty[]) => void;
 	gainProperty: (property: IProperty) => Promise<void>;
@@ -867,6 +869,8 @@ interface IPlayer extends IPlayerCustomFields {
 }
 interface IPropertyCustomFields {
 }
+interface IPropertyExportData {
+}
 interface IProperty extends IPropertyCustomFields {
 	id: string;
 	name: string;
@@ -878,7 +882,7 @@ interface IProperty extends IPropertyCustomFields {
 	buildingModelIdList: string[] | undefined;
 	custom: PropertyCustom | undefined;
 	owner: IPlayer | undefined;
-	customData: Record<string, any>;
+	exportData: IPropertyExportData & Record<string, any>;
 	getOriginalData: () => PropertyInfo;
 	levelUp: () => Promise<void>;
 	levelDown: () => Promise<void>;

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useChat } from "@src/store";
-import { ChatMessage } from "@fatpaper-monopoly/types";
+import { ChatMessage } from "@mine-monopoly/types";
 import DanmakuItem from "@src/views/danmaku/components/danmaku_item.vue";
 import { reactive, ref, watch } from "vue";
 
@@ -12,14 +12,14 @@ watch(
 	() => chatStore.newMessage,
 	(newMessage) => {
 		newMessage && messageQueue.push(newMessage);
-	}
+	},
 );
 
 function handleEnter(el: Element, done: () => void) {
 	const id = el.getAttribute("data-message_id");
 	messageQueue.splice(
 		messageQueue.findIndex((m) => m.id === id),
-		1
+		1,
 	);
 }
 

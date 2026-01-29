@@ -4,7 +4,7 @@ import { __PROTOCOL__ } from "@src/../global.config";
 import { computed } from "vue";
 import ChanceCard from "./chance-card.vue";
 import BuffItem from "./buff-item.vue";
-import { PlayerInfo } from "@fatpaper-monopoly/types";
+import { PlayerInfo } from "@mine-monopoly/types";
 import { useRoomInfo } from "@src/store";
 import { useGameData } from "@src/store/game";
 import UiRenderer from "@src/components/utils/ui-renderer/ui-renderer.vue";

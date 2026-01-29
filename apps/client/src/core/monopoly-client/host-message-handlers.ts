@@ -9,7 +9,7 @@ import {
 	ServerSocketMessage,
 	SocketMessage,
 	SocketMsgType,
-} from "@fatpaper-monopoly/types";
+} from "@mine-monopoly/types";
 import {
 	useChat,
 	useGameLog,
@@ -21,24 +21,24 @@ import {
 	useUtil,
 } from "@src/store";
 import { debounce, getDisplayValueByFormSchema } from "@src/utils";
-import { SocketMsgSource } from "@fatpaper-monopoly/types";
-import { FPMessage } from "@fatpaper-monopoly/ui";
+import { SocketMsgSource } from "@mine-monopoly/types";
+import { FPMessage } from "@mine-monopoly/ui";
 import { FPMessageBox } from "@src/components/utils/fp-message-box";
 import router from "@src/router";
 import useEventBus from "@src/utils/event-bus";
 import { createVNode } from "vue";
 import PropertyInfoVue from "@src/components/common/property-card.vue";
 import { useGameData, useMapData, useResourceStore } from "@src/store/game";
-import { GameMap } from "@fatpaper-monopoly/utils/protos/game-map";
+import { GameMap } from "@mine-monopoly/utils/protos/game-map";
 import { loadGameMapFromFile, loadGameMapFromServer } from "@src/utils/file/game-map";
-import { base64ToArrayBuffer } from "@fatpaper-monopoly/utils";
+import { base64ToArrayBuffer } from "@mine-monopoly/utils";
 import { showTargetSelector } from "@src/components/common/target-seletor";
 import { showItemSelector } from "@src/components/utils/item-selector";
 import { FPMessageCard } from "../../components/utils/fp-message-card/index";
 
 type ServerMessageHandler<T extends SocketMsgType> = (
 	msg: SocketMessage<T, SocketMsgSource.Server>,
-	client: MonopolyClient
+	client: MonopolyClient,
 ) => void;
 
 export function handleServerSocketMessage(msg: ServerSocketMessage, client: MonopolyClient) {

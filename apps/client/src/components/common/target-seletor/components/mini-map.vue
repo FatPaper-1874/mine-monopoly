@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { MapItem, PlayerInfo } from "@fatpaper-monopoly/types";
+import { MapItem, PlayerInfo } from "@mine-monopoly/types";
 import { useGameData, useMapData } from "@src/store/game";
 import { computed, toRaw } from "vue";
 

@@ -1,5 +1,5 @@
-import { GameMap } from "@fatpaper-monopoly/types";
-import { dataToProtoBuffer, loadFromProto, ProtoFileType } from "@fatpaper-monopoly/utils/protos";
+import { GameMap } from "@mine-monopoly/types";
+import { dataToProtoBuffer, loadFromProto, ProtoFileType } from "@mine-monopoly/utils/protos";
 import { useEditorStore, useMapDataStore, useResourceStore } from "@src/stores";
 import { eventBus } from "@src/utils/event-bus";
 import { getInitPhase } from "@src/views/map-editor/components/manager/process-manager/utils/init-phase";

@@ -1,5 +1,5 @@
 import { DataSource } from "typeorm";
-import { MYSQL_PASSWORD, MYSQL_PORT, MYSQL_USERNAME } from "@fatpaper-monopoly/config";
+import { MYSQL_PASSWORD, MYSQL_PORT, MYSQL_USERNAME } from "@mine-monopoly/config";
 import path from "path";
 import { fileURLToPath } from "url";
 

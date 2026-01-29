@@ -2,7 +2,7 @@
 import { useEditorStore, useMapDataStore } from "./stores";
 import Header from "./views/header.vue";
 import MapEditor from "./views/map-editor/map-editor.vue";
-import { TitleBar } from "@fatpaper-monopoly/ui";
+import { TitleBar } from "@mine-monopoly/ui";
 import MapEditorAlert from "@src/components/map-edior-alert/index.vue";
 import Update from "@src/components/common/update.vue";
 import { onMounted, onUnmounted } from "vue";
@@ -14,7 +14,7 @@ const isLoading = useEditorStore().isLoading;
 
 let removeListener: (() => void) | undefined;
 
-const handleOpenMap = async(filePath: string) => {
+const handleOpenMap = async (filePath: string) => {
 	console.log("收到文件路径，开始加载:", filePath);
 	await loadMapDataFromPath(filePath);
 };

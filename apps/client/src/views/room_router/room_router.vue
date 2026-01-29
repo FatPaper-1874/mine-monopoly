@@ -5,7 +5,7 @@ import { useMonopolyClient } from "@src/core/monopoly-client/MonopolyClient";
 import userCard from "@src/components/common/user-card.vue";
 import router from "@src/router";
 import { getUserByToken } from "@src/utils/api/user";
-import { FPMessage } from "@fatpaper-monopoly/ui";
+import { FPMessage } from "@mine-monopoly/ui";
 import { __FATPAPER_HOST__, __ICE_SERVER_PORT__ } from "@src/../global.config";
 import LoginExtra from "@src/views/login/components/login-extra.vue";
 import FpPopover from "@src/components/utils/fp-popover/fp-popover.vue";

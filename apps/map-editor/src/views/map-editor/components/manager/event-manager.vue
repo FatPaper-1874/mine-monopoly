@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { MapEvent } from "@fatpaper-monopoly/types";
+import { MapEvent } from "@mine-monopoly/types";
 import { useMapDataStore } from "@src/stores";
 import { computed, ref } from "vue";
 import MapEventForm from "./forms/map-event-form/index.vue";

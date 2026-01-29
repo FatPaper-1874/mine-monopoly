@@ -1,8 +1,4 @@
-import {
-	FATPAPER_DOMAIN,
-	ICE_SERVER_PORT,
-	SERVER_PORT,
-} from "@fatpaper-monopoly/config";
+import { FATPAPER_DOMAIN, ICE_SERVER_PORT, SERVER_PORT } from "@mine-monopoly/config";
 // import {
 // 	__TC_SECRETID__ as tc_id,
 // 	__TC_SECRETKEY__ as tc_key,

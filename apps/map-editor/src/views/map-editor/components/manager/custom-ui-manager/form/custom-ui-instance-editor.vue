@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { reactive, watch } from "vue";
 import { Modal } from "ant-design-vue";
-import { CustomUI, UITemplate } from "@fatpaper-monopoly/types";
+import { CustomUI, UITemplate } from "@mine-monopoly/types";
 
 // 接收 CustomUI 实例 和 所有可选的 Templates
 const props = defineProps<{
@@ -18,7 +18,7 @@ watch(
 	() => props.instance,
 	(newVal) => {
 		Object.assign(formState, JSON.parse(JSON.stringify(newVal)));
-	}
+	},
 );
 
 function handleSave() {

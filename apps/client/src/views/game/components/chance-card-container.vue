@@ -4,7 +4,7 @@ import { computed, provide, ref, watch, toRaw } from "vue";
 import ChanceCard from "./chance-card.vue";
 import { useUtil } from "@src/store";
 import { useGameData } from "@src/store/game";
-import { ChanceCardClientInfo, TargetSelectType } from "@fatpaper-monopoly/types";
+import { ChanceCardClientInfo, TargetSelectType } from "@mine-monopoly/types";
 import { showTargetSelector } from "@src/components/common/target-seletor";
 import { useMonopolyClient } from "@src/core/monopoly-client/MonopolyClient";
 

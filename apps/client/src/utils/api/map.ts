@@ -1,4 +1,4 @@
-import { GameMapInDb } from "@fatpaper-monopoly/types";
+import { GameMapInDb } from "@mine-monopoly/types";
 import axios from "axios";
 
 export const getGameMapList = async (page: number, size: number) => {

@@ -17,7 +17,7 @@ import {
 	Role,
 	UISchema,
 	UserInRoomInfo,
-} from "@fatpaper-monopoly/types";
+} from "@mine-monopoly/types";
 import { GamePhase } from "./GamePhase";
 import { compileTsToJs, randomString } from "@src/utils";
 import GameProcessTypes from "../editor-lib.d.ts?raw";

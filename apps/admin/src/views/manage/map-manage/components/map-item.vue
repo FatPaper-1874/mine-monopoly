@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { deleteGameMap, setGameMapUse } from "@/utils/api/game-map";
-import { PROTOCOL } from "@fatpaper-monopoly/config";
-import { GameMapInDb } from "@fatpaper-monopoly/types";
+import { PROTOCOL } from "@mine-monopoly/config";
+import { GameMapInDb } from "@mine-monopoly/types";
 import { computed, ref } from "vue";
 
 const props = defineProps<{ mapInfo: GameMapInDb }>();

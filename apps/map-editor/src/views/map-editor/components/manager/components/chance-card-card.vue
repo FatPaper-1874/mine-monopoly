@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useResourceStore } from "@src/stores";
-import { ChanceCardInfo } from "@fatpaper-monopoly/types";
+import { ChanceCardInfo } from "@mine-monopoly/types";
 import { computed } from "vue";
 import ChanceCardPreview from "../../common/chance-card-preview.vue";
 

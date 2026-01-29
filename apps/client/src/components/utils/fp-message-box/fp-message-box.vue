@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, VNode, isVNode } from "vue";
 import FpDialog from "../fp-dialog/fp-dialog.vue";
-import { UISchema } from "@fatpaper-monopoly/types";
+import { UISchema } from "@mine-monopoly/types";
 import UiRenderer from "../ui-renderer/ui-renderer.vue";
 import { useGameData } from "@src/store/game";
 

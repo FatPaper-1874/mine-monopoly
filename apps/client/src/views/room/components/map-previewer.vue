@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted } from "vue";
-import { GameMapInDb } from "@fatpaper-monopoly/types";
-import { PROTOCOL } from "@fatpaper-monopoly/config";
+import { GameMapInDb } from "@mine-monopoly/types";
+import { PROTOCOL } from "@mine-monopoly/config";
 
 const { map } = defineProps<{ map: GameMapInDb }>();
 
@@ -45,7 +45,7 @@ const coverImageUrl = computed(() => {
 	display: flex;
 	flex-direction: column;
 	justify-content: space-between;
-	padding: .2rem;
+	padding: 0.2rem;
 	box-sizing: border-box;
 
 	& .name {

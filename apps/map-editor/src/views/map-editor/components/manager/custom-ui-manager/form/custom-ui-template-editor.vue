@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { message } from "ant-design-vue"; // 引入 message 用于提示
-import { UITemplate } from "@fatpaper-monopoly/types";
+import { UITemplate } from "@mine-monopoly/types";
 import UiSchemaForm from "./ui-schema-form.vue";
 
 const props = defineProps<{ data: UITemplate }>();

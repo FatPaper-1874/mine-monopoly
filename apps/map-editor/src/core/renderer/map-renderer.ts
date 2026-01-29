@@ -1,12 +1,12 @@
-import { GameMap } from "@fatpaper-monopoly/types";
-import { debounce, ThreeSceneBase } from "@fatpaper-monopoly/utils";
+import { GameMap } from "@mine-monopoly/types";
+import { debounce, ThreeSceneBase } from "@mine-monopoly/utils";
 import { CameraMode, OperationMode } from "@src/enums";
 import { useEditorStore, useMapDataStore, useResourceStore } from "@src/stores";
 import { eventBus } from "@src/utils/event-bus";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import gsap from "gsap";
-import { MapItem, MapItemType } from "@fatpaper-monopoly/types/interfaces/game/item";
+import { MapItem, MapItemType } from "@mine-monopoly/types/interfaces/game/item";
 import { applyOpacityToObject, createDynamicLine, createMultiLine, DynamicLine, getModelById } from "@src/utils/three";
 import { render } from "vue";
 import { handleSaveProtoFile } from "@src/utils/file";
@@ -438,7 +438,7 @@ export class MapRenderer {
 				frustumSize / 2,
 				frustumSize / -2,
 				0.1,
-				50
+				50,
 			);
 		}
 

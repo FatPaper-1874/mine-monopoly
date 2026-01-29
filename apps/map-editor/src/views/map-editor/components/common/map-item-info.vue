@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { MapItem } from "@fatpaper-monopoly/types/interfaces/game/item";
+import { MapItem } from "@mine-monopoly/types/interfaces/game/item";
 import { message } from "ant-design-vue";
 import { computed } from "vue";
 

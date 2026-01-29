@@ -1,6 +1,6 @@
 import { createVNode, render, type AppContext, type VNode, getCurrentInstance } from "vue";
 import FPMessageCardVue from "./fp-message-card.vue";
-import { UISchema } from "@fatpaper-monopoly/types";
+import { UISchema } from "@mine-monopoly/types";
 
 export interface MessageCardOptions {
 	title?: string;

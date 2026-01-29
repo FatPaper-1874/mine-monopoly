@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import router from "@/router";
-import { Login } from "@fatpaper-monopoly/login";
+import { Login } from "@mine-monopoly/login";
 
 function toMain(token: string) {
 	localStorage.setItem("token", token);

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
-import { PropertyInfo } from "@fatpaper-monopoly/types";
+import { PropertyInfo } from "@mine-monopoly/types";
 import { useMapData } from "@src/store/game";
 import UiRenderer from "@src/components/utils/ui-renderer/ui-renderer.vue";
 
@@ -12,7 +12,7 @@ watch(
 	() => props.property,
 	(newProperty) => {
 		updateProperty(newProperty);
-	}
+	},
 );
 
 const _playerNameColor = computed(() => {
@@ -101,7 +101,11 @@ defineExpose({ updateProperty });
 		font-size: 0.8rem;
 		width: 70%;
 		margin-bottom: 0.6rem;
-		text-shadow: #fff -1px 0 0, #fff 1px 0 0, #fff 0 1px 0, #fff 0 -1px 0;
+		text-shadow:
+			#fff -1px 0 0,
+			#fff 1px 0 0,
+			#fff 0 1px 0,
+			#fff 0 -1px 0;
 
 		& > .label {
 			flex: 1;

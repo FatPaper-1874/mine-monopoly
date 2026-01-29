@@ -2,7 +2,7 @@
 import { useGameData } from "@src/store/game";
 import { App, computed, createApp, onMounted, ref } from "vue";
 import PlayerCard from "./player-card.vue";
-import { GameEventType, PlayerInfo } from "@fatpaper-monopoly/types";
+import { GameEventType, PlayerInfo } from "@mine-monopoly/types";
 import FpDialog from "@src/components/utils/fp-dialog/fp-dialog.vue";
 import PlayerDetail from "./player-detail.vue";
 import useEventBus from "@src/utils/event-bus";
@@ -51,7 +51,7 @@ onMounted(() => {
 						onComplete: flyMoneyEl.unmount,
 					});
 				}
-			}
+			},
 		);
 
 		useEventBus().on(
@@ -115,7 +115,7 @@ onMounted(() => {
 						});
 					}
 				}
-			}
+			},
 		);
 	}
 });

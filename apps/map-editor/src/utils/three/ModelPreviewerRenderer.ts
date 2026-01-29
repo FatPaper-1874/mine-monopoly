@@ -1,6 +1,6 @@
 import { AmbientLight, Box3, Color, PerspectiveCamera, Scene, Vector3, WebGLRenderer } from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
-import { ThreeSceneBase } from "@fatpaper-monopoly/utils";
+import { ThreeSceneBase } from "@mine-monopoly/utils";
 import { getDracoLoader } from "./draco";
 import { getModelByUrl } from ".";
 

@@ -5,7 +5,7 @@ import templateText from "./template-text?raw";
 import { computed, onMounted, reactive, ref, watch } from "vue";
 import { useMapDataStore, useResourceStore } from "@src/stores";
 import { message } from "ant-design-vue";
-import { ChanceCardInfo, TargetSelectType } from "@fatpaper-monopoly/types";
+import { ChanceCardInfo, TargetSelectType } from "@mine-monopoly/types";
 import { addNewImage, convertToFpUrl } from "@src/utils/file";
 import { Rule } from "ant-design-vue/es/form";
 import ChanceCardPreview from "@src/views/map-editor/components/common/chance-card-preview.vue";
@@ -149,7 +149,7 @@ const iconRule = async (_rule: Rule, value: string) => {
 					<a-button size="small" @click="handleAddIcon">选择图片</a-button>
 				</a-form-item>
 				<a-form-item>
-					<a-button style="width: 100%;" type="primary" html-type="submit">确认修改</a-button>
+					<a-button style="width: 100%" type="primary" html-type="submit">确认修改</a-button>
 				</a-form-item>
 			</a-form>
 		</div>

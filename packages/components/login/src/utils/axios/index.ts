@@ -1,6 +1,6 @@
 import axios from "axios";
-import { FPMessage } from "@fatpaper-monopoly/ui";
-import { FATPAPER_DOMAIN, PROTOCOL, SERVER_PORT } from "@fatpaper-monopoly/config";
+import { FPMessage } from "@mine-monopoly/ui";
+import { FATPAPER_DOMAIN, PROTOCOL, SERVER_PORT } from "@mine-monopoly/config";
 
 const _axios = axios.create({
 	baseURL: `${PROTOCOL}://${FATPAPER_DOMAIN}:${SERVER_PORT}`,
@@ -17,7 +17,7 @@ _axios.interceptors.request.use(
 	},
 	function (error) {
 		return Promise.reject(error);
-	}
+	},
 );
 
 // 响应拦截器
@@ -92,7 +92,7 @@ _axios.interceptors.response.use(
 			message: `${error.response.data.msg || message}`,
 		});
 		return Promise.reject(error);
-	}
+	},
 );
 
 export { _axios };

@@ -36,7 +36,7 @@ import {
 	GameRuntimeEvent,
 	RuntimeMapEvent,
 	MapEventType,
-} from "@fatpaper-monopoly/types";
+} from "@mine-monopoly/types";
 
 import { RoundTimeTimer } from "./class/RoundTimeTimer";
 import { Player } from "./class/Player";

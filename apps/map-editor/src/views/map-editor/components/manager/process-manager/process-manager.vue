@@ -4,7 +4,7 @@ import libContent from "./editor-lib.d.ts?raw";
 import TemplateText from "./template-text?raw";
 import { computed, ref } from "vue";
 import { useMapDataStore } from "@src/stores";
-import { GamePhaseInfo } from "@fatpaper-monopoly/types";
+import { GamePhaseInfo } from "@mine-monopoly/types";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 
 const extraLibs = computed(() => useMapDataStore().extraLibs);

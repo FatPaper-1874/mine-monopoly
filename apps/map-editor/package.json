@@ -1,5 +1,5 @@
 {
-	"name": "@fatpaper-monopoly/map-editor",
+	"name": "@mine-monopoly/map-editor",
 	"author": "Fat_Paper",
 	"description": "Mine-Monopoly的地图编辑器",
 	"version": "1.0.0",
@@ -13,15 +13,11 @@
 		"preview": "vite preview"
 	},
 	"dependencies": {
-		"@fatpaper-monopoly/types": "workspace:*",
-		"@fatpaper-monopoly/ui": "workspace:*",
-		"@fatpaper-monopoly/utils": "workspace:*",
-		"electron-updater": "^6.6.2"
+		"@mine-monopoly/types": "workspace:*",
+		"@mine-monopoly/ui": "workspace:*",
+		"@mine-monopoly/utils": "workspace:*"
 	},
 	"devDependencies": {
-		"electron": "37.2.6",
-		"electron-builder": "26.0.12",
-		"electron-log": "^5.4.3",
 		"ts-morph": "26.0.0"
 	}
 }

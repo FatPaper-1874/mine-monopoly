@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { TargetSelectType } from "@fatpaper-monopoly/types";
+import { TargetSelectType } from "@mine-monopoly/types";
 import { provide, ref, watch } from "vue";
 import ToMapItem from "./components/to-map-item.vue";
 import ToOtherPlayer from "./components/to-other-player.vue";
@@ -19,7 +19,7 @@ watch(
 	(newVal) => {
 		emits("targetSelected", newVal);
 	},
-	{ deep: true }
+	{ deep: true },
 );
 
 let selectorComponent;

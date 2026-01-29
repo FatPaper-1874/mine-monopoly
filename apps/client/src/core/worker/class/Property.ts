@@ -8,7 +8,7 @@ import {
 	PropertyCommandMap,
 	PropertyCustom,
 	PropertyInfo,
-} from "@fatpaper-monopoly/types";
+} from "@mine-monopoly/types";
 import { ModifierManager } from "./action-system/ModifiersManager";
 import { CommandBus } from "./action-system/CommandBus";
 import GameProcessTypes from "../editor-lib.d.ts?raw";

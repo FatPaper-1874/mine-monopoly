@@ -9,7 +9,7 @@ import Chat from "@src/views/chat_log/chat_log.vue";
 import MusicPlayer from "@src/views/music_player/music_player.vue";
 import DanmakuContainer from "@src/views/danmaku/danmaku_container.vue";
 import { isFullScreen, isMobileDevice } from "@src/utils";
-import { TitleBar } from "@fatpaper-monopoly/ui";
+import { TitleBar } from "@mine-monopoly/ui";
 import { isPC } from "./utils/platform";
 import { useDeviceStatus } from "./store";
 import {
@@ -53,7 +53,7 @@ const fullScreenWatcherStopHandler = watch(
 	() => useDeviceStatus().isFullScreen,
 	(isFullScreen) => {
 		nextTick(resizeContainer);
-	}
+	},
 );
 
 onMounted(() => {

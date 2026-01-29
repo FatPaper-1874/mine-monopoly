@@ -1,5 +1,5 @@
 {
-	"name": "@fatpaper-monopoly/client",
+	"name": "@mine-monopoly/client",
 	"author": "Fat_Paper",
 	"description": "Mine-Monopoly的客户端",
 	"private": true,
@@ -13,19 +13,15 @@
 		"preview": "vite preview"
 	},
 	"dependencies": {
-		"@fatpaper-monopoly/config": "workspace:*",
-		"@fatpaper-monopoly/login": "workspace:*",
-		"@fatpaper-monopoly/types": "workspace:*",
-		"@fatpaper-monopoly/ui": "workspace:*",
-		"@fatpaper-monopoly/utils": "workspace:*",
+		"@mine-monopoly/config": "workspace:*",
+		"@mine-monopoly/login": "workspace:*",
+		"@mine-monopoly/types": "workspace:*",
+		"@mine-monopoly/ui": "workspace:*",
+		"@mine-monopoly/utils": "workspace:*",
 		"cannon-es": "^0.20.0",
-		"electron-updater": "^6.6.2",
 		"eventemitter3": "^5.0.0",
 		"peerjs": "^1.5.4"
 	},
 	"devDependencies": {
-		"electron": "37.2.6",
-		"electron-builder": "26.0.12",
-		"electron-log": "^5.4.3"
 	}
 }

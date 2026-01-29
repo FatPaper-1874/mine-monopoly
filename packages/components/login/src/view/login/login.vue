@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { apiLogin, apiRegister, getPublicKey } from "../../utils/api";
 import { ref, reactive, onBeforeMount, toRaw } from "vue";
-import { FPMessage } from "@fatpaper-monopoly/ui";
+import { FPMessage } from "@mine-monopoly/ui";
 import { getEncryption } from "../../utils";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import Background from "../../components/background/background.vue";
@@ -284,8 +284,12 @@ const loginMode = ref(true);
 
 		&:focus {
 			outline: 0;
-			-webkit-box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075), #ffb05c;
-			box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075), #ffb05c;
+			-webkit-box-shadow:
+				inset 0 1px 1px rgba(0, 0, 0, 0.075),
+				#ffb05c;
+			box-shadow:
+				inset 0 1px 1px rgba(0, 0, 0, 0.075),
+				#ffb05c;
 		}
 	}
 

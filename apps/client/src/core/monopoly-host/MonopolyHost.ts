@@ -1,5 +1,5 @@
 import Peer, { DataConnection } from "peerjs";
-import { ClientSocketMessage, SocketMessage, SocketMsgType, UserInRoomInfo } from "@fatpaper-monopoly/types";
+import { ClientSocketMessage, SocketMessage, SocketMsgType, UserInRoomInfo } from "@mine-monopoly/types";
 import { deleteRoom, emitRoomHeart } from "@src/utils/api/room-router";
 import { __ICE_SERVER_PATH__, __PROTOCOL__ } from "@src/../global.config";
 import { handleClientSocketMessage } from "./client-message-handlers";
@@ -65,7 +65,7 @@ export class MonopolyHost {
 									content: "该房间已经开始游戏了!",
 								},
 								source: "server",
-							})
+							}),
 						);
 						conn.close();
 						return;
@@ -81,7 +81,7 @@ export class MonopolyHost {
 									content: "该房间已经满人了!",
 								},
 								source: "server",
-							})
+							}),
 						);
 						conn.close();
 					} else {
@@ -167,7 +167,7 @@ export class MonopolyHost {
 									},
 								],
 							},
-					  }
+						},
 			);
 			peer.on("open", () => {
 				console.info("MonopolyHost开启成功");

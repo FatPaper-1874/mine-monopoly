@@ -4,7 +4,7 @@ import { computed, reactive, ref } from "vue";
 import RoleForm from "./forms/role-form/index.vue";
 import rolePreviewer from "./components/role-previewer.vue";
 import { message } from "ant-design-vue";
-import { Role } from "@fatpaper-monopoly/types";
+import { Role } from "@mine-monopoly/types";
 
 const mapDataStroe = useMapDataStore();
 const resourcesStore = useResourceStore();

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { evalExpression, parseVFor } from "./utils"; // 调整引入路径
-import type { UISchema } from "@fatpaper-monopoly/types"; // 假设的类型路径
+import type { UISchema } from "@mine-monopoly/types"; // 假设的类型路径
 
 defineOptions({
 	name: "UiRenderer",
