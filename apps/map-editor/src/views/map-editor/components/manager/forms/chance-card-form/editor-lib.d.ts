@@ -827,11 +827,7 @@ interface IGameProcess extends IGameProcessCustomFields {
 	showMessageCard(playerIds: string[], option: MessageCardOption): Promise<void>;
 	checkGameOver(): Promise<void>;
 }
-interface IPlayerExportData {
-}
-interface IPlayerCustomFields {
-}
-interface IPlayer extends IPlayerCustomFields {
+interface IPlayer {
 	id: string;
 	name: string;
 	roleId: string;
@@ -846,7 +842,7 @@ interface IPlayer extends IPlayerCustomFields {
 	roundPhases: IGamePhase<GameContext>[];
 	dices: IDice[];
 	infoDisplay: UISchema;
-	exportData: IPlayerExportData & Record<string, any>;
+	exportData: Record<string, any>;
 	getUser: () => UserInRoomInfo;
 	setPropertiesList: (newPropertiesList: IProperty[]) => void;
 	gainProperty: (property: IProperty) => Promise<void>;
@@ -871,11 +867,7 @@ interface IPlayer extends IPlayerCustomFields {
 	getPlayerInfo: () => PlayerInfo;
 	getRoundPhases: () => IGamePhase<GameContext>[];
 }
-interface IPropertyCustomFields {
-}
-interface IPropertyExportData {
-}
-interface IProperty extends IPropertyCustomFields {
+interface IProperty {
 	id: string;
 	name: string;
 	level: number;
@@ -886,7 +878,7 @@ interface IProperty extends IPropertyCustomFields {
 	buildingModelIdList: string[] | undefined;
 	custom: PropertyCustom | undefined;
 	owner: IPlayer | undefined;
-	exportData: IPropertyExportData & Record<string, any>;
+	exportData: Record<string, any>;
 	getOriginalData: () => PropertyInfo;
 	levelUp: () => Promise<void>;
 	levelDown: () => Promise<void>;

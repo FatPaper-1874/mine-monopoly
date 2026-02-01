@@ -2,25 +2,12 @@
  * MCP Bridge Handler for Renderer Process
  *
  * This file handles MCP tool invocations from the main process
- * and bridges them to the Pinia stores.
+ * and bridges them directly to Pinia store actions.
  */
 
 import { useMapDataStore, useResourceStore, useEditorStore } from "@src/stores";
 import { createDefaultMapData } from "@src/utils/file";
-import type { GameMap } from "@mine-monopoly/types";
 import { eventBus } from "@src/utils/event-bus";
-
-/**
- * Send MCP operation feedback event
- */
-function sendMCPFeedback(operation: string, success: boolean, message: string, details?: any) {
-	eventBus.emit("mcp-operation", {
-		operation,
-		success,
-		message,
-		details,
-	});
-}
 
 // Phase type for phases object keys
 type PhaseType = "gameOverRule" | "gameInited" | "gameRoundStart" | "playerRound" | "gameRoundEnd";
@@ -31,6 +18,8 @@ type MCPToolName =
 	| "get_map_info"
 	| "update_map_info"
 	| "get_map_summary"
+	| "set_background_image"
+	| "set_cover_image"
 	// Map item tools
 	| "get_map_items"
 	| "add_map_item"
@@ -40,9 +29,15 @@ type MCPToolName =
 	| "unlink_map_item"
 	| "get_map_index"
 	| "set_map_index"
+	// Map item type tools
+	| "get_map_item_types"
+	| "add_map_item_type"
+	| "remove_map_item_type"
 	// Map event tools
 	| "get_map_events"
+	| "get_map_event_by_id"
 	| "add_map_event"
+	| "update_map_event"
 	| "remove_map_event"
 	| "link_event_to_item"
 	| "unlink_event_from_item"
@@ -60,7 +55,12 @@ type MCPToolName =
 	// Chance card tools
 	| "get_chance_cards"
 	| "add_chance_card"
+	| "update_chance_card"
 	| "remove_chance_card"
+	// Property tools
+	| "add_property"
+	| "update_property"
+	| "remove_property"
 	// Game phase tools
 	| "get_phases"
 	| "add_phase"
@@ -93,6 +93,25 @@ type MCPToolName =
 	| "analyze_map_layout";
 
 /**
+ * Send MCP operation feedback event
+ */
+function sendMCPFeedback(operation: string, success: boolean, message: string, details?: any) {
+	eventBus.emit("mcp-operation", {
+		operation,
+		success,
+		message,
+		details,
+	});
+}
+
+/**
+ * Helper to convert reactive objects to plain objects for IPC
+ */
+function toPlain<T>(obj: T): T {
+	return JSON.parse(JSON.stringify(obj));
+}
+
+/**
  * Initialize the MCP bridge handler
  * Call this in the main.ts of the renderer process
  */
@@ -122,12 +141,21 @@ export async function handleToolInvocation(toolName: MCPToolName, args: any): Pr
 		switch (toolName) {
 			// Map Info Tools
 			case "get_map_info":
-				// Convert reactive object to plain object for IPC
-				return JSON.parse(JSON.stringify(mapDataStore.info));
+				return toPlain(mapDataStore.info);
 
 			case "update_map_info":
 				mapDataStore.updateMapInfo(args);
-				return JSON.parse(JSON.stringify(mapDataStore.info));
+				return toPlain(mapDataStore.info);
+
+			case "set_background_image":
+				mapDataStore.setBackgroundImageId(args.id);
+				sendMCPFeedback("set_background_image", true, `设置地图背景成功`, { id: args.id });
+				return { success: true };
+
+			case "set_cover_image":
+				mapDataStore.setCoverImageId(args.id);
+				sendMCPFeedback("set_cover_image", true, `设置地图封面成功`, { id: args.id });
+				return { success: true };
 
 			case "get_map_summary":
 				return {
@@ -159,8 +187,7 @@ export async function handleToolInvocation(toolName: MCPToolName, args: any): Pr
 						items = items.filter((item) => item.x === args.x && item.y === args.y);
 					}
 				}
-				// Convert to plain objects
-				return JSON.parse(JSON.stringify(items));
+				return toPlain(items);
 			}
 
 			case "add_map_item": {
@@ -178,7 +205,7 @@ export async function handleToolInvocation(toolName: MCPToolName, args: any): Pr
 				};
 				mapDataStore.addMapItem(newItem as any);
 				sendMCPFeedback("add_map_item", true, `添加地图项目成功 (${args.x}, ${args.y})`, { id: newItem.id });
-				return JSON.parse(JSON.stringify(newItem));
+				return toPlain(newItem);
 			}
 
 			case "remove_map_item":
@@ -187,17 +214,14 @@ export async function handleToolInvocation(toolName: MCPToolName, args: any): Pr
 				return { success: true };
 
 			case "update_map_item": {
-				const item = mapDataStore.findMapItemById(args.itemId);
-				if (!item) {
-					throw new Error(`MapItem with ID ${args.itemId} not found`);
-				}
-				const oldX = item.x;
-				const oldY = item.y;
-				if (args.x !== undefined) item.x = args.x;
-				if (args.y !== undefined) item.y = args.y;
-				if (args.rotation !== undefined) item.rotation = args.rotation;
-				sendMCPFeedback("update_map_item", true, `更新地图项目位置 (${oldX}, ${oldY}) → (${item.x}, ${item.y})`, { id: args.itemId });
-				return JSON.parse(JSON.stringify(item));
+				const updates: any = {};
+				if (args.x !== undefined) updates.x = args.x;
+				if (args.y !== undefined) updates.y = args.y;
+				if (args.rotation !== undefined) updates.rotation = args.rotation;
+				mapDataStore.updateMapItem(args.itemId, updates);
+				const updatedItem = mapDataStore.findMapItemById(args.itemId);
+				sendMCPFeedback("update_map_item", true, `更新地图项目位置`, { id: args.itemId });
+				return toPlain(updatedItem);
 			}
 
 			case "link_map_items":
@@ -211,16 +235,42 @@ export async function handleToolInvocation(toolName: MCPToolName, args: any): Pr
 				return { success: true };
 
 			case "get_map_index":
-				return JSON.parse(JSON.stringify(mapDataStore.mapIndex));
+				return toPlain(mapDataStore.mapIndex);
 
 			case "set_map_index":
 				mapDataStore.updateMapIndex(args.index);
 				sendMCPFeedback("set_map_index", true, `更新地图路径成功 (${args.index.length} 个格子)`, { count: args.index.length });
 				return { success: true };
 
+			// Map Item Type Tools
+			case "get_map_item_types":
+				return toPlain(mapDataStore.mapItemTypes);
+
+			case "add_map_item_type": {
+				const newItemType = {
+					id: args.id,
+					name: args.name,
+					modelId: args.modelId,
+				};
+				mapDataStore.addMapItemType(newItemType as any);
+				sendMCPFeedback("add_map_item_type", true, `添加地图项目类型成功: ${args.name}`, { id: args.id, name: args.name });
+				return toPlain(newItemType);
+			}
+
+			case "remove_map_item_type":
+				mapDataStore.removeMapItemType(args.id);
+				sendMCPFeedback("remove_map_item_type", true, `删除地图项目类型成功`, { id: args.id });
+				return { success: true };
+
 			// Map Event Tools
 			case "get_map_events":
-				return JSON.parse(JSON.stringify(mapDataStore.mapEvents));
+				return toPlain(mapDataStore.mapEvents);
+
+			case "get_map_event_by_id": {
+				const event = mapDataStore.findMapEventById(args.eventId);
+				if (!event) throw new Error(`MapEvent with ID ${args.eventId} not found`);
+				return toPlain(event);
+			}
 
 			case "add_map_event": {
 				const newEvent = {
@@ -233,7 +283,21 @@ export async function handleToolInvocation(toolName: MCPToolName, args: any): Pr
 				};
 				mapDataStore.addMapEvent(newEvent as any);
 				sendMCPFeedback("add_map_event", true, `添加地图事件成功: ${args.name}`, { id: newEvent.id, name: args.name });
-				return JSON.parse(JSON.stringify(newEvent));
+				return toPlain(newEvent);
+			}
+
+			case "update_map_event": {
+				const updatedEvent = {
+					id: args.id,
+					name: args.name,
+					type: args.type,
+					description: args.description || "",
+					iconId: args.iconId,
+					effectCode: args.effectCode,
+				};
+				mapDataStore.updateMapEvent(updatedEvent as any);
+				sendMCPFeedback("update_map_event", true, `更新地图事件成功: ${args.name}`, { id: args.id, name: args.name });
+				return toPlain(updatedEvent);
 			}
 
 			case "remove_map_event":
@@ -253,31 +317,31 @@ export async function handleToolInvocation(toolName: MCPToolName, args: any): Pr
 
 			// Resource Tools
 			case "list_models":
-				return JSON.parse(JSON.stringify(resourceStore.models));
+				return toPlain(resourceStore.models);
 
 			case "list_images":
-				return JSON.parse(JSON.stringify(resourceStore.images));
+				return toPlain(resourceStore.images);
 
 			case "get_resource_by_id":
 				if (args.type === "model") {
-					return JSON.parse(JSON.stringify(resourceStore.findModelById(args.resourceId)));
+					return toPlain(resourceStore.findModelById(args.resourceId));
 				} else {
-					return JSON.parse(JSON.stringify(resourceStore.findImageById(args.resourceId)));
+					return toPlain(resourceStore.findImageById(args.resourceId));
 				}
 
 			case "add_temp_model": {
 				const newModel = await resourceStore.addTempModel();
-				return JSON.parse(JSON.stringify(newModel));
+				return toPlain(newModel);
 			}
 
 			case "add_temp_image": {
 				const newImage = await resourceStore.addTempImage();
-				return JSON.parse(JSON.stringify(newImage));
+				return toPlain(newImage);
 			}
 
 			// Role Tools
 			case "get_roles":
-				return JSON.parse(JSON.stringify(mapDataStore.roles));
+				return toPlain(mapDataStore.roles);
 
 			case "add_role": {
 				const newRole = {
@@ -290,7 +354,7 @@ export async function handleToolInvocation(toolName: MCPToolName, args: any): Pr
 				};
 				mapDataStore.addRole(newRole as any);
 				sendMCPFeedback("add_role", true, `添加角色成功: ${args.name}`, { id: newRole.id, name: args.name });
-				return JSON.parse(JSON.stringify(newRole));
+				return toPlain(newRole);
 			}
 
 			case "update_role": {
@@ -301,9 +365,10 @@ export async function handleToolInvocation(toolName: MCPToolName, args: any): Pr
 				if (args.description !== undefined) updated.description = args.description;
 				if (args.color !== undefined) updated.color = args.color;
 				if (args.initCode !== undefined) updated.initCode = args.initCode;
+				if (args.imageId !== undefined) updated.imageId = args.imageId;
 				mapDataStore.editRole(updated);
 				sendMCPFeedback("update_role", true, `更新角色成功: ${updated.name}`, { id: args.roleId, name: updated.name });
-				return JSON.parse(JSON.stringify(updated));
+				return toPlain(updated);
 			}
 
 			case "remove_role":
@@ -313,7 +378,7 @@ export async function handleToolInvocation(toolName: MCPToolName, args: any): Pr
 
 			// Chance Card Tools
 			case "get_chance_cards":
-				return JSON.parse(JSON.stringify(mapDataStore.chanceCards));
+				return toPlain(mapDataStore.chanceCards);
 
 			case "add_chance_card": {
 				const newCard = {
@@ -327,7 +392,22 @@ export async function handleToolInvocation(toolName: MCPToolName, args: any): Pr
 				};
 				mapDataStore.addChanceCard(newCard as any);
 				sendMCPFeedback("add_chance_card", true, `添加机会卡成功: ${args.name}`, { id: newCard.id, name: args.name });
-				return JSON.parse(JSON.stringify(newCard));
+				return toPlain(newCard);
+			}
+
+			case "update_chance_card": {
+				const updatedCard = {
+					id: args.id,
+					name: args.name,
+					type: args.type,
+					description: args.description,
+					color: args.color,
+					iconId: args.iconId,
+					effectCode: args.effectCode,
+				};
+				mapDataStore.updateChanceCard(updatedCard as any);
+				sendMCPFeedback("update_chance_card", true, `更新机会卡成功: ${args.name}`, { id: args.id, name: args.name });
+				return toPlain(updatedCard);
 			}
 
 			case "remove_chance_card":
@@ -335,9 +415,25 @@ export async function handleToolInvocation(toolName: MCPToolName, args: any): Pr
 				sendMCPFeedback("remove_chance_card", true, `删除机会卡成功`, { id: args.cardId });
 				return { success: true };
 
+			// Property Tools
+			case "add_property":
+				mapDataStore.addProperty(args.mapItemId, args.property);
+				sendMCPFeedback("add_property", true, `添加地产属性成功`, { mapItemId: args.mapItemId });
+				return { success: true };
+
+			case "update_property":
+				mapDataStore.editProperty(args.mapItemId, args.property);
+				sendMCPFeedback("update_property", true, `更新地产属性成功`, { mapItemId: args.mapItemId });
+				return { success: true };
+
+			case "remove_property":
+				mapDataStore.removeProperty(args.mapItemId);
+				sendMCPFeedback("remove_property", true, `删除地产属性成功`, { mapItemId: args.mapItemId });
+				return { success: true };
+
 			// Game Phase Tools
 			case "get_phases":
-				return JSON.parse(JSON.stringify(mapDataStore.phases));
+				return toPlain(mapDataStore.phases);
 
 			case "add_phase": {
 				if (!args.phaseType) {
@@ -357,7 +453,7 @@ export async function handleToolInvocation(toolName: MCPToolName, args: any): Pr
 					(mapDataStore.phases[phaseType] as any).push(newPhase);
 				}
 				sendMCPFeedback("add_phase", true, `添加游戏阶段成功: ${args.name}`, { id: args.id, name: args.name, phaseType });
-				return JSON.parse(JSON.stringify(newPhase));
+				return toPlain(newPhase);
 			}
 
 			case "remove_phase": {
@@ -388,12 +484,12 @@ export async function handleToolInvocation(toolName: MCPToolName, args: any): Pr
 				if (args.mark !== undefined) phase.mark = args.mark;
 				if (args.initEventCode !== undefined) phase.initEventCode = args.initEventCode;
 				sendMCPFeedback("update_phase", true, `更新游戏阶段成功: ${phase.name}`, { id: args.phaseId, name: phase.name });
-				return JSON.parse(JSON.stringify(phase));
+				return toPlain(phase);
 			}
 
 			// UI Template Tools
 			case "get_ui_templates":
-				return JSON.parse(JSON.stringify(mapDataStore.uiTemplates));
+				return toPlain(mapDataStore.uiTemplates);
 
 			case "add_ui_template": {
 				const newTemplate = {
@@ -404,7 +500,7 @@ export async function handleToolInvocation(toolName: MCPToolName, args: any): Pr
 				};
 				mapDataStore.saveUITemplate(newTemplate as any);
 				sendMCPFeedback("add_ui_template", true, `添加UI模板成功: ${args.name}`, { id: args.id, name: args.name, slug: args.slug });
-				return JSON.parse(JSON.stringify(newTemplate));
+				return toPlain(newTemplate);
 			}
 
 			case "remove_ui_template":
@@ -421,12 +517,12 @@ export async function handleToolInvocation(toolName: MCPToolName, args: any): Pr
 				if (args.template !== undefined) updated.template = args.template;
 				mapDataStore.saveUITemplate(updated);
 				sendMCPFeedback("update_ui_template", true, `更新UI模板成功: ${updated.name}`, { id: args.templateId, name: updated.name });
-				return JSON.parse(JSON.stringify(updated));
+				return toPlain(updated);
 			}
 
 			// Custom UI Tools
 			case "get_custom_uis":
-				return JSON.parse(JSON.stringify(mapDataStore.customUIs));
+				return toPlain(mapDataStore.customUIs);
 
 			case "add_custom_ui": {
 				const newCustomUI = {
@@ -437,7 +533,7 @@ export async function handleToolInvocation(toolName: MCPToolName, args: any): Pr
 				};
 				mapDataStore.saveCustomUI(newCustomUI as any);
 				sendMCPFeedback("add_custom_ui", true, `添加自定义UI成功: ${args.name}`, { id: args.id, name: args.name });
-				return JSON.parse(JSON.stringify(newCustomUI));
+				return toPlain(newCustomUI);
 			}
 
 			case "remove_custom_ui":
@@ -454,24 +550,24 @@ export async function handleToolInvocation(toolName: MCPToolName, args: any): Pr
 				if (args.uiSchema !== undefined) updated.uiSchema = args.uiSchema;
 				mapDataStore.saveCustomUI(updated);
 				sendMCPFeedback("update_custom_ui", true, `更新自定义UI成功: ${updated.name}`, { id: args.customUIId, name: updated.name });
-				return JSON.parse(JSON.stringify(updated));
+				return toPlain(updated);
 			}
 
 			// Game Setting Tools
 			case "get_game_setting_form":
-				return JSON.parse(JSON.stringify(mapDataStore.gameSettingForm));
+				return toPlain(mapDataStore.gameSettingForm);
 
 			case "update_game_setting_form":
 				mapDataStore.updateGameSettingFrom(args.form);
 				sendMCPFeedback("update_game_setting_form", true, `更新游戏设置表单成功`, { fieldCount: args.form.length });
-				return JSON.parse(JSON.stringify(mapDataStore.gameSettingForm));
+				return toPlain(mapDataStore.gameSettingForm);
 
 			// Extra Libs Tools
 			case "get_extra_libs":
 				return mapDataStore.extraLibs || "";
 
 			case "update_extra_libs":
-				mapDataStore.extraLibs = args.code;
+				mapDataStore.updateExtraLibs(args.code);
 				sendMCPFeedback("update_extra_libs", true, `更新额外库代码成功`, { codeLength: args.code.length });
 				return mapDataStore.extraLibs;
 

@@ -30,6 +30,14 @@ export const UpdateMapInfoSchema = z
 
 export const GetMapSummarySchema = z.object({});
 
+export const SetBackgroundImageSchema = z.object({
+	id: z.string().min(1, "Image ID is required"),
+});
+
+export const SetCoverImageSchema = z.object({
+	id: z.string().min(1, "Image ID is required"),
+});
+
 /**
  * Get map metadata
  */
@@ -70,6 +78,32 @@ export async function getMapSummary(args: unknown) {
 }
 
 /**
+ * Set background image
+ */
+export async function setBackgroundImage(args: unknown) {
+	try {
+		const validated = SetBackgroundImageSchema.parse(args);
+		const result = await invokeTool("set_background_image", validated);
+		return successResult(result);
+	} catch (error: any) {
+		return errorResult(error.message || "Failed to set background image");
+	}
+}
+
+/**
+ * Set cover image
+ */
+export async function setCoverImage(args: unknown) {
+	try {
+		const validated = SetCoverImageSchema.parse(args);
+		const result = await invokeTool("set_cover_image", validated);
+		return successResult(result);
+	} catch (error: any) {
+		return errorResult(error.message || "Failed to set cover image");
+	}
+}
+
+/**
  * Export tool definitions for MCP server
  */
 export const mapInfoTools = [
@@ -90,5 +124,17 @@ export const mapInfoTools = [
 		description: "获取地图的统计摘要信息，包括总元素数、事件数、角色数和资源数量",
 		inputSchema: GetMapSummarySchema,
 		handler: getMapSummary,
+	},
+	{
+		name: "set_background_image",
+		description: "设置地图背景图片。需要 id（图片资源ID）",
+		inputSchema: SetBackgroundImageSchema,
+		handler: setBackgroundImage,
+	},
+	{
+		name: "set_cover_image",
+		description: "设置地图封面图片。需要 id（图片资源ID）",
+		inputSchema: SetCoverImageSchema,
+		handler: setCoverImage,
 	},
 ];

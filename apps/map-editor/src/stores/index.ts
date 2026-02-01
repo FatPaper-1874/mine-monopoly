@@ -166,6 +166,11 @@ export const useMapDataStore = defineStore("MapData", {
 			if (!mapItem) throw Error("找不到目标地块");
 			mapItem.property = property;
 		},
+		removeProperty(mapItemId: string) {
+			const mapItem = this.mapItems.find((m) => m.id === mapItemId);
+			if (!mapItem) throw Error("找不到目标地块");
+			mapItem.property = undefined;
+		},
 
 		// Role
 		addRole(role: Role) {
@@ -238,6 +243,28 @@ export const useMapDataStore = defineStore("MapData", {
 		//gameSettingForm
 		updateGameSettingFrom(form: FormSchema[]) {
 			this.gameSettingForm = form;
+		},
+
+		// ExtraLibs
+		updateExtraLibs(code: string) {
+			this.extraLibs = code;
+		},
+
+		// MapItem update
+		updateMapItem(id: string, updates: Partial<Pick<MapItem, "x" | "y" | "rotation">>) {
+			const item = this.findMapItemById(id);
+			if (!item) throw Error("找不到目标地图元素");
+			Object.assign(item, updates);
+		},
+
+		// MapEvent edit
+		updateMapEvent(mapEvent: MapEvent) {
+			this.editMapEvent(mapEvent);
+		},
+
+		// ChanceCard edit
+		updateChanceCard(chanceCard: ChanceCardInfo) {
+			this.editChanceCard(chanceCard);
 		},
 	},
 });

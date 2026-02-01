@@ -10,6 +10,8 @@ export type MCPToolName =
 	| "get_map_info"
 	| "update_map_info"
 	| "get_map_summary"
+	| "set_background_image"
+	| "set_cover_image"
 	// Map item tools
 	| "get_map_items"
 	| "add_map_item"
@@ -19,9 +21,15 @@ export type MCPToolName =
 	| "unlink_map_item"
 	| "get_map_index"
 	| "set_map_index"
+	// Map item type tools
+	| "get_map_item_types"
+	| "add_map_item_type"
+	| "remove_map_item_type"
 	// Map event tools
 	| "get_map_events"
+	| "get_map_event_by_id"
 	| "add_map_event"
+	| "update_map_event"
 	| "remove_map_event"
 	| "link_event_to_item"
 	| "unlink_event_from_item"
@@ -34,11 +42,17 @@ export type MCPToolName =
 	// Role tools
 	| "get_roles"
 	| "add_role"
+	| "update_role"
 	| "remove_role"
 	// Chance card tools
 	| "get_chance_cards"
 	| "add_chance_card"
+	| "update_chance_card"
 	| "remove_chance_card"
+	// Property tools
+	| "add_property"
+	| "update_property"
+	| "remove_property"
 	// Game phase tools
 	| "get_phases"
 	| "add_phase"

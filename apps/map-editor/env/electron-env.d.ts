@@ -48,6 +48,10 @@ interface Window {
 
 		rendererReady: () => void;
 		onOpenMapFile: (callback: (filePath: string) => void) => () => void;
+		copyEmptyResource: (type: "model" | "image") => Promise<{
+			fileType: string;
+			url: string;
+		}>;
 	};
 
 	updateAPI: {

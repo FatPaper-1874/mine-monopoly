@@ -11,12 +11,14 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { mapInfoTools } from "./tools/map-info.js";
 import { mapItemTools } from "./tools/map-items.js";
+import { mapItemTypeTools } from "./tools/map-item-types.js";
 import { mapEventTools } from "./tools/map-events.js";
 import { resourceTools } from "./tools/resources.js";
 import { roleTools } from "./tools/roles.js";
 import { fileOpsTools } from "./tools/file-ops.js";
 import { analysisTools } from "./tools/analysis.js";
 import { chanceCardTools } from "./tools/chance-cards.js";
+import { propertyTools } from "./tools/properties.js";
 import { gamePhaseTools } from "./tools/game-phases.js";
 import { uiTemplateTools } from "./tools/ui-templates.js";
 import { customUITools } from "./tools/custom-uis.js";
@@ -103,12 +105,14 @@ function getJsonSchemaType(zodField: any): string {
 const allTools = [
 	...mapInfoTools,
 	...mapItemTools,
+	...mapItemTypeTools,
 	...mapEventTools,
 	...resourceTools,
 	...roleTools,
 	...fileOpsTools,
 	...analysisTools,
 	...chanceCardTools,
+	...propertyTools,
 	...gamePhaseTools,
 	...uiTemplateTools,
 	...customUITools,

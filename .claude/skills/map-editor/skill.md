@@ -74,7 +74,10 @@ try {
 
 #### 地图基础操作
 - `get_map_info()` - 获取地图元数据（名称、作者、版本等）
-- `update_map_info()` - 更新地图元数据
+- `update_map_info({name, author, version, description})` - 更新地图元数据
+- `get_map_summary()` - 获取地图统计信息（项目数、事件数、角色数等）
+- `set_background_image({id})` - 设置地图背景图片
+- `set_cover_image({id})` - 设置地图封面图片
 - `get_current_file_path()` - 获取当前地图文件路径
 - `save_map_file()` - 保存地图（需要通过编辑器对话框）
 - `create_new_map()` - 创建全新空白地图
@@ -85,38 +88,112 @@ try {
 - `get_map_items()` - 获取所有地图项目
 - `get_map_items({typeId, x, y, radius})` - 按类型/坐标/半径筛选
 - `add_map_item({typeId, x, y, rotation, mapEventId})` - 添加新项目
-- `update_map_item({itemId, x, y, rotation})` - 更新项目位置或旋转
+- `update_map_item({itemId, x, y, rotation})` - 更新项目位置或旋转（至少提供一个参数）
 - `remove_map_item(itemId)` - 删除项目
 - `link_map_items(sourceId, targetId)` - 链接两个项目（地产扩展）
 - `unlink_map_item(itemId)` - 取消项目链接
-- `find_duplicates()` - 查找重复坐标的项目
+- `get_map_index()` - 获取当前地图索引路径（玩家行进顺序）
+- `set_map_index({index})` - 设置地图索引路径（项目ID数组）
+
+#### 地图项目类型操作（新增）
+- `get_map_item_types()` - 获取所有地图项目类型
+- `add_map_item_type({id, name, modelId})` - 添加新的地图项目类型
+- `remove_map_item_type(id)` - 删除地图项目类型（会级联删除使用此类型的项目）
 
 #### 地图事件操作
 - `get_map_events()` - 获取所有地图事件
-- `add_map_event({name, type, effectCode, description, iconId})` - 添加新事件（需要先调用 `add_temp_image()` 获取 iconId）
+- `get_map_event_by_id({eventId})` - 根据 ID 获取特定地图事件
+- `add_map_event({name, type, effectCode, description, iconId})` - 添加新事件（不提供 iconId 时自动创建临时图片）
+- `update_map_event({id, name, type, effectCode, description, iconId})` - 更新现有事件
 - `remove_map_event(eventId)` - 删除事件
 - `link_event_to_item(itemId, eventId)` - 将事件链接到地图项目
 - `unlink_event_from_item(itemId)` - 取消事件链接
 
 #### 角色操作
 - `get_roles()` - 获取所有角色
-- `add_role({name, imageId})` - 添加新角色（需要先调用 `add_temp_image()` 获取 imageId）
+- `add_role({name, imageId, description, color, initCode})` - 添加新角色（不提供 imageId 时自动创建临时图片）
+- `update_role({roleId, name, description, color, initCode, imageId})` - 更新角色信息
 - `remove_role(roleId)` - 删除角色
 
-#### 地图路径操作
-- `get_map_index()` - 获取当前地图索引路径（玩家行进顺序）
-- `set_map_index({index})` - 设置地图索引路径（项目ID数组）
+#### 机会卡操作
+- `get_chance_cards()` - 获取所有机会卡
+- `add_chance_card({name, type, description, color, effectCode, iconId})` - 添加新机会卡（不提供 iconId 时自动创建临时图片）
+- `update_chance_card({id, name, type, description, color, effectCode, iconId})` - 更新现有机会卡
+- `remove_chance_card(cardId)` - 删除机会卡
+
+#### 地产属性操作（新增）
+- `add_property({mapItemId, property})` - 为地图项目添加地产属性
+- `update_property({mapItemId, property})` - 更新地产属性
+- `remove_property({mapItemId})` - 删除地产属性
+
+#### 游戏阶段操作
+- `get_phases()` - 获取所有游戏阶段
+- `add_phase({id, name, phaseType, from, initEventCode, mark, description})` - 添加新游戏阶段
+- `update_phase({phaseId, phaseType, name, description, mark, initEventCode})` - 更新游戏阶段
+- `remove_phase({phaseId, phaseType})` - 删除游戏阶段
+
+#### UI 模板操作
+- `get_ui_templates()` - 获取所有 UI 模板
+- `add_ui_template({id, slug, name, template})` - 添加新 UI 模板
+- `update_ui_template({templateId, slug, name, template})` - 更新 UI 模板
+- `remove_ui_template(templateId)` - 删除 UI 模板
+
+#### 自定义 UI 操作
+- `get_custom_uis()` - 获取所有自定义 UI 实例
+- `add_custom_ui({id, name, layout, uiSchema})` - 添加自定义 UI 实例
+- `update_custom_ui({customUIId, name, layout, uiSchema})` - 更新自定义 UI 实例
+- `remove_custom_ui(customUIId)` - 删除自定义 UI 实例
+
+#### 游戏设置操作
+- `get_game_setting_form()` - 获取游戏设置表单
+- `update_game_setting_form({form})` - 更新游戏设置表单
+
+#### 额外库操作
+- `get_extra_libs()` - 获取额外库代码
+- `update_extra_libs({code})` - 更新额外库代码
 
 #### 资源管理
 - `list_images()` - 列出所有图片资源
-- `list_models()` - 列出所有3D模型资源
-- `get_resource_by_id({resourceId, type})` - 获取资源详情
+- `list_models()` - 列出所有 3D 模型资源
+- `get_resource_by_id({resourceId, type})` - 获取资源详情（type: "model" | "image"）
 - `add_temp_image()` - 创建临时图片资源（使用 empty.png 模板）
-- `add_temp_model()` - 创建临时3D模型资源（使用 empty.glb 模板）
+- `add_temp_model()` - 创建临时 3D 模型资源（使用 empty.glb 模板）
 
 #### 地图分析
 - `get_map_summary()` - 获取地图统计信息（项目数、事件数、角色数等）
 - `analyze_map_layout()` - 分析地图布局（边界、空位、集群）
+- `find_duplicates()` - 查找重复坐标的项目
+
+#### 文件操作
+- `create_new_map()` - 创建新空白地图
+- `load_map_file({filePath})` - 加载地图文件
+- `save_map_file({filePath})` - 保存地图文件
+- `get_current_file_path()` - 获取当前文件路径
+
+**📊 MCP 工具统计**
+- 总计 **47 个 MCP 工具**
+- 涵盖 10 大功能模块：地图信息、项目操作、事件系统、角色管理、机会卡、地产属性、游戏阶段、UI 系统、游戏设置、资源管理
+
+**⚡ MCP 工具架构说明**
+
+所有 MCP 工具通过以下架构与编辑器通信：
+
+1. **MCP 工具调用** → IPC Bridge → 渲染进程
+2. **渲染进程** → Pinia Store Actions → 状态更新
+3. **状态更新** → Vue 响应式系统 → UI 自动刷新
+
+关键优势：
+- ✅ 所有操作统一通过 Pinia Store 管理
+- ✅ 自动响应式更新，无需手动刷新 UI
+- ✅ 事件总线通知，支持跨组件通信
+- ✅ 类型安全，完整的 TypeScript 支持
+
+**新增工具（2025 更新）**
+- 地图背景/封面图片设置（`set_background_image`, `set_cover_image`）
+- 地图项目类型管理（`get/add/remove_map_item_type`）
+- 地图事件查询和更新（`get_map_event_by_id`, `update_map_event`）
+- 机会卡更新（`update_chance_card`）
+- 地产属性管理（`add/update/remove_property`）
 
 ### 2. 游戏逻辑系统理解
 
@@ -1486,18 +1563,27 @@ const path = await add_map_item({x: 5, y: 1, linkto: property.data.id})
 1. **初始化地图**
    - 创建新地图或加载现有地图
    - 设置地图基本信息（名称、作者、版本、描述）
+   - 设置地图背景和封面图片（使用 `set_background_image` 和 `set_cover_image`）
    - 验证地图结构
 
-2. **添加地图项目**
+2. **配置地图项目类型**
+   - 添加地图项目类型（使用 `add_map_item_type`）
+   - 为每种类型关联 3D 模型（需要先创建或导入模型）
+   - 删除不再使用的类型（会级联删除使用该类型的项目）
+
+3. **添加地图项目**
    - 按坐标添加地图项目（地产、起点、特殊位置等）
    - 设置正确的旋转角度（0-3）
    - 为需要的项目链接事件
+   - 使用 `update_map_item` 调整项目位置和旋转
 
-3. **定义地图事件**
+4. **定义地图事件**
    - 创建到达事件（ArrivedEvent）
    - 创建经过事件（PassedEvent）
    - 编写 effectCode（使用TypeScript）
    - 将事件链接到对应地图项目
+   - 使用 `update_map_event` 修改现有事件（无需删除重建）
+   - 使用 `get_map_event_by_id` 查询特定事件详情
 
 4. **设置游戏路径**
    - 使用 get_map_index() 查看当前路径
@@ -1534,10 +1620,19 @@ const path = await add_map_item({x: 5, y: 1, linkto: property.data.id})
     - 编写 initCode 定义角色初始化逻辑
     - 可添加被动Buff、特殊能力等
 
-11. **添加机会卡**（可选）
+11. **配置地产属性**（新增）
+    - 为地产项目添加属性（使用 `add_property`）
+    - 设置价格、租金等属性
+    - 使用 `update_property` 修改属性
+    - 使用 `remove_property` 删除属性
+
+12. **添加机会卡**（可选）
     - 创建机会卡
     - 定义卡片类型和效果代码
     - 设置卡片颜色和描述
+    - 使用 `update_chance_card` 修改现有卡片
+
+13. **验证和测试**
 
 12. **验证和测试**
     - 运行 validate_map('strict') 进行严格验证
@@ -1546,7 +1641,131 @@ const path = await add_map_item({x: 5, y: 1, linkto: property.data.id})
     - 通过编辑器测试游戏流程
 ```
 
-### 2. 代码编写规范
+### 2. 新增工具使用示例（2025 更新）
+
+#### 地图图片设置
+
+```typescript
+// 1. 创建临时图片资源
+const tempImage = await add_temp_image();
+// 返回: { id: "image-xxx", name: "临时图片 1", fileType: "png", url: "fp-file://..." }
+
+// 2. 设置为地图背景
+await set_background_image({ id: tempImage.id });
+
+// 3. 或设置为地图封面
+await set_cover_image({ id: tempImage.id });
+```
+
+#### 地图项目类型管理
+
+```typescript
+// 1. 添加新的项目类型（需要先有模型）
+await add_map_item_type({
+    id: "type-mansion",
+    name: "豪华别墅",
+    modelId: "model-xxx"  // 3D模型ID
+});
+
+// 2. 查看所有项目类型
+const types = await get_map_item_types();
+
+// 3. 删除不再使用的类型（会级联删除项目）
+await remove_map_item_type({ id: "type-mansion" });
+```
+
+#### 地图事件更新操作
+
+```typescript
+// 1. 查询特定事件详情
+const event = await get_map_event_by_id({ eventId: "event-xxx" });
+
+// 2. 更新现有事件（无需删除重建）
+await update_map_event({
+    id: "event-xxx",
+    name: "幸运奖金",
+    type: "ArrivedEvent",
+    description: "到达时获得奖励",
+    effectCode: "(async (player) => { await player.gain(500); })",
+    iconId: "image-xxx"
+});
+
+// 3. 如果需要更新图标，先创建新图片
+const newIcon = await add_temp_image();
+await update_map_event({
+    id: "event-xxx",
+    name: "幸运奖金",
+    type: "ArrivedEvent",
+    effectCode: "...",
+    iconId: newIcon.id  // 使用新图标
+});
+```
+
+#### 机会卡更新操作
+
+```typescript
+// 更新现有机会卡
+await update_chance_card({
+    id: "card-xxx",
+    name: "财富翻倍",
+    type: "ToSelf",
+    description: "本回合收入翻倍",
+    color: "#FFD700",
+    effectCode: "(async (player, gameProcess) => { ... })",
+    iconId: "image-xxx"
+});
+```
+
+#### 地产属性管理
+
+```typescript
+// 1. 为地产项目添加属性
+await add_property({
+    mapItemId: "item-xxx",
+    property: {
+        price: 1000,
+        rent: 100,
+        // 其他属性...
+    }
+});
+
+// 2. 更新地产属性
+await update_property({
+    mapItemId: "item-xxx",
+    property: {
+        price: 1500,  // 调整价格
+        rent: 150
+    }
+});
+
+// 3. 删除地产属性
+await remove_property({ mapItemId: "item-xxx" });
+```
+
+#### 地图项目位置调整
+
+```typescript
+// 更新项目位置（只需提供要修改的字段）
+await update_map_item({
+    itemId: "item-xxx",
+    x: 10,      // 更新X坐标
+    y: 20,      // 更新Y坐标
+    rotation: 1  // 更新旋转角度
+});
+
+// 或只更新旋转角度
+await update_map_item({
+    itemId: "item-xxx",
+    rotation: 2
+});
+```
+
+**重要提示：**
+- 所有 `update_*` 工具都支持部分更新，只提供需要修改的字段
+- 更新操作会自动触发 UI 刷新，无需手动刷新
+- 更新操作优于"删除再添加"，因为它保留了原有的引用关系
+
+### 3. 代码编写规范
 
 #### 地图事件代码模板
 
