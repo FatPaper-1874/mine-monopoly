@@ -179,9 +179,6 @@ export class GameProcess implements IGameProcess {
 		};
 		this.initGameOverRuleFunction();
 		this.initMap();
-		this.initPlayers();
-		this.initProperties();
-		this.runInitedPhase();
 	}
 
 	private preprocessingEffectCode() {
@@ -301,7 +298,8 @@ export class GameProcess implements IGameProcess {
 		});
 	}
 
-	private initPlayers() {
+	private async initPlayers() {
+		// 步骤1: 创建所有玩家实例并设置 commandBus
 		this.userList.forEach((u) => {
 			const role = this.mapData.roles.find((r) => r.id === u.roleId);
 			if (!role) throw Error("找不到对应角色");
@@ -412,13 +410,23 @@ export class GameProcess implements IGameProcess {
 
 				return { diceResult };
 			});
-
-			const initRoleFn = player.getInitRoleFunction();
-			initRoleFn(player, this);
 		});
+
+		// 步骤2: 运行玩家预初始化阶段（在 initRoleFn 之前）
+		for (const phaseInfo of this.mapData.phases.playerPreInit) {
+			const playerPreInitPhase = new GamePhase(phaseInfo);
+			await this.runGamePhase(playerPreInitPhase);
+		}
+
+		// 步骤3: 执行每个玩家的 initRoleFn
+		for (const player of this.players.values()) {
+			const roleInitFn = player.getInitRoleFunction();
+			roleInitFn(player, this);
+		}
 	}
 
-	private initProperties() {
+	private async initProperties() {
+		// 步骤1: 为所有地皮设置 commandBus
 		this.properties.values().forEach((property) => {
 			property.commandBus.setHandler("property.arrived", async (payload) => {
 				const { arrivedPlayer, owner, toll } = payload;
@@ -504,7 +512,16 @@ export class GameProcess implements IGameProcess {
 				}
 				return payload;
 			});
+		});
 
+		// 步骤2: 运行地皮预初始化阶段（在 customInitFn 之前）
+		for (const phaseInfo of this.mapData.phases.propertyPreInit) {
+			const propertyPreInitPhase = new GamePhase(phaseInfo);
+			await this.runGamePhase(propertyPreInitPhase);
+		}
+
+		// 步骤3: 执行每个地皮的 customInitFn
+		this.properties.values().forEach((property) => {
 			const customInitFn = property.getCustomInitFunction();
 			customInitFn && customInitFn(property, this);
 		});
@@ -925,14 +942,24 @@ export class GameProcess implements IGameProcess {
 	}
 
 	public async start() {
-		// this.gameInitBroadcast();
+		// 步骤1: 初始化玩家和地皮（包含预初始化阶段）
+		await this.initPlayers();
+		await this.initProperties();
+
+		// 步骤2: 运行游戏初始化后阶段
+		await this.runInitedPhase();
+
+		// 步骤3: 发送游戏初始化消息给客户端
 		this.gameBroadcast({
 			type: SocketMsgType.GameInit,
 			source: SocketMsgSource.Server,
 			data: this.getGameData(),
 		});
 
+		// 步骤4: 等待客户端初始化完成
 		await this.waitInitFinished();
+
+		// 步骤5: 开始游戏循环
 		await this.gameLoop();
 	}
 

@@ -901,6 +901,10 @@ interface GameMap {
 		gameOverRule: GamePhaseInfo[];
 		/** 游戏初始化阶段 */
 		gameInited: GamePhaseInfo[];
+		/** 玩家预初始化阶段（在玩家初始化之前运行） */
+		playerPreInit: GamePhaseInfo[];
+		/** 地皮预初始化阶段（在地皮初始化之前运行） */
+		propertyPreInit: GamePhaseInfo[];
 		/** 游戏回合开始阶段 */
 		gameRoundStart: GamePhaseInfo[];
 		/** 玩家回合阶段 */

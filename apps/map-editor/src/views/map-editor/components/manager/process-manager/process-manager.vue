@@ -38,9 +38,9 @@ function addPhase(group: PhaseGroupKey, insertIndex: number) {
 		id: crypto.randomUUID(),
 		name: "新阶段",
 		description: "新阶段",
-		from: "系统",
+		from: undefined, // 用户添加的阶段不设置 from，这样可以被删除
 		initEventCode: `(async (context, gameProcess) => {
-    
+
 }) as GameEventFunction<GameContext>;`,
 	};
 	mapDataStore.phases[group].splice(insertIndex + 1, 0, newPhase);
@@ -84,6 +84,60 @@ function removePhase(group: PhaseGroupKey, id: string) {
 				</div>
 			</div>
 
+			<!-- 玩家预初始化阶段 -->
+			<h4>玩家预初始化（在玩家初始化之前运行）</h4>
+			<div class="phase-container">
+				<div class="phase-item" v-for="(phase, index) in phases.playerPreInit">
+					<a-card
+						:key="phase.id"
+						class="process-card"
+						hoverable
+						:class="{ selected: currentGroupKey === 'playerPreInit' && index === currentIndex }"
+						@click="
+							currentGroupKey = 'playerPreInit';
+							currentIndex = index;
+						"
+						size="small"
+						:title="phase.name"
+					>
+						<template v-if="phase.mark == undefined && phase.from !== '系统'" #extra>
+							<a-button size="small" type="link" danger @click="removePhase('playerPreInit', phase.id)">删除</a-button>
+						</template>
+						{{ phase.description }}
+					</a-card>
+					<a-button type="dashed" @click="addPhase('playerPreInit', index)" class="add-phase-button">
+						<FontAwesomeIcon :icon="['fas', 'plus']" />
+					</a-button>
+				</div>
+			</div>
+
+			<!-- 地皮预初始化阶段 -->
+			<h4>地皮预初始化（在地皮初始化之前运行）</h4>
+			<div class="phase-container">
+				<div class="phase-item" v-for="(phase, index) in phases.propertyPreInit">
+					<a-card
+						:key="phase.id"
+						class="process-card"
+						hoverable
+						:class="{ selected: currentGroupKey === 'propertyPreInit' && index === currentIndex }"
+						@click="
+							currentGroupKey = 'propertyPreInit';
+							currentIndex = index;
+						"
+						size="small"
+						:title="phase.name"
+					>
+						<template v-if="phase.mark == undefined && phase.from !== '系统'" #extra>
+							<a-button size="small" type="link" danger @click="removePhase('propertyPreInit', phase.id)">删除</a-button>
+						</template>
+						{{ phase.description }}
+					</a-card>
+					<a-button type="dashed" @click="addPhase('propertyPreInit', index)" class="add-phase-button">
+						<FontAwesomeIcon :icon="['fas', 'plus']" />
+					</a-button>
+				</div>
+			</div>
+
 			<!-- 游戏初始化后阶段 -->
 			<h4>游戏基础内容初始化后</h4>
 			<div class="phase-container">
@@ -111,87 +165,93 @@ function removePhase(group: PhaseGroupKey, id: string) {
 				</div>
 			</div>
 
-			<!-- 轮次开始阶段 -->
-			<h4>轮次开始阶段</h4>
-			<div class="phase-container">
-				<div class="phase-item" v-for="(phase, index) in phases.gameRoundStart">
-					<a-card
-						:key="phase.id"
-						class="process-card"
-						hoverable
-						:class="{ selected: currentGroupKey === 'gameRoundStart' && index === currentIndex }"
-						@click="
-							currentGroupKey = 'gameRoundStart';
-							currentIndex = index;
-						"
-						size="small"
-						:title="phase.name"
-					>
-						<template v-if="phase.mark == undefined" #extra>
-							<a-button size="small" type="link" danger @click="removePhase('gameRoundStart', phase.id)">删除</a-button>
-						</template>
-						{{ phase.description }}
-					</a-card>
-					<a-button type="dashed" @click="addPhase('gameRoundStart', index)" class="add-phase-button">
-						<FontAwesomeIcon :icon="['fas', 'plus']" />
-					</a-button>
+			<!-- 轮次循环区域 -->
+			<h4>轮次循环区域</h4>
+			<div class="phase-container round-phase">
+				<!-- 轮次开始阶段 -->
+				<div class="round-section">
+					<h5>轮次开始阶段</h5>
+					<div class="phase-item" v-for="(phase, index) in phases.gameRoundStart">
+						<a-card
+							:key="phase.id"
+							class="process-card"
+							hoverable
+							:class="{ selected: currentGroupKey === 'gameRoundStart' && index === currentIndex }"
+							@click="
+								currentGroupKey = 'gameRoundStart';
+								currentIndex = index;
+							"
+							size="small"
+							:title="phase.name"
+						>
+							<template v-if="phase.mark == undefined" #extra>
+								<a-button size="small" type="link" danger @click="removePhase('gameRoundStart', phase.id)">删除</a-button>
+							</template>
+							{{ phase.description }}
+						</a-card>
+						<a-button type="dashed" @click="addPhase('gameRoundStart', index)" class="add-phase-button">
+							<FontAwesomeIcon :icon="['fas', 'plus']" />
+						</a-button>
+					</div>
 				</div>
-			</div>
 
-			<!-- 玩家回合阶段 -->
-			<h4>玩家回合阶段(遍历每个玩家)</h4>
-			<div class="phase-container player-phase">
-				<a-button type="dashed" @click="addPhase('playerRound', -1)" class="add-phase-button">
-					<FontAwesomeIcon :icon="['fas', 'plus']" />
-				</a-button>
-				<div class="phase-item" v-for="(phase, index) in phases.playerRound">
-					<a-card
-						:key="phase.id"
-						class="process-card"
-						hoverable
-						:class="{ selected: currentGroupKey === 'playerRound' && index === currentIndex }"
-						@click="
-							currentGroupKey = 'playerRound';
-							currentIndex = index;
-						"
-						size="small"
-						:title="phase.name"
-					>
-						<template v-if="phase.mark == undefined" #extra>
-							<a-button size="small" type="link" danger @click="removePhase('playerRound', phase.id)">删除</a-button>
-						</template>
-						{{ phase.description }}
-					</a-card>
-					<a-button type="dashed" class="add-phase-button" @click="addPhase('playerRound', index)">
-						<FontAwesomeIcon :icon="['fas', 'plus']" />
-					</a-button>
+				<!-- 玩家回合阶段 -->
+				<div class="round-section">
+					<h5>玩家回合阶段(遍历每个玩家)</h5>
+					<div class="phase-container player-phase">
+						<a-button type="dashed" @click="addPhase('playerRound', -1)" class="add-phase-button">
+							<FontAwesomeIcon :icon="['fas', 'plus']" />
+						</a-button>
+						<div class="phase-item" v-for="(phase, index) in phases.playerRound">
+							<a-card
+								:key="phase.id"
+								class="process-card"
+								hoverable
+								:class="{ selected: currentGroupKey === 'playerRound' && index === currentIndex }"
+								@click="
+									currentGroupKey = 'playerRound';
+									currentIndex = index;
+								"
+								size="small"
+								:title="phase.name"
+							>
+								<template v-if="phase.mark == undefined" #extra>
+									<a-button size="small" type="link" danger @click="removePhase('playerRound', phase.id)">删除</a-button>
+								</template>
+								{{ phase.description }}
+							</a-card>
+							<a-button type="dashed" class="add-phase-button" @click="addPhase('playerRound', index)">
+								<FontAwesomeIcon :icon="['fas', 'plus']" />
+							</a-button>
+						</div>
+					</div>
 				</div>
-			</div>
 
-			<!-- 轮次结束阶段 -->
-			<h4>轮次结束阶段</h4>
-			<div class="phase-container">
-				<div class="phase-item" v-for="(phase, index) in phases.gameRoundEnd">
-					<a-button type="dashed" class="add-phase-button" @click="addPhase('gameRoundEnd', index - 1)">
-						<FontAwesomeIcon :icon="['fas', 'plus']" />
-					</a-button>
-					<a-card
-						:key="phase.id"
-						class="process-card"
-						hoverable
-						:class="{ selected: currentGroupKey === 'gameRoundEnd' && index === currentIndex }"
-						@click="
-							currentGroupKey = 'gameRoundEnd';
-							currentIndex = index;
-						"
-						size="small"
-						:title="phase.name"
-					>
-						<template v-if="phase.mark == undefined" #extra>
-							<a-button size="small" type="link" danger @click="removePhase('gameRoundEnd', phase.id)">删除</a-button>
-						</template>
-						{{ phase.description }}
-					</a-card>
+				<!-- 轮次结束阶段 -->
+				<div class="round-section">
+					<h5>轮次结束阶段</h5>
+					<div class="phase-item" v-for="(phase, index) in phases.gameRoundEnd">
+						<a-button type="dashed" class="add-phase-button" @click="addPhase('gameRoundEnd', index - 1)">
+							<FontAwesomeIcon :icon="['fas', 'plus']" />
+						</a-button>
+						<a-card
+							:key="phase.id"
+							class="process-card"
+							hoverable
+							:class="{ selected: currentGroupKey === 'gameRoundEnd' && index === currentIndex }"
+							@click="
+								currentGroupKey = 'gameRoundEnd';
+								currentIndex = index;
+							"
+							size="small"
+							:title="phase.name"
+						>
+							<template v-if="phase.mark == undefined" #extra>
+								<a-button size="small" type="link" danger @click="removePhase('gameRoundEnd', phase.id)">删除</a-button>
+							</template>
+							{{ phase.description }}
+						</a-card>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -259,6 +319,13 @@ function removePhase(group: PhaseGroupKey, id: string) {
 			color: #555;
 		}
 
+		h5 {
+			margin: 8px 0 5px;
+			color: #666;
+			font-size: 0.9em;
+			font-weight: 600;
+		}
+
 		.phase-container {
 			width: 100%;
 			display: flex;
@@ -273,6 +340,25 @@ function removePhase(group: PhaseGroupKey, id: string) {
 			border: 2px dashed #93c0ff;
 			border-radius: 10px;
 			padding: 10px;
+			background-color: rgba(147, 192, 255, 0.15);
+		}
+
+		.phase-container.round-phase {
+			width: fit-content;
+			border: 2px dashed #ff9800;
+			border-radius: 15px;
+			padding: 15px;
+			background-color: rgba(255, 152, 0, 0.05);
+			display: flex;
+			flex-direction: column;
+			gap: 15px;
+		}
+
+		.round-section {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			gap: 8px;
 		}
 	}
 

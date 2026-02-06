@@ -9,6 +9,8 @@ import ArrivedEventPhaseDefault from "../default-code/arrived-event-phase.txt?ra
 import PlayerMovePhaseDefault from "../default-code/player-move-phase.txt?raw";
 import PlayerRoundEndPhaseDefault from "../default-code/player-round-end-phase.txt?raw";
 import GameRoundEndPhaseDefault from "../default-code/game-round-end-phase.txt?raw";
+import PlayerPreInitPhaseDefault from "../default-code/player-pre-init-phase.txt?raw";
+import PropertyPreInitPhaseDefault from "../default-code/property-pre-init-phase.txt?raw";
 
 export function getInitPhase() {
 	const gameRoundStartPhases: GamePhaseInfo[] = new Array<GamePhaseInfo>();
@@ -16,6 +18,8 @@ export function getInitPhase() {
 	const gameRoundEndPhases: GamePhaseInfo[] = new Array<GamePhaseInfo>();
 	const gameInitedPhases: GamePhaseInfo[] = [gameInitedPhase];
 	const gameOverRule: GamePhaseInfo[] = [gameOverRulePhase];
+	const playerPreInitPhases: GamePhaseInfo[] = [playerPreInitPhase];
+	const propertyPreInitPhases: GamePhaseInfo[] = [propertyPreInitPhase];
 
 	gameRoundStartPhases.push(gameRoundStartPhase);
 	playerRoundPhases.push(playerRoundStartPhase);
@@ -27,6 +31,8 @@ export function getInitPhase() {
 	return {
 		gameOverRule: gameOverRule,
 		gameInited: gameInitedPhases,
+		playerPreInit: playerPreInitPhases,
+		propertyPreInit: propertyPreInitPhases,
 		gameRoundStart: gameRoundStartPhases,
 		playerRound: playerRoundPhases,
 		gameRoundEnd: gameRoundEndPhases,
@@ -112,4 +118,20 @@ const gameRoundEndPhase: GamePhaseInfo = {
 	from: "系统",
 	mark: GamePhaseMark.GameRoundEnd,
 	initEventCode: GameRoundEndPhaseDefault,
+};
+
+const playerPreInitPhase: GamePhaseInfo = {
+	id: crypto.randomUUID(),
+	name: "玩家预初始化",
+	description: "玩家预初始化阶段（在玩家初始化之前运行）",
+	from: "系统",
+	initEventCode: PlayerPreInitPhaseDefault,
+};
+
+const propertyPreInitPhase: GamePhaseInfo = {
+	id: crypto.randomUUID(),
+	name: "地皮预初始化",
+	description: "地皮预初始化阶段（在地皮初始化之前运行）",
+	from: "系统",
+	initEventCode: PropertyPreInitPhaseDefault,
 };
