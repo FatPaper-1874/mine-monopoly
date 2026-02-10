@@ -18,9 +18,67 @@ watch(
 
 			try {
 				const data = cloneDeep(useMapDataStore().$state);
+
+				// 格式化地皮列表，用地皮名字作为key
+				const propertiesObj: Record<string, any> = {};
+				data.mapItems
+					.filter((m) => m.property !== undefined)
+					.forEach((m) => {
+						const name = m.property?.name || "未定义";
+						propertiesObj[name] = m.property;
+					});
+
+				// 格式化机会卡列表，用名字作为key
+				const chanceCardsObj: Record<string, any> = {};
+				data.chanceCards.forEach((card) => {
+					const name = card.name || "未定义";
+					chanceCardsObj[name] = card;
+				});
+
+				// 格式化地图事件列表，用名字作为key
+				const mapEventsObj: Record<string, any> = {};
+				data.mapEvents.forEach((event) => {
+					const name = event.name || "未定义";
+					mapEventsObj[name] = event;
+				});
+
+				// 格式化角色列表，用名字作为key
+				const rolesObj: Record<string, any> = {};
+				data.roles.forEach((role) => {
+					const name = role.name || "未定义";
+					rolesObj[name] = role;
+				});
+
+				// 格式化游戏设置列表，用label作为key
+				const gameSettingFormObj: Record<string, any> = {};
+				data.gameSettingForm.forEach((setting) => {
+					const label = setting.label || "未定义";
+					gameSettingFormObj[label] = setting;
+				});
+
+				// 格式化自定义UI列表，用名字作为key
+				const customUIsObj: Record<string, any> = {};
+				data.customUIs.forEach((ui) => {
+					const name = ui.name || "未定义";
+					customUIsObj[name] = ui;
+				});
+
+				// 格式化UI模版列表，用名字作为key
+				const uiTemplatesObj: Record<string, any> = {};
+				data.uiTemplates.forEach((template) => {
+					const name = template.name || "未定义";
+					uiTemplatesObj[name] = template;
+				});
+
 				const json = {
-					properties: data.mapItems.filter((m) => m.property !== undefined).map((m) => m.property),
 					...data,
+					properties: propertiesObj,
+					chanceCards: chanceCardsObj,
+					mapEvents: mapEventsObj,
+					roles: rolesObj,
+					gameSettingForm: gameSettingFormObj,
+					customUIs: customUIsObj,
+					uiTemplates: uiTemplatesObj,
 				};
 
 				// 清空旧内容（防止重复渲染）
