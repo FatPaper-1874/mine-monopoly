@@ -6,6 +6,7 @@ import Fps from "./components/fps.vue";
 import FullScreenButton from "./components/full-screen-button.vue";
 import SettingButton from "./components/setting-button.vue";
 import Help from "./components/help.vue";
+import CameraFocusButton from "./components/camera-focus-button.vue";
 
 const router = useRoute();
 const canChat = computed(() => router.name === "room" || router.name === "game");
@@ -16,6 +17,7 @@ const canChat = computed(() => router.name === "room" || router.name === "game")
 		<Ping v-if="canChat" />
 		<Fps v-if="canChat" />
 		<!-- <FullScreenButton /> -->
+		<CameraFocusButton />
 		<Help />
 		<SettingButton />
 	</div>

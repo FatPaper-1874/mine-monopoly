@@ -55,6 +55,7 @@ const applySettings = () => {
 	// 应用视角设置
 	if (tempLockRole.value !== settingStore.lockRole) {
 		settingStore.lockRole = tempLockRole.value;
+		eventBus.emit("graphics:lockRole:change", { lockRole: tempLockRole.value });
 	}
 
 	// 应用画质设置

@@ -483,6 +483,17 @@ export class GameRenderer {
 			this.applyShadowSetting(enable);
 		});
 
+		// 监听视角锁定变化事件
+		useEventBus().on("graphics:lockRole:change", ({ lockRole }: { lockRole: boolean }) => {
+			console.log("[视角设置] 接收到视角锁定变化事件:", lockRole);
+			this.isLockingRoleFromSetting = lockRole;
+		});
+
+		// 监听相机回归视角事件
+		useEventBus().on("camera:focus:self", () => {
+			this.focusOnSelf();
+		});
+
 		useEventBus().on("round-trun", () => {
 			this.focusMe();
 		});
@@ -1174,6 +1185,24 @@ export class GameRenderer {
 	public toggleLockCamera() {
 		this.isLockingRole = !this.isLockingRole;
 		return this.isLockingRole;
+	}
+
+	/**
+	 * 将相机回归到自己的视角
+	 */
+	public focusOnSelf() {
+		const userId = useUserInfo().userId;
+		const playerEntity = this.playerEntities.get(userId);
+		if (!playerEntity) {
+			console.warn("[相机] 未找到当前玩家模型");
+			return;
+		}
+
+		this.currentFocusModule = playerEntity.model;
+		this.updateCamera(this.controls, this.currentFocusModule, 8, 30);
+		this.controls.update();
+
+		console.log("[相机] 相机已回归到自己的视角");
 	}
 
 	private createPopoverOnPlayerTop(
