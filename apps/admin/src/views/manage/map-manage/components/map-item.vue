@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { deleteGameMap, setGameMapUse } from "@/utils/api/game-map";
-import { PROTOCOL } from "@mine-monopoly/config";
 import { GameMapInDb } from "@mine-monopoly/types";
 import { computed, ref } from "vue";
+import { env } from "@mine-monopoly/env";
 
 const props = defineProps<{ mapInfo: GameMapInDb }>();
 const emit = defineEmits(["deleted", "edit"]);
-const coverUrl = computed(() => `${PROTOCOL}://${props.mapInfo.coverUrl}`);
+const coverUrl = computed(() => `${env("PROTOCOL")}://${props.mapInfo.coverUrl}`);
 const switchLoading = ref(false);
 
 async function handleGameMapUseSwitch(use: boolean) {

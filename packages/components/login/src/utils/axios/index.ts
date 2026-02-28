@@ -1,9 +1,9 @@
 import axios from "axios";
 import { FPMessage } from "@mine-monopoly/ui";
-import { FATPAPER_DOMAIN, PROTOCOL, SERVER_PORT } from "@mine-monopoly/config";
+import { env } from "@mine-monopoly/env";
 
 const _axios = axios.create({
-	baseURL: `${PROTOCOL}://${FATPAPER_DOMAIN}:${SERVER_PORT}`,
+	baseURL: `${env("PROTOCOL")}://${env("FATPAPER_DOMAIN")}:${env<number>("SERVER_PORT")}`,
 });
 
 //请求拦截器

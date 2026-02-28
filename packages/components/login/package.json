@@ -12,7 +12,6 @@
 	"dependencies": {
 		"@fingerprintjs/fingerprintjs": "^4.1.0",
 		"jsencrypt": "^3.3.2",
-		"@mine-monopoly/config": "workspace:*",
 		"@mine-monopoly/ui": "workspace:*"
 	},
 	"devDependencies": {}

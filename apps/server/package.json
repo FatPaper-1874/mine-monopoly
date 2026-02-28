@@ -39,7 +39,7 @@
 		"@types/ws": "^8.5.3",
 		"ts-node": "^10.9.2",
 		"ws": "^8.11.0",
-		"@mine-monopoly/config": "workspace:*",
+		"@mine-monopoly/env": "workspace:*",
 		"@mine-monopoly/types": "workspace:*"
 	}
 }

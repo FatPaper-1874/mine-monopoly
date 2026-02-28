@@ -1,5 +1,5 @@
 import COS from "cos-nodejs-sdk-v5";
-import { __TC_BUCKET_NAME__, __TC_REGION__, __TC_ID__, __TC_KEY__, __MONOPOLYSERVERHOST__ } from "../../global.config";
+import { env } from "@mine-monopoly/env";
 import fs from "fs";
 import path from "path";
 
@@ -9,12 +9,17 @@ type UploadFile = {
 	targetPath: string;
 };
 
-const isUsingCOS = !!(__TC_BUCKET_NAME__ && __TC_REGION__ && __TC_ID__ && __TC_KEY__);
+const tcBucketName = env("TC_BUCKET_NAME", "");
+const tcRegion = env("TC_REGION", "");
+const tcId = env("TC_ID", "");
+const tcKey = env("TC_KEY", "");
+
+const isUsingCOS = !!(tcBucketName && tcRegion && tcId && tcKey);
 
 const cos = isUsingCOS
 	? new COS({
-			SecretId: __TC_ID__,
-			SecretKey: __TC_KEY__,
+			SecretId: tcId!,
+			SecretKey: tcKey!,
 	  })
 	: undefined;
 
@@ -23,8 +28,8 @@ export async function uploadFile(file: UploadFile) {
 		if (isUsingCOS && cos) {
 			cos.uploadFile(
 				{
-					Bucket: __TC_BUCKET_NAME__ /* 填入您自己的存储桶，必须字段 */,
-					Region: __TC_REGION__ /* 存储桶所在地域，例如 ap-beijing，必须字段 */,
+					Bucket: tcBucketName! /* 填入您自己的存储桶，必须字段 */,
+					Region: tcRegion! /* 存储桶所在地域，例如 ap-beijing，必须字段 */,
 					Key: `${file.targetPath}${file.name}` /* 存储在桶里的对象键（例如1.jpg，a/b/test.txt），必须字段 */,
 					FilePath: file.filePath /* 必须 */,
 					SliceSize: 1024 * 1024 * 5 /* 触发分块上传的阈值，超过5MB使用分块上传，非必须 */,
@@ -39,7 +44,8 @@ export async function uploadFile(file: UploadFile) {
 			);
 		} else {
 			try {
-				const newTargetPath = `${__MONOPOLYSERVERHOST__}/static/${file.targetPath}/${file.name}`;
+				const monopolyServerHost = `${env("PROTOCOL")}://${env("FATPAPER_DOMAIN")}:${env<number>("SERVER_PORT")}`;
+				const newTargetPath = `${monopolyServerHost}/static/${file.targetPath}/${file.name}`;
 				saveFileToLocal(file, `./public/${file.targetPath}/${file.name}`);
 				resolve(newTargetPath);
 			} catch (e: any) {
@@ -55,8 +61,8 @@ export async function uploadFiles(files: UploadFile[]) {
 			cos.uploadFiles(
 				{
 					files: files.map((f) => ({
-						Bucket: __TC_BUCKET_NAME__ /* 填入您自己的存储桶，必须字段 */,
-						Region: __TC_REGION__ /* 存储桶所在地域，例如 ap-beijing，必须字段 */,
+						Bucket: tcBucketName! /* 填入您自己的存储桶，必须字段 */,
+						Region: tcRegion! /* 存储桶所在地域，例如 ap-beijing，必须字段 */,
 						Key: `${f.targetPath}${f.name}` /* 存储在桶里的对象键（例如1.jpg，a/b/test.txt），必须字段 */,
 						FilePath: f.filePath,
 					})),
@@ -73,8 +79,9 @@ export async function uploadFiles(files: UploadFile[]) {
 		} else {
 			const newTargetPathArr = [];
 			try {
+				const monopolyServerHost = `${env("PROTOCOL")}://${env("FATPAPER_DOMAIN")}:${env<number>("SERVER_PORT")}`;
 				for (const file of files) {
-					const newTargetPath = `${__MONOPOLYSERVERHOST__}/static/${file.targetPath}/${file.name}`;
+					const newTargetPath = `${monopolyServerHost}/static/${file.targetPath}/${file.name}`;
 					saveFileToLocal(file, `./public/${file.targetPath}/${file.name}`);
 					newTargetPathArr.push(newTargetPath);
 				}
@@ -91,8 +98,8 @@ export async function deleteFiles(filePaths: string[]) {
 		if (isUsingCOS && cos) {
 			cos.deleteMultipleObject(
 				{
-					Bucket: __TC_BUCKET_NAME__ /* 填入您自己的存储桶，必须字段 */,
-					Region: __TC_REGION__ /* 存储桶所在地域，例如 ap-beijing，必须字段 */,
+					Bucket: tcBucketName! /* 填入您自己的存储桶，必须字段 */,
+					Region: tcRegion! /* 存储桶所在地域，例如 ap-beijing，必须字段 */,
 					Objects: filePaths.map((f) => ({ Key: f })) /* 存储在桶里的对象键（例如1.jpg，a/b/test.txt），必须字段 */,
 				},
 				function (err, data) {

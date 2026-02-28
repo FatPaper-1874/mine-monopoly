@@ -157,9 +157,6 @@ importers:
         specifier: ^0.50.0
         version: 0.50.0
     devDependencies:
-      '@mine-monopoly/config':
-        specifier: workspace:*
-        version: link:../../packages/configs
       '@mine-monopoly/login':
         specifier: workspace:*
         version: link:../../packages/components/login
@@ -184,9 +181,6 @@ importers:
 
   apps/client:
     dependencies:
-      '@mine-monopoly/config':
-        specifier: workspace:*
-        version: link:../../packages/configs
       '@mine-monopoly/login':
         specifier: workspace:*
         version: link:../../packages/components/login
@@ -288,9 +282,9 @@ importers:
         specifier: ^3.8.2
         version: 3.18.3
     devDependencies:
-      '@mine-monopoly/config':
+      '@mine-monopoly/env':
         specifier: workspace:*
-        version: link:../../packages/configs
+        version: link:../../packages/env
       '@mine-monopoly/types':
         specifier: workspace:*
         version: link:../../packages/types
@@ -333,9 +327,6 @@ importers:
       '@fingerprintjs/fingerprintjs':
         specifier: ^4.1.0
         version: 4.6.2
-      '@mine-monopoly/config':
-        specifier: workspace:*
-        version: link:../../configs
       '@mine-monopoly/ui':
         specifier: workspace:*
         version: link:../ui
@@ -345,7 +336,11 @@ importers:
 
   packages/components/ui: {}
 
-  packages/configs: {}
+  packages/env:
+    dependencies:
+      dotenv:
+        specifier: ^16.4.5
+        version: 16.6.1
 
   packages/types: {}
 

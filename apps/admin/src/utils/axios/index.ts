@@ -1,10 +1,10 @@
 import axios from "axios";
 import router from "@/router";
-import { FATPAPER_DOMAIN, PROTOCOL, SERVER_PORT } from "@mine-monopoly/config";
 import { message } from "ant-design-vue";
+import { env } from "@mine-monopoly/env";
 
 export const _axios = axios.create({
-	baseURL: `${PROTOCOL}://${FATPAPER_DOMAIN}:${SERVER_PORT}`,
+	baseURL: `${env("PROTOCOL")}://${env("FATPAPER_DOMAIN")}:${env<number>("SERVER_PORT")}`,
 });
 
 _axios.defaults.headers.common["Authorization"] = localStorage.getItem("token");

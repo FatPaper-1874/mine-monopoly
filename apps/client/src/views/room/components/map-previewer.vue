@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted } from "vue";
 import { GameMapInDb } from "@mine-monopoly/types";
-import { PROTOCOL } from "@mine-monopoly/config";
+import { env } from "@mine-monopoly/env";
 
 const { map } = defineProps<{ map: GameMapInDb }>();
 
 const coverImageUrl = computed(() => {
 	const url = map.coverUrl;
 	if (url.startsWith("http") || url.startsWith("blob")) return map.coverUrl;
-	else return `${PROTOCOL}://${map.coverUrl}`;
+	else return `${env("PROTOCOL")}://${map.coverUrl}`;
 });
 </script>
 

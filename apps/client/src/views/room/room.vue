@@ -14,7 +14,6 @@ import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { copyToClipboard, getDisplayValueByFormSchema } from "@src/utils";
 import { setRoomPrivate } from "@src/utils/api/room-router";
 import { FormSchema, GameMapInDb, GameSetting, RoleInRoom } from "@mine-monopoly/types";
-import { PROTOCOL } from "@mine-monopoly/config";
 import { loadGameMapFromServer } from "@src/utils/file/game-map";
 import RolePreviewer from "./components/role-previewer.vue";
 import { useResourceStore } from "@src/store/game";

@@ -13,7 +13,6 @@
 		"preview": "vite preview"
 	},
 	"dependencies": {
-		"@mine-monopoly/config": "workspace:*",
 		"@mine-monopoly/login": "workspace:*",
 		"@mine-monopoly/types": "workspace:*",
 		"@mine-monopoly/ui": "workspace:*",

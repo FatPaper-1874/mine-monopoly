@@ -5,6 +5,7 @@ import viteCompression from "vite-plugin-compression";
 import electron from "vite-plugin-electron/simple";
 import pkg from "./package.json";
 import generateMonacoDTS from "./plugins/vite-plugin-generate-monaco-dts";
+import { envPlugin } from "../../packages/env/src/vite-plugin-env.ts";
 
 const APP_VERSION_SHORT = pkg.version.split(".").slice(0, 2).join(".");
 
@@ -22,6 +23,10 @@ export default defineConfig(({ command }) => {
 			vue(),
 			generateMonacoDTS(),
 			viteCompression(),
+			envPlugin({
+				exclude: ['MYSQL_PASSWORD', 'TC_KEY'],
+				envPath: '../../.env',
+			}),
 			electron({
 				main: {
 					entry: "electron/main.ts",
@@ -41,10 +46,14 @@ export default defineConfig(({ command }) => {
 					find: "@src",
 					replacement: path.resolve(path.dirname("./"), "src"),
 				},
+				{
+					find: "@mine-monopoly/env",
+					replacement: path.resolve(__dirname, "../../packages/env/src/browser.ts"),
+				},
 			],
 		},
 		server: {
-			port: 80,
+			port: 5173,
 		},
 		esbuild: {
 			drop: command === "build" ? ["console", "debugger"] : [],

@@ -7,10 +7,10 @@ import { routerUser } from "./src/routers/user";
 import { roomRouter } from "./src/routers/room-router";
 import { serverLog } from "./src/utils/logger";
 import chalk from "chalk";
-import { __APIPORT__, __ICE_SERVER_PORT__, __USERSERVERHOST__ } from "./global.config";
 import { roleValidation } from "./src/utils/role-validation";
 import { PeerServer } from "peer";
 import { gameMapRouter } from "src/routers/game-map";
+import { env } from "@mine-monopoly/env";
 
 // import { roleValidation } from "./src/utils/role-validation";
 
@@ -42,12 +42,14 @@ async function bootstrap() {
 
 		app.use(handleError);
 
-		app.listen(__APIPORT__, () => {
-			serverLog(`${chalk.bold.bgGreen(` API服务启动成功 ${__APIPORT__}端口`)}`);
+		const serverPort = env<number>("SERVER_PORT");
+		app.listen(serverPort, () => {
+			serverLog(`${chalk.bold.bgGreen(` API服务启动成功 ${serverPort}端口`)}`);
 		});
 
-		const peerServer = PeerServer({ port: __ICE_SERVER_PORT__ }, () => {
-			serverLog(`${chalk.bold.bgGreen(` ICE服务启动成功 ${__ICE_SERVER_PORT__}端口`)}`);
+		const iceServerPort = env<number>("ICE_SERVER_PORT");
+		const peerServer = PeerServer({ port: iceServerPort }, () => {
+			serverLog(`${chalk.bold.bgGreen(` ICE服务启动成功 ${iceServerPort}端口`)}`);
 		});
 	} catch (e: any) {
 		serverLog(`${chalk.bold.bgRed(` 服务器出错: `)}`, "error");

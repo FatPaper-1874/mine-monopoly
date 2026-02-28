@@ -1,0 +1,38 @@
+{
+	"name": "@mine-monopoly/env",
+	"version": "1.0.0",
+	"description": "Environment variables management with type validation",
+	"main": "./dist/index.js",
+	"module": "./dist/index.js",
+	"browser": "./dist/browser.js",
+	"types": "./dist/index.d.ts",
+	"type": "module",
+	"scripts": {
+		"build": "tsc",
+		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC",
+	"packageManager": "pnpm@10.10.0",
+	"exports": {
+		".": {
+			"node": {
+				"import": "./dist/index.js",
+				"types": "./dist/index.d.ts"
+			},
+			"browser": {
+				"import": "./dist/browser.js",
+				"types": "./dist/browser.d.ts"
+			},
+			"default": "./dist/index.js"
+		},
+		"./vite-plugin": {
+			"import": "./dist/vite-plugin-env.js",
+			"default": "./dist/vite-plugin-env.js"
+		}
+	},
+	"dependencies": {
+		"dotenv": "^16.4.5"
+	}
+}

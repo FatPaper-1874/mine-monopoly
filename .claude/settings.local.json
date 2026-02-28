@@ -28,7 +28,20 @@
       "Bash(pnpm why:*)",
       "Bash(readlink:*)",
       "Bash(pnpm build-editor:*)",
-      "Bash(pnpm vue-tsc:*)"
+      "Bash(pnpm vue-tsc:*)",
+      "Bash(git stash pop:*)",
+      "Bash(git rm:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git -C \"C:\\\\DEV\\\\code\\\\repo\\\\fatpaper-monopoly\" log --oneline -20)",
+      "Bash(pnpm --filter @mine-monopoly/components-login build:*)",
+      "Bash(npx vue-tsc:*)",
+      "Bash(timeout:*)",
+      "Bash(pnpm dev-client:*)",
+      "Bash(ping:*)",
+      "Bash(pnpm dev-admin:*)",
+      "Bash(pnpm dev)",
+      "Bash(git reset:*)"
     ]
   },
   "mcpServers": {
