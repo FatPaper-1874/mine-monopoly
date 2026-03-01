@@ -11,7 +11,7 @@ import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import FpPopover from "@src/components/utils/fp-popover/fp-popover.vue";
 import LoginExtra from "@src/views/login/components/login-extra.vue";
 import FpDialog from "@src/components/utils/fp-dialog/fp-dialog.vue";
-import { Login } from "@mine-monopoly/login";
+import LoginForm from "@src/views/login/components/login-form.vue";
 
 let loginCodeRenderer: LoginDiceRenderer | null;
 let diceRotate: boolean = true;
@@ -27,6 +27,8 @@ const touristLoginForm = reactive({
 	userName: "",
 	color: "#000000",
 });
+
+const touristColorInputRef = ref<HTMLInputElement | null>(null);
 
 function handleFirstClick() {
 	firstClick.value = true;
@@ -109,6 +111,10 @@ function handleShowTouristLoginDialog() {
 	showTouristLogin.value = true;
 }
 
+function handleTouristColorClick() {
+	touristColorInputRef.value?.click();
+}
+
 function handleTouristLogin() {
 	if (!touristLoginForm.userName) {
 		FPMessage({
@@ -171,25 +177,44 @@ function toRoomList() {
 					<span style="font-size: 1.2rem">游客信息登记📝</span>
 				</template>
 				<div class="tourist-form-container">
-					<span>用户名</span>
-					<input
-						v-model="touristLoginForm.userName"
-						:style="{ color: touristLoginForm.color }"
-						type="text"
-						placeholder="输入名字"
-					/><br />
-					<span>代表颜色</span>
-					<input v-model="touristLoginForm.color" type="color" />
+					<div class="form-item">
+						<span class="lable">用户名</span>
+						<input
+							v-model="touristLoginForm.userName"
+							:style="{ color: touristLoginForm.color }"
+							type="text"
+							placeholder="输入名字"
+						/>
+					</div>
+					<div class="form-item">
+						<span class="lable">代表颜色</span>
+						<div class="color-input-wrapper">
+							<input
+								ref="touristColorInputRef"
+								type="color"
+								v-model="touristLoginForm.color"
+								class="color-input-hidden"
+							/>
+							<div class="color-preview" :style="{ backgroundColor: touristLoginForm.color }" @click="handleTouristColorClick">
+								<span class="color-value">{{ touristLoginForm.color }}</span>
+							</div>
+						</div>
+					</div>
 				</div>
 			</FpDialog>
 		</div>
 
-		<div v-if="showUserLogin" class="user-login">
-			<div @click="showUserLogin = false" class="close-button">
-				<font-awesome-icon :icon="['fas', 'xmark']" />
-			</div>
-			<Login @success="handleLoginSuccess" />
-		</div>
+		<FpDialog
+			v-model:visible="showUserLogin"
+			:hidden-footer="true"
+			:closable="true"
+		>
+			<template #title>
+				<span style="font-size: 1.2rem">账号登录 / 注册</span>
+			</template>
+
+			<LoginForm @success="handleLoginSuccess" />
+		</FpDialog>
 
 		<div class="dice-container" v-show="showDice">
 			<canvas id="dice-canvas" class="dice"></canvas>
@@ -205,41 +230,6 @@ function toRoomList() {
 	flex-direction: column;
 	align-items: center;
 	z-index: 0;
-}
-
-.user-login {
-	position: fixed;
-	width: 80vw;
-	height: 85vh;
-	top: 50%;
-	left: 50%;
-	border: 0.3rem solid rgba(255, 255, 255, 0.65);
-	border-radius: 1.5rem;
-	transform: translate(-50%, -50%);
-	z-index: 1000;
-	overflow: hidden;
-
-	.close-button {
-		position: absolute;
-		width: 2rem;
-		height: 2rem;
-		top: 0.3rem;
-		right: 0.3rem;
-		border-radius: 50%;
-		z-index: 1001;
-		display: flex;
-		justify-content: center;
-		align-items: center;
-		background-color: #689f38;
-		color: #ffffff;
-		text-align: center;
-		font-size: 1.3rem;
-		cursor: pointer;
-
-		&:hover {
-			background-color: #558b2f;
-		}
-	}
 }
 
 .front-cover,
@@ -264,22 +254,62 @@ function toRoomList() {
 	display: grid;
 	padding: 0 0.3rem;
 
-	& span {
-		font-size: 1.3rem;
-		margin-bottom: 0.3rem;
-		color: var(--color-primary);
+	.form-item {
+		display: flex;
+		flex-direction: column;
+
+		span.lable {
+			font-size: 1.3rem;
+			margin-bottom: 0.3rem;
+			color: var(--color-primary);
+		}
+
+		input {
+			height: 4rem;
+			font-size: 1.5rem;
+			box-sizing: border-box;
+			margin-bottom: 0.5rem;
+			transition: 0.3s all;
+			border: 0.2rem solid var(--color-bg);
+
+			&:focus {
+				border: 0.2rem solid var(--color-primary);
+			}
+		}
 	}
 
-	& input {
-		height: 4rem;
-		font-size: 1.5rem;
-		box-sizing: border-box;
-		margin-bottom: 0.5rem;
-		transition: 0.3s all;
-		border: 0.2rem solid var(--color-bg);
+	.color-input-wrapper {
+		display: flex;
+		align-items: center;
+		width: 100%;
+		margin: 0.3rem 0;
 
-		&:focus {
-			border: 0.2rem solid var(--color-primary);
+		.color-input-hidden {
+			position: absolute;
+			width: 0;
+			height: 0;
+			opacity: 0;
+			pointer-events: none;
+		}
+
+		.color-preview {
+			width: 100%;
+			height: 4rem;
+			border-radius: 0.5rem;
+			border: 0.15rem solid rgba(255, 255, 255, 0.3);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			transition: all 0.2s;
+			box-shadow: 0 0.1rem 0.3rem rgba(0, 0, 0, 0.1);
+			cursor: pointer;
+
+			.color-value {
+				font-size: 1.1rem;
+				color: #333;
+				font-weight: 500;
+				text-transform: uppercase;
+			}
 		}
 	}
 }

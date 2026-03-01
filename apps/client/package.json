@@ -13,14 +13,17 @@
 		"preview": "vite preview"
 	},
 	"dependencies": {
-		"@mine-monopoly/login": "workspace:*",
 		"@mine-monopoly/types": "workspace:*",
 		"@mine-monopoly/ui": "workspace:*",
 		"@mine-monopoly/utils": "workspace:*",
 		"cannon-es": "^0.20.0",
 		"eventemitter3": "^5.0.0",
+		"jsencrypt": "^3.3.2",
 		"peerjs": "^1.5.4"
 	},
 	"devDependencies": {
+		"electron": "37.2.6",
+		"electron-builder": "26.0.12",
+		"electron-log": "^5.4.3"
 	}
 }
