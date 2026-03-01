@@ -44,6 +44,7 @@ export class MonopolyClient {
 
 	private sendHeartTime = 0;
 	private intervalList: any[] = [];
+	private handleNoHeartTimer: ReturnType<typeof debounce> | null = null;
 
 	public static getInstance(): MonopolyClient;
 	public static getInstance(options: MonopolyClientOptions): Promise<MonopolyClient>;
@@ -110,7 +111,7 @@ export class MonopolyClient {
 
 	private async linkToGameHost(hostPeerId: string) {
 		try {
-			// 清理旧连接和监听器
+			// 清理旧的连接和事件监听器
 			if (this.conn) {
 				this.conn.removeAllListeners();
 				this.conn.close();
@@ -142,7 +143,10 @@ export class MonopolyClient {
 			});
 			this.isOnline = true;
 
-			// 发送心跳
+			// 初始化心跳超时定时器
+			this.initHeartBeat();
+
+			// 启动心跳发送定时器
 			this.intervalList.push(
 				setInterval(() => {
 					this.sendHeartTime = Date.now();
@@ -201,7 +205,7 @@ export class MonopolyClient {
 
 	public handleHeartReply() {
 		useUtil().ping = Math.round((Date.now() - this.sendHeartTime) / 2);
-		this.handleNoHeart.fn();
+		this.handleNoHeartTimer?.fn();
 	}
 
 	private handleNoHeart = debounce(
@@ -219,13 +223,31 @@ export class MonopolyClient {
 		true,
 	);
 
+	public initHeartBeat() {
+		// 在首次发送心跳时初始化心跳超时定时器
+		this.handleNoHeartTimer = this.handleNoHeart;
+	}
+
 	public sendRoomChatMessage(message: string, roomId: string) {
 		this.sendMsg({ type: SocketMsgType.RoomChat, source: SocketMsgSource.Client, data: message });
 	}
 
 	public async leaveRoom() {
+		// 1. 立即设置离线状态，防止心跳超时处理程序触发
 		this.isOnline = false;
+
+		// 2. 向服务器发送退出房间消息
 		await this.sendMsg({ type: SocketMsgType.LeaveRoom, source: SocketMsgSource.Client, data: undefined });
+
+		// 3. 立即清理所有心跳定时器，但保留连接让服务器处理退出逻辑
+		this.intervalList.forEach((timer) => clearInterval(timer));
+		this.intervalList = [];
+
+		// 4. 取消心跳超时的 debounce 定时器
+		if (this.handleNoHeartTimer) {
+			this.handleNoHeartTimer.cancel();
+			this.handleNoHeartTimer = null;
+		}
 	}
 
 	public readyToggle() {
@@ -313,21 +335,53 @@ export class MonopolyClient {
 	}
 
 	public destory() {
-		this.conn = null;
-		this.peerClient && this.peerClient.destory();
-		this.peerClient = null;
+		// 1. 防止竞态条件，先设置离线状态
+		this.isOnline = false;
+
+		// 2. 清理所有心跳定时器
+		this.intervalList.forEach((timer) => clearInterval(timer));
+		this.intervalList = [];
+
+		// 3. 取消心跳超时的 debounce 定时器
+		if (this.handleNoHeartTimer) {
+			this.handleNoHeartTimer.cancel();
+			this.handleNoHeartTimer = null;
+		}
+
+		// 4. 移除连接事件监听器并关闭连接
+		if (this.conn) {
+			this.conn.removeAllListeners();
+			this.conn.close();
+			this.conn = null;
+		}
+
+		// 5. 销毁 Peer 客户端
+		if (this.peerClient) {
+			this.peerClient.destory();
+			this.peerClient = null;
+		}
+
+		// 6. 清理游戏主机（如果存在）
+		if (this.gameHost) {
+			this.gameHost.destory();
+			this.gameHost = null;
+		}
 	}
 
 	public static destoryInstance() {
-		this.instance && this.instance.destory();
-		this.instance = null;
+		if (this.instance) {
+			this.instance.destory();
+			this.instance = null;
+		}
+		// 移除 beforeunload 事件监听器
+		window.removeEventListener("beforeunload", destoryMonopolyClient);
 	}
 }
 
 function useMonopolyClient(): MonopolyClient;
 function useMonopolyClient(options: MonopolyClientOptions): Promise<MonopolyClient>;
 function useMonopolyClient(options?: MonopolyClientOptions) {
-	window.addEventListener("beforeunload", destoryMonopolyClient);
+	window.addEventListener("beforeunload", destoryMonopolyClient, { once: true });
 	return options ? MonopolyClient.getInstance(options) : MonopolyClient.getInstance();
 }
 
