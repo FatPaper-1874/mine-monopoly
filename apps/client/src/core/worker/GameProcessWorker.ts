@@ -48,6 +48,7 @@ import { GameRuntimeStack } from "@src/core/worker/class/GameRuntimeStack";
 import GameProcessTypes from "./editor-lib.d.ts?raw";
 import { generatePropertyHtml } from "@src/utils/html";
 import mitt from "mitt";
+import { aiManager } from "./ai/AIStrategy";
 import type { Emitter } from "mitt";
 
 const operationListener = new OperateListener();
@@ -334,7 +335,7 @@ export class GameProcess implements IGameProcess {
 				//在计划的动画完成事件后取消监听, 防止客户端因特殊情况没有发送动画完成的指令造成永久等待
 				const animationDuration = 350 * (Math.abs(steps) + 3);
 				let animationTimer = setTimeout(() => {
-					operationListener.emit(player.id, OperateType.Animation);
+					operationListener.emit(player.id, OperateType.Animation, walkId);
 				}, animationDuration);
 
 				//等待客户端完成动画发回指令
@@ -348,6 +349,7 @@ export class GameProcess implements IGameProcess {
 						}
 					}
 				});
+
 				clearTimeout(animationTimer);
 				this.eventBus.emit("player.passed", { passedMapItemsId, player });
 				return payload;
@@ -370,7 +372,7 @@ export class GameProcess implements IGameProcess {
 				let animationTimer = setTimeout(() => {
 					operationListener.emit(player.id, OperateType.Animation, walkId);
 				}, animationDuration);
-
+				
 				//等待客户端完成动画发回指令
 				await new Promise((resolve) => {
 					listenAnimationCallback("");
@@ -382,6 +384,7 @@ export class GameProcess implements IGameProcess {
 						}
 					}
 				});
+
 				clearTimeout(animationTimer);
 				return payload;
 			});
@@ -826,6 +829,14 @@ export class GameProcess implements IGameProcess {
 		playerId: string,
 		operationType: T,
 	): Promise<PlayerOperationResult[T]> {
+		const player = this.players.get(playerId);
+
+		// 如果玩家是AI托管，使用AI决策
+		if (player?.isAI) {
+			return await aiManager.makeDecision(player, operationType);
+		}
+
+		// 否则等待真实玩家输入
 		return await operationListener.onceAsync(playerId, operationType);
 	}
 
@@ -887,6 +898,14 @@ export class GameProcess implements IGameProcess {
 		playerId: string,
 		option: ConfirmDialogOption<I>,
 	): Promise<ConfirmDialogResult<I>> {
+		const player = this.players.get(playerId);
+
+		// 如果玩家是AI托管，直接返回决策，不显示对话框
+		if (player?.isAI) {
+			return (await aiManager.makeDecision(player, OperateType.ConfirmDialogResult, option)) as ConfirmDialogResult<I>;
+		}
+
+		// 真实玩家，显示对话框
 		sendToUsers([playerId], {
 			type: SocketMsgType.ConfirmDialog,
 			source: SocketMsgSource.Server,
@@ -902,6 +921,18 @@ export class GameProcess implements IGameProcess {
 		playerId: string,
 		option: TargetSelectDialogOption<I>,
 	): Promise<TargetSelectDialogResult<I>> {
+		const player = this.players.get(playerId);
+
+		// 如果玩家是AI托管，直接返回决策，不显示对话框
+		if (player?.isAI) {
+			return (await aiManager.makeDecision(
+				player,
+				OperateType.TargetSelectDialogResult,
+				option,
+			)) as TargetSelectDialogResult<I>;
+		}
+
+		// 真实玩家，显示对话框
 		sendToUsers([playerId], {
 			type: SocketMsgType.TargetSelectDialog,
 			source: SocketMsgSource.Server,
@@ -917,6 +948,18 @@ export class GameProcess implements IGameProcess {
 	}
 
 	public async showItemSelectDialog(playerId: string, option: ItemSelectDialogOption): Promise<ItemSelectDialogResult> {
+		const player = this.players.get(playerId);
+
+		// 如果玩家是AI托管，直接返回决策，不显示对话框
+		if (player?.isAI) {
+			return (await aiManager.makeDecision(
+				player,
+				OperateType.ItemSelectDialogResult,
+				option,
+			)) as ItemSelectDialogResult;
+		}
+
+		// 真实玩家，显示对话框
 		sendToUsers([playerId], {
 			type: SocketMsgType.ItemSelectDialog,
 			source: SocketMsgSource.Server,
@@ -1065,6 +1108,9 @@ export class GameProcess implements IGameProcess {
 		const player = this.getPlayerById(userId);
 		if (player) {
 			player.setIsOffline(true);
+			// 启用AI托管
+			player.isAI = true;
+			console.log(`[AI托管] 玩家 ${player.name} 离线，启用AI托管`);
 			this.gameDataBroadcast();
 		}
 	}
@@ -1073,6 +1119,9 @@ export class GameProcess implements IGameProcess {
 		const player = this.players.get(userId);
 		if (player) {
 			player.setIsOffline(false);
+			// 取消AI托管
+			player.isAI = false;
+			console.log(`[AI托管] 玩家 ${player.name} 重连，取消AI托管`);
 			sendToUsers([userId], {
 				type: SocketMsgType.GameStart,
 				source: SocketMsgSource.Server,

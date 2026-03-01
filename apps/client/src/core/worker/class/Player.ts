@@ -37,6 +37,7 @@ export class Player implements IPlayer {
 	public isStop: number; //是否停止回合
 	public isBankrupted: boolean = false; //是否破产
 	public isOffline: boolean; //是否断线
+	public isAI: boolean = false; //是否为AI托管
 	public stop: number = 0;
 	public infoDisplay: UISchema;
 

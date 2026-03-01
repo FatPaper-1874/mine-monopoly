@@ -48,7 +48,7 @@ function handleDelete(id: string) {
 <template>
 	<a-modal
 		destroyOnClose
-		wrap-class-name="event-manager-container"
+		wrap-class-name="chancecard-manager-container"
 		width="100%"
 		v-model:open="model"
 		:footer="null"
@@ -97,7 +97,7 @@ function handleDelete(id: string) {
 
 <style lang="scss">
 /* 复用 event-manager-container 的样式，保持统一 */
-.event-manager-container {
+.chancecard-manager-container {
 	.ant-modal {
 		max-width: 90vw;
 		padding-bottom: 0;
