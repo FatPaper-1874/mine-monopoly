@@ -1,7 +1,7 @@
 {
 	"appId": "YourAppID",
 	"asar": true,
-	"productName": "FatPaper-Map-Editor",
+	"productName": "MineMonopoly 地图编辑器",
 	"publish": [
 		{
 			"provider": "generic",
@@ -11,8 +11,8 @@
 	"fileAssociations": [
     {
       "ext": ["fpmap"],
-      "name": "FatPaper Map File",
-      "description": "FatPaper 大富翁地图文件",
+      "name": "MineMonopoly Map File",
+      "description": "MineMonopoly 地图文件",
       "icon": "build/fpmap.ico", 
       "role": "Editor",
       "isPackage": true

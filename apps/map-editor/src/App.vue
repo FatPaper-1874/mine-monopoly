@@ -64,7 +64,7 @@ onUnmounted(() => {
 		<TitleBar :bg-color="'#2e2e2e'">
 			<template #title>
 				<img style="width: 16px; height: 16px; margin-right: 6px" src="/logo.ico" alt="" />
-				<span style="font-size: 12px">FatPaper-Monopoly 地图编辑器 v{{ version }}</span>
+				<span style="font-size: 12px">MineMonopoly 地图编辑器 v{{ version }}</span>
 			</template>
 		</TitleBar>
 		<Header />
