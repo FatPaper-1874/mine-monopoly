@@ -261,6 +261,8 @@ export const useMapDataStore = defineStore("MapData", {
 		batchRemoveMapItem(ids: string[]) {
 			if (ids.length === 0) return;
 
+			const deletedItems: MapItem[] = [];
+
 			ids.forEach(id => {
 				try {
 					const index = this.mapItems.findIndex((m) => m.id === id);
@@ -268,6 +270,10 @@ export const useMapDataStore = defineStore("MapData", {
 						console.error(`删除 MapItem ${id} 失败: 寻找MapItem失败`);
 						return;
 					}
+
+					// 保存完整的 mapitem 数据（深拷贝）
+					deletedItems.push(cloneDeep(this.mapItems[index]));
+
 					// 手动解绑（不调用 removeMapItem 避免重复 updateMapIndex）
 					if (this.mapItems[index].linkto) {
 						const taget = this.findMapItemById(this.mapItems[index].linkto!);
@@ -290,6 +296,20 @@ export const useMapDataStore = defineStore("MapData", {
 					console.error(`删除 MapItem ${id} 失败:`, e);
 				}
 			});
+
+			// 将这次删除的记录作为一个批次添加到历史中（最多保留 50 个批次）
+			if (deletedItems.length > 0) {
+				const editorStore = useEditorStore();
+				editorStore.deletedMapItemBatches.unshift({
+					timestamp: Date.now(),
+					items: deletedItems
+				});
+				// 限制批次数量
+				if (editorStore.deletedMapItemBatches.length > 50) {
+					editorStore.deletedMapItemBatches = editorStore.deletedMapItemBatches.slice(0, 50);
+				}
+			}
+
 			// 批量删除完成后只更新一次
 			this.updateMapIndex([]);
 		},
@@ -462,6 +482,11 @@ type EditorState = {
 	isBoxSelecting: boolean;
 	boxSelectStart: { x: number; y: number } | null;
 	boxSelectUpdateCounter: number;
+	// 撤销删除历史（分批次）
+	deletedMapItemBatches: Array<{
+		timestamp: number;
+		items: MapItem[];
+	}>;
 };
 
 type EditorAlert = {
@@ -545,6 +570,8 @@ export const useEditorStore = defineStore("Editor", {
 		isBoxSelecting: false,
 		boxSelectStart: null,
 		boxSelectUpdateCounter: 0,
+		// 撤销删除历史初始值（分批次）
+		deletedMapItemBatches: [],
 	}),
 	actions: {
 		setLoading(loading: boolean) {
@@ -616,6 +643,14 @@ export const useEditorStore = defineStore("Editor", {
 			this.selectedMapItemIds = [];
 			this.currentMapItemId = undefined;
 		},
+		// 撤销删除相关 actions
+		popLastDeletedBatch(): MapItem[] {
+			if (this.deletedMapItemBatches.length === 0) return [];
+			return this.deletedMapItemBatches.shift()!.items;
+		},
+		clearDeletedHistory() {
+			this.deletedMapItemBatches = [];
+		},
 	},
 	getters: {
 		currentMapItem: (state) => {
@@ -643,5 +678,6 @@ export const useEditorStore = defineStore("Editor", {
 				.filter((item): item is MapItem => item !== undefined);
 			return items;
 		},
+		canUndoDelete: (state) => state.deletedMapItemBatches.length > 0,
 	},
 });

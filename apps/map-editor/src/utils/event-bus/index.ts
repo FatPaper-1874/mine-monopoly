@@ -42,6 +42,9 @@ type Events = {
 	// 清空选择事件
 	"clear-selection": void;
 
+	// 撤销删除事件
+	"undo-delete": void;
+
 	// MCP 操作反馈事件
 	"mcp-operation": {
 		operation: string;

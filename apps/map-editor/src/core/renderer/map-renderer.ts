@@ -311,6 +311,11 @@ export class MapRenderer {
 			this.clearMultiSelect();
 		});
 
+		eventBus.on("undo-delete", async () => {
+			console.log('[渲染器] 收到撤销删除事件');
+			await this.handleUndoDelete();
+		});
+
 		console.log('[渲染器初始化] 批量操作事件监听器已设置完成');
 
 		this.initMouseListener();
@@ -554,9 +559,38 @@ export class MapRenderer {
 	}
 
 	private async handleKeyPress(event: KeyboardEvent) {
+		// 检查当前焦点是否在输入元素上，如果是则不处理快捷键
+		const target = event.target as HTMLElement;
+		const isInputFocused =
+			target.tagName === "INPUT" ||
+			target.tagName === "TEXTAREA" ||
+			target.tagName === "SELECT" ||
+			target.isContentEditable;
+
+		// 如果焦点在输入元素上，除了 Ctrl+S (保存) 外，不处理其他快捷键
+		if (isInputFocused) {
+			if (event.ctrlKey && event.code === "KeyS") {
+				event.preventDefault();
+				await handleSaveProtoFile();
+			}
+			return;
+		}
+
 		if (event.ctrlKey && event.code === "KeyS") {
 			event.preventDefault();
 			await handleSaveProtoFile();
+		}
+
+		// Ctrl+Z 撤销删除
+		if (event.ctrlKey && event.code === "KeyZ") {
+			event.preventDefault();
+			const store = useEditorStore();
+			if (store.canUndoDelete) {
+				eventBus.emit("undo-delete");
+			} else {
+				message.info("没有可撤销的删除记录", 1);
+			}
+			return;
 		}
 
 		// 框选模式快捷键
@@ -1097,6 +1131,94 @@ export class MapRenderer {
 		useEditorStore().setSelectedMapItemIds(allIds);
 		this.updateSelectionHighlightWithObjects(allIds);
 		message.success(`已全选 ${allIds.length} 个 MapItem`, 1);
+	}
+
+	/**
+	 * 处理撤销删除操作
+	 */
+	private async handleUndoDelete() {
+		try {
+			const editorStore = useEditorStore();
+			const mapDataStore = useMapDataStore();
+
+			if (!editorStore.canUndoDelete) {
+				message.info("没有可撤销的删除记录", 1);
+				return;
+			}
+
+			// 获取最近一次删除的 mapitem（一个批次）
+			const deletedItems = editorStore.popLastDeletedBatch();
+			console.log('[撤销删除] 开始恢复最近一次删除', deletedItems.length, '个 MapItem');
+
+			// 恢复最近一次删除的 mapitem
+			const restoredIds: string[] = [];
+			const relatedIds = new Set<string>(); // 记录所有需要刷新的相关 ID
+
+			for (const item of deletedItems) {
+				// 检查位置是否已被占用
+				if (mapDataStore.hasMapItemRepeatCoord(item.x, item.y)) {
+					message.warning(`位置 (${item.x}, ${item.y}) 已被占用，跳过恢复`, 2);
+					continue;
+				}
+
+				// 恢复连接关系
+				if (item.beLinked) {
+					// 这个 mapitem 是主地皮，需要恢复被绑定方的 linkto 和 property
+					const linkedItem = mapDataStore.findMapItemById(item.beLinked);
+					if (linkedItem) {
+						linkedItem.linkto = item.id;
+						// 恢复地皮信息
+						if (item.property) {
+							linkedItem.property = item.property;
+						}
+						// 记录需要刷新的关联 ID
+						relatedIds.add(item.beLinked);
+						console.log('[撤销删除] 恢复绑定关系:', item.id, '->', linkedItem.id);
+					}
+				}
+
+				if (item.linkto) {
+					// 这个 mapitem 是被绑定方，需要恢复主地皮的 beLinked
+					const linkingItem = mapDataStore.findMapItemById(item.linkto);
+					if (linkingItem) {
+						linkingItem.beLinked = item.id;
+						// 记录需要刷新的关联 ID
+						relatedIds.add(item.linkto);
+						console.log('[撤销删除] 恢复绑定关系:', item.id, '<-', linkingItem.id);
+					}
+				}
+
+				// 重新添加到 mapItems
+				mapDataStore.addMapItem(item);
+
+				// 渲染到场景
+				await this.renderMapItemToMap(item);
+
+				restoredIds.push(item.id);
+			}
+
+			// 收集所有需要刷新的 ID（恢复的 mapitem + 它们的关联对象）
+			const allIdsToRefresh = [...restoredIds, ...relatedIds];
+			console.log('[撤销删除] 需要刷新的元素:', allIdsToRefresh);
+
+			// 刷新所有相关视觉元素（连接线、事件图标、索引路径）
+			if (allIdsToRefresh.length > 0) {
+				await this.refreshRelatedElements(allIdsToRefresh);
+			}
+
+			// 选中恢复的 mapitem
+			if (restoredIds.length > 0) {
+				editorStore.setSelectedMapItemIds(restoredIds);
+				this.updateSelectionHighlightWithObjects(restoredIds);
+
+				message.success(`已恢复 ${restoredIds.length} 个 MapItem 及其关联信息`, 2);
+			} else {
+				message.warning("没有可恢复的 MapItem", 2);
+			}
+		} catch (e: any) {
+			console.error('[撤销删除] 错误:', e);
+			message.error(e.message, 2);
+		}
 	}
 
 	/**

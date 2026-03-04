@@ -8,6 +8,7 @@ import {
 	handleSaveProtoFile,
 } from "@src/utils/file";
 import MCPControlPanel from "@src/components/mcp/MCPControlPanel.vue";
+import { eventBus } from "@src/utils/event-bus";
 
 const editorStore = useEditorStore();
 
@@ -53,20 +54,65 @@ function handleMenuClick(key: OperationType) {
 function openMCPPanel() {
 	mcpPanelVisible.value = true;
 }
+
+function handleUndoDelete() {
+	eventBus.emit("undo-delete");
+}
 </script>
 
 <template>
 	<div class="top-panel-container">
 		<div class="top-panel left">
 			<!-- File Operations -->
+			<!-- 新建 -->
 			<a-button
-				@click="handleMenuClick(menuItem.key)"
-				v-for="menuItem in menus"
+				@click="handleMenuClick(OperationType.NEW)"
 				class="menu-button"
 				size="small"
 				type="text"
 			>
-				<span>{{ menuItem.label }}</span>
+				<span>新建</span>
+			</a-button>
+
+			<!-- 打开 -->
+			<a-button
+				@click="handleMenuClick(OperationType.OPEN)"
+				class="menu-button"
+				size="small"
+				type="text"
+			>
+				<span>打开</span>
+			</a-button>
+
+			<!-- 恢复删除 (插入到"打开"和"保存"之间) -->
+			<a-button
+				v-if="editorStore.canUndoDelete"
+				@click="handleUndoDelete"
+				class="menu-button"
+				size="small"
+				type="text"
+			>
+				<span>恢复删除 (Ctrl+Z)</span>
+			</a-button>
+
+			<!-- 保存 -->
+			<a-button
+				@click="handleMenuClick(OperationType.SAVE)"
+				class="menu-button"
+				size="small"
+				type="text"
+			>
+				<span>保存 (ctrl+s)</span>
+			</a-button>
+
+			<!-- 另存为 -->
+			<a-button
+				@click="handleMenuClick(OperationType.SAVEAS)"
+				class="menu-button"
+				size="small"
+				type="text"
+			>
+				<span>另存为</span>
 			</a-button>
 
 			<!-- Divider -->
