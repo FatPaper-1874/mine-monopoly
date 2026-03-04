@@ -551,6 +551,27 @@ export class GameProcess implements IGameProcess {
 
 			//玩家回合
 			for (const player of Array.from(this.players.values())) {
+				// 检查玩家是否应该跳过回合
+				if (player.isStop > 0) {
+					const originalStop = player.isStop;
+					player.isStop--; // 减少停止计数
+					this.eventBus.emit("player.round.skip", { player });
+
+					// 根据剩余暂停次数显示不同的提示
+					if (player.isStop === 0) {
+						this.gameMsgNotifyBroadcast("info", `${player.name} 暂停中，下一回合将恢复`);
+					} else {
+						this.gameMsgNotifyBroadcast("info", `${player.name} 暂停中，还需跳过 ${player.isStop} 回合`);
+					}
+					continue; // 跳过此玩家的回合
+				}
+
+				// 检查玩家是否破产
+				if (player.isBankrupted) {
+					this.eventBus.emit("player.round.skip", { player });
+					continue;
+				}
+
 				this.eventBus.emit("player.round.start", { player });
 				const context: PlayerRoundContext = {
 					currentRoundPlayer: player,
