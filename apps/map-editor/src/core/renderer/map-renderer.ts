@@ -404,8 +404,11 @@ export class MapRenderer {
 
 		switch (useEditorStore().currentEditMode) {
 			case OperationMode.Edit:
-				this.handleMouseClickInCreate();
-				this.outlinePass.selectedObjects = [];
+				const modeSwitched = this.handleMouseClickInCreate();
+				// 只有在没有切换模式时才清空高亮
+				if (!modeSwitched) {
+					this.outlinePass.selectedObjects = [];
+				}
 				break;
 			case OperationMode.Select:
 				this.handleMouseClickInSelect();
@@ -413,16 +416,69 @@ export class MapRenderer {
 		}
 	}
 
-	private handleMouseClickInCreate() {
+	private handleMouseClickInCreate(): boolean {
+		const currentItemType = useEditorStore().currentMapItemType;
+
+		// 如果没有选择 mapItemType，尝试点击已存在的 mapitem
+		if (!currentItemType) {
+			const mapItemInstances = this.raycaster.intersectObjects(Array.from(this.mapItemsInScene.values()), true);
+			if (mapItemInstances.length > 0) {
+				// 点击到了 mapitem，切换到选择模式并选中
+				const firstInstance = mapItemInstances[0];
+				const target = firstInstance.object;
+
+				let temp: THREE.Object3D | null = target;
+				while (temp) {
+					if (temp.userData.id && temp.userData.position) {
+						const id = temp.userData.id;
+
+						// 清空预览框（选择模式不需要预览）
+						this.updatePreviewBox();
+
+						// 切换到选择模式
+						useEditorStore().currentEditMode = OperationMode.Select;
+						useEditorStore().isLinkMode = false;
+
+						// 清空其他高亮
+						this.linkOutlinePass.selectedObjects = [];
+						this.multiSelectOutlinePass.selectedObjects = [];
+
+						// 选中该 mapitem
+						useEditorStore().setSelectedMapItemIds([id]);
+						useEditorStore().currentMapItemId = id;
+						this.outlinePass.selectedObjects = [temp];
+
+						// 高亮绑定的另一方
+						const mapItem = useMapDataStore().findMapItemById(id);
+						if (mapItem) {
+							const targetId = mapItem.beLinked || mapItem.linkto || "";
+							const targetObject = this.mapItemsInScene.get(targetId);
+							if (targetObject) {
+								this.linkOutlinePass.selectedObjects = [targetObject];
+							}
+						}
+
+						message.info("已切换到选择模式", 1);
+						console.log('[创造模式] 自动切换到选择模式并选中:', id);
+						return true; // 返回 true 表示切换了模式
+					}
+					temp = temp.parent;
+				}
+			}
+			// 没有点击到 mapitem，不做任何操作
+			return false;
+		}
+
+		// 有选择 mapItemType，执行创建操作
 		const throughInstances = this.raycaster.intersectObjects([this.plane], false);
 		if (throughInstances.length > 0) {
 			const firstInstance = throughInstances[0];
 			const x = Math.floor(firstInstance.point.x);
 			const z = Math.floor(firstInstance.point.z);
 			const rotation = this.currentRotation;
-			const currentItemType = useEditorStore().currentMapItemType;
-			if (currentItemType) this.createMapItem(x, z, rotation, currentItemType);
+			this.createMapItem(x, z, rotation, currentItemType);
 		}
+		return false; // 返回 false 表示没有切换模式
 	}
 
 	private handleMouseClickInSelect() {
