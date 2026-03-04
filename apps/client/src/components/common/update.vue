@@ -51,7 +51,11 @@ const close = () => {
 onMounted(() => {
 	if (window.updateAPI) {
 		status.value = "checking";
-		window.updateAPI.checkForUpdate();
+		// 捕获 checkForUpdate 的错误，避免被 unhandledrejection 捕获
+		window.updateAPI.checkForUpdate().catch((err) => {
+			// 错误会通过 onUpdateStatus 事件处理，这里只需要捕获避免未处理
+			console.log("[Update Check]: 检查更新完成（无新版本或出错）");
+		});
 
 		removeListener = window.updateAPI.onUpdateStatus((data: any) => {
 			console.log("[Updater]", data);
@@ -83,7 +87,12 @@ onMounted(() => {
 						errorMsg.value = "网络连接中断，请稍后重试。";
 					} else {
 						status.value = "error";
-						FpMessage.error(`检查更新失败: ${errorDetail}`);
+						// 404 错误表示找不到更新文件，实事求是地显示
+						if (errorDetail.includes("404")) {
+							FpMessage.error("检查更新失败: 未找到更新文件 (404)");
+						} else {
+							FpMessage.error(`检查更新失败: ${errorDetail}`);
+						}
 					}
 					break;
 

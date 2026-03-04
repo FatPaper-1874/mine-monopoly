@@ -231,13 +231,48 @@ function initDeviceStatusListener() {
 	});
 }
 
+// --- 错误处理工具函数 ---
+
+// 日志查看位置提示
+function getLogLocationHint(): string {
+	if (window.electronAPI) {
+		return "日志已保存，请在 logs 文件夹中查看";
+	}
+	return "请按 F12 打开浏览器控制台查看详细日志";
+}
+
+// 格式化错误提示（只显示错误类型）
+function formatErrorType(errorType: string): string {
+	return errorType;
+}
+
+// 记录错误到 Electron 日志
+function logErrorToElectron(errorData: {
+	type: "Vue" | "Promise" | "Runtime";
+	message: string;
+	stack?: string;
+	info?: string;
+	filename?: string;
+	lineno?: number;
+	colno?: number;
+}) {
+	if (window.electronAPI?.logError) {
+		window.electronAPI.logError(errorData);
+	}
+}
+
 // --- 捕获 Vue 组件内部错误 ---
 app.config.errorHandler = (err, instance, info) => {
-	console.error("[Vue Error]:", err); // 保留控制台打印方便调试
+	console.error("[Vue Error]:", err);
 
-	const errMessage = err instanceof Error ? err.message : String(err);
+	FPMessage({ type: "error", message: `${formatErrorType("Vue 错误")}\n${getLogLocationHint()}` });
 
-	FPMessage({ type: "error", message: `系统错误: ${errMessage}` });
+	logErrorToElectron({
+		type: "Vue",
+		message: err instanceof Error ? err.message : String(err),
+		stack: err instanceof Error ? err.stack : undefined,
+		info
+	});
 };
 
 // --- 捕获未处理的 Promise 拒绝 (Async/Await, Axios 等) ---
@@ -253,17 +288,37 @@ window.addEventListener("unhandledrejection", (event) => {
 		return;
 	}
 
+	// 跳过取消操作
 	const errMessage = reason instanceof Error ? reason.message : String(reason);
-	if (errMessage.includes("cancel") || errMessage.includes("abort")) return;
+	if (errMessage.includes("cancel") || errMessage.includes("abort")) {
+		return;
+	}
 
-	FPMessage({ type: "error", message: `异步错误: ${errMessage}` });
+	FPMessage({ type: "error", message: `${formatErrorType("异步错误")}\n${getLogLocationHint()}` });
+
+	logErrorToElectron({
+		type: "Promise",
+		message: errMessage,
+		stack: reason instanceof Error ? reason.stack : undefined
+	});
+
 	event.preventDefault();
 });
 
 // --- 捕获常规 JS 运行时错误 ---
 window.addEventListener("error", (event) => {
-	console.error("[Global JS Error]:", event);
+	console.error("[Global JS Error]:", event.error);
 
-	FPMessage({ type: "error", message: `程序异常: ${event.message}` });
+	FPMessage({ type: "error", message: `${formatErrorType("运行时错误")}\n${getLogLocationHint()}` });
+
+	logErrorToElectron({
+		type: "Runtime",
+		message: event.message,
+		stack: event.error?.stack,
+		filename: event.filename,
+		lineno: event.lineno,
+		colno: event.colno
+	});
+
 	event.preventDefault();
 });

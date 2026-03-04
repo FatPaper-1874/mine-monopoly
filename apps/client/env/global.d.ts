@@ -35,6 +35,16 @@ interface Window {
 		isMaximized: () => Promise<boolean>;
 		getVersion: () => string;
 		onFullScreenChange: (callback: (isFull: boolean) => void) => void;
+		logError: (error: {
+			type: "Vue" | "Promise" | "Runtime";
+			message: string;
+			stack?: string;
+			info?: string;
+			filename?: string;
+			lineno?: number;
+			colno?: number;
+		}) => void;
+		openLogsFolder: () => Promise<string>;
 	};
 
 	mapCacheLoader: {

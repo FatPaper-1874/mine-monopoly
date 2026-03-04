@@ -3,9 +3,71 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import fs from "fs/promises";
+import fsSync from "fs";
 import url from "node:url";
 import { autoUpdater } from "electron-updater";
 import log from "electron-log";
+
+// --------- 错误日志处理 ---------
+
+interface LogErrorData {
+	type: "Vue" | "Promise" | "Runtime";
+	message: string;
+	stack?: string;
+	info?: string;
+	filename?: string;
+	lineno?: number;
+	colno?: number;
+}
+
+// 日志目录：在可执行文件所在目录下（安装目录，可写）
+const logsDir = path.join(path.dirname(app.getPath("exe")), "logs");
+
+// 确保日志目录存在
+async function ensureLogsDir() {
+	try {
+		await fs.mkdir(logsDir, { recursive: true });
+	} catch (err) {
+		console.error("Failed to create logs directory:", err);
+	}
+}
+
+// 格式化日志条目
+function formatLogEntry(error: LogErrorData): string {
+	const now = new Date();
+	const timestamp = now.toISOString().replace("T", " ").substring(0, 19);
+
+	let log = `[${timestamp}] [${error.type}] ${error.message}\n`;
+
+	if (error.stack) {
+		log += `Stack: ${error.stack}\n`;
+	}
+	if (error.info) {
+		log += `Info: ${error.info}\n`;
+	}
+	if (error.filename) {
+		log += `File: ${error.filename}:${error.lineno}:${error.colno}\n`;
+	}
+
+	log += "-".repeat(80) + "\n";
+	return log;
+}
+
+// 写入错误日志
+async function writeErrorLog(error: LogErrorData): Promise<string | null> {
+	const today = new Date().toISOString().substring(0, 10);
+	const logFilePath = path.join(logsDir, `error-${today}.log`);
+
+	const logEntry = formatLogEntry(error);
+
+	try {
+		await fs.appendFile(logFilePath, logEntry, "utf-8");
+		return logFilePath;
+	} catch (err) {
+		console.error("Failed to write error log:", err);
+		return null;
+	}
+}
 
 autoUpdater.logger = log;
 autoUpdater.autoDownload = false; // 关键：设为 false，防止游戏过程中自动抢网速
@@ -107,11 +169,14 @@ app.on("activate", () => {
 	}
 });
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
 	protocol.handle("local", (request) => {
 		const filePath = request.url.slice("local://".length);
 		return net.fetch(url.pathToFileURL(path.join(__dirname, filePath)).toString());
 	});
+
+	await ensureLogsDir();
+	createWindow();
 });
 
 ipcMain.on("window-minimize", () => {
@@ -204,4 +269,14 @@ ipcMain.handle("quit-and-install", () => {
 	autoUpdater.quitAndInstall();
 });
 
-app.whenReady().then(createWindow);
+// --- 错误日志 IPC 处理 ---
+ipcMain.on("log-error", (_event, error: LogErrorData) => {
+	writeErrorLog(error);
+});
+
+// 打开日志文件夹
+ipcMain.handle("open-logs-folder", async () => {
+	const { shell } = require("electron");
+	await shell.openPath(logsDir);
+	return logsDir;
+});

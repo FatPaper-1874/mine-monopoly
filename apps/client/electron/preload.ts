@@ -1,6 +1,17 @@
 import { ipcRenderer, contextBridge } from "electron";
 import { version } from "../package.json";
 
+// --------- 错误日志类型定义 ---------
+export interface LogErrorData {
+	type: "Vue" | "Promise" | "Runtime";
+	message: string;
+	stack?: string;
+	info?: string; // Vue 错误的额外信息
+	filename?: string; // Runtime 错误的文件名
+	lineno?: number; // Runtime 错误的行号
+	colno?: number; // Runtime 错误的列号
+}
+
 // --------- Expose some API to the Renderer process ---------
 contextBridge.exposeInMainWorld("electronAPI", {
 	//窗口事件相关
@@ -12,6 +23,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	getVersion: () => version,
 	onFullScreenChange: (callback: (isFull: boolean) => void) =>
 		ipcRenderer.on("fullscreen-changed", (_, isFull) => callback(isFull)),
+	//错误日志相关
+	logError: (error: LogErrorData) => ipcRenderer.send("log-error", error),
+	openLogsFolder: () => ipcRenderer.invoke("open-logs-folder"),
 });
 
 contextBridge.exposeInMainWorld("mapCacheLoader", {
