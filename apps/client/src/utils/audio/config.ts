@@ -4,10 +4,10 @@ import { AudioManagerConfig, SoundName, SoundType } from "./types";
  * 音频管理器配置
  */
 export const audioConfig: AudioManagerConfig = {
-	// 资源基础路径
-	basePath: "/assets/audio",
+	// 资源基础路径（使用相对路径兼容 file:// 协议）
+	basePath: "./assets/audio",
 	// 背景音乐路径
-	bgmPath: "/assets/audio/bgm/main.mp3",
+	bgmPath: "./assets/audio/bgm/main.mp3",
 	// 音效配置列表
 	sounds: [
 		// UI 音效
