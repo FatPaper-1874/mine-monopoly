@@ -1,7 +1,7 @@
 {
 	"appId": "YourAppID",
 	"asar": true,
-	"productName": "FatPaper-Monopoly",
+	"productName": "MineMonopoly",
 	"publish": [
 		{
 			"provider": "generic",
