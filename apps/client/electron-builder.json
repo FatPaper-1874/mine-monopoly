@@ -1,5 +1,5 @@
 {
-	"appId": "YourAppID",
+	"appId": "com.fatpaper.minemonopoly.client",
 	"asar": true,
 	"productName": "MineMonopoly",
 	"publish": [
@@ -33,7 +33,8 @@
 		"perMachine": false,
 		"allowToChangeInstallationDirectory": true,
 		"deleteAppDataOnUninstall": false,
-		"differentialPackage": true
+		"differentialPackage": false,
+		"guid": "minemonopoly-client"
 	},
 	"linux": {
 		"target": ["AppImage"],

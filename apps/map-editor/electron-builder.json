@@ -1,5 +1,5 @@
 {
-	"appId": "YourAppID",
+	"appId": "com.fatpaper.minemonopoly.mapeditor",
 	"asar": true,
 	"productName": "MineMonopoly 地图编辑器",
 	"publish": [
@@ -43,7 +43,8 @@
 		"perMachine": false,
 		"allowToChangeInstallationDirectory": true,
 		"deleteAppDataOnUninstall": false,
-		"differentialPackage": true
+		"differentialPackage": false,
+		"guid": "minemonopoly-map-editor"
 	},
 	"linux": {
 		"target": ["AppImage"],
