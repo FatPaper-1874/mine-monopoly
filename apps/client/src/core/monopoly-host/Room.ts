@@ -420,6 +420,33 @@ export class Room {
 				case WorkerCommType.GameOver:
 					this.handleGameOver();
 					break;
+				case "worker-error":
+					// 处理来自 Worker 的错误消息
+					handleWorkerError(msg.data);
+					break;
+			}
+		});
+
+		// 监听 Worker 错误事件
+		this.gameProcessWorker.addEventListener("error", (event) => {
+			console.error("[Worker Error Event]:", event);
+			FPMessage({
+				type: "error",
+				message: "游戏进程发生错误，日志已记录"
+			});
+
+			// 通过 electron API 记录错误
+			if (window.electronAPI?.logError) {
+				window.electronAPI.logError({
+					type: "Worker",
+					message: event.message || "Unknown Worker Error",
+					timestamp: new Date().toISOString(),
+					additionalData: {
+						eventType: "error",
+						filename: event.filename,
+						lineno: event.lineno
+					}
+				});
 			}
 		});
 
@@ -476,6 +503,28 @@ export class Room {
 			}
 		};
 		const handleGameStart = () => {};
+
+		// 处理来自 Worker 的错误消息
+		const handleWorkerError = (errorData: {
+			type: string;
+			message: string;
+			stack?: string;
+			info?: string;
+			timestamp?: string;
+			additionalData?: Record<string, any>;
+		}) => {
+			console.error("[GameProcess Worker Error]:", errorData);
+
+			FPMessage({
+				type: "error",
+				message: `游戏进程错误: ${errorData.message}\n日志已记录，请查看 logs 文件夹`
+			});
+
+			// 通过 electron API 记录错误
+			if (window.electronAPI?.logError) {
+				window.electronAPI.logError(errorData);
+			}
+		};
 	}
 
 	private async handleGameOver() {

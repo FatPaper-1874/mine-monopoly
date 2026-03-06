@@ -149,6 +149,9 @@ const app = createApp(App);
 
 app.use(pinia).use(router).component("font-awesome-icon", FontAwesomeIcon).directive("sound", soundDirective).mount("#app");
 
+// 初始化 console 拦截器（在开发环境中也启用）
+interceptConsole();
+
 initDeviceStatusListener();
 initSettingStore();
 
@@ -246,24 +249,83 @@ function formatErrorType(errorType: string): string {
 	return errorType;
 }
 
-// 记录错误到 Electron 日志
+// 记录错误到 Electron 日志（增强版）
 function logErrorToElectron(errorData: {
-	type: "Vue" | "Promise" | "Runtime";
+	type: "Vue" | "Promise" | "Runtime" | "Worker" | "Network" | "Console";
 	message: string;
 	stack?: string;
 	info?: string;
 	filename?: string;
 	lineno?: number;
 	colno?: number;
+	url?: string;
+	method?: string;
+	status?: number;
+	timestamp?: string;
+	additionalData?: Record<string, any>;
 }) {
 	if (window.electronAPI?.logError) {
 		window.electronAPI.logError(errorData);
 	}
 }
 
+// 记录控制台输出
+function logConsoleToElectron(level: "error" | "warn" | "info", ...args: any[]) {
+	if (window.electronAPI?.logConsole) {
+		const message = args
+			.map(arg => {
+				if (typeof arg === "object") {
+					try {
+						return JSON.stringify(arg, null, 2);
+					} catch (e) {
+						return String(arg);
+					}
+				}
+				return String(arg);
+			})
+			.join(" ");
+
+		const error = args.find(arg => arg instanceof Error);
+		window.electronAPI.logConsole({
+			level,
+			message,
+			stack: error?.stack
+		});
+	}
+}
+
+// 拦截原生 console 方法
+function interceptConsole() {
+	const originalError = console.error;
+	const originalWarn = console.warn;
+	const originalInfo = console.info;
+
+	console.error = (...args) => {
+		originalError.apply(console, args);
+		logConsoleToElectron("error", ...args);
+	};
+
+	console.warn = (...args) => {
+		originalWarn.apply(console, args);
+		logConsoleToElectron("warn", ...args);
+	};
+
+	console.info = (...args) => {
+		originalInfo.apply(console, args);
+		logConsoleToElectron("info", ...args);
+	};
+}
+
 // --- 捕获 Vue 组件内部错误 ---
 app.config.errorHandler = (err, instance, info) => {
 	console.error("[Vue Error]:", err);
+
+	// 收集组件信息
+	const componentName = instance?.$options?.name || instance?.$options?.__name || "Unknown";
+	const props = instance?.$props;
+	const route = window.location.pathname;
+	const userAgent = navigator.userAgent;
+	const screenInfo = `${screen.width}x${screen.height}`;
 
 	FPMessage({ type: "error", message: `${formatErrorType("Vue 错误")}\n${getLogLocationHint()}` });
 
@@ -271,7 +333,19 @@ app.config.errorHandler = (err, instance, info) => {
 		type: "Vue",
 		message: err instanceof Error ? err.message : String(err),
 		stack: err instanceof Error ? err.stack : undefined,
-		info
+		info,
+		timestamp: new Date().toISOString(),
+		additionalData: {
+			componentName,
+			props: props ? JSON.stringify(props, null, 2) : undefined,
+			route,
+			userAgent: userAgent.substring(0, 200),
+			screenInfo,
+			memoryUsage: performance?.memory ? {
+				usedJSHeapSize: Math.round(performance.memory.usedJSHeapSize / 1024 / 1024) + " MB",
+				totalJSHeapSize: Math.round(performance.memory.totalJSHeapSize / 1024 / 1024) + " MB"
+			} : undefined
+		}
 	});
 };
 
@@ -294,12 +368,34 @@ window.addEventListener("unhandledrejection", (event) => {
 		return;
 	}
 
+	// 收集错误上下文
+	const additionalData: Record<string, any> = {
+		route: window.location.pathname,
+		timestamp: new Date().toISOString()
+	};
+
+	// 检查是否是网络相关错误
+	if (reason?.isAxiosError) {
+		additionalData.config = {
+			url: reason.config?.url,
+			method: reason.config?.method,
+			data: reason.config?.data
+		};
+		additionalData.response = {
+			status: reason.response?.status,
+			statusText: reason.response?.statusText,
+			data: reason.response?.data
+		};
+	}
+
 	FPMessage({ type: "error", message: `${formatErrorType("异步错误")}\n${getLogLocationHint()}` });
 
 	logErrorToElectron({
 		type: "Promise",
 		message: errMessage,
-		stack: reason instanceof Error ? reason.stack : undefined
+		stack: reason instanceof Error ? reason.stack : undefined,
+		timestamp: additionalData.timestamp,
+		additionalData
 	});
 
 	event.preventDefault();
@@ -317,7 +413,12 @@ window.addEventListener("error", (event) => {
 		stack: event.error?.stack,
 		filename: event.filename,
 		lineno: event.lineno,
-		colno: event.colno
+		colno: event.colno,
+		timestamp: new Date().toISOString(),
+		additionalData: {
+			route: window.location.pathname,
+			userAgent: navigator.userAgent.substring(0, 200)
+		}
 	});
 
 	event.preventDefault();

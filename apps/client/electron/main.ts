@@ -11,62 +11,157 @@ import log from "electron-log";
 // --------- 错误日志处理 ---------
 
 interface LogErrorData {
-	type: "Vue" | "Promise" | "Runtime";
+	type: "Vue" | "Promise" | "Runtime" | "Worker" | "Network" | "Console";
 	message: string;
 	stack?: string;
 	info?: string;
 	filename?: string;
 	lineno?: number;
+	lineno?: number;
 	colno?: number;
+	url?: string;
+	method?: string;
+	status?: number;
+	timestamp?: string;
+	additionalData?: Record<string, any>;
 }
 
 // 日志目录：在可执行文件所在目录下（安装目录，可写）
 const logsDir = path.join(path.dirname(app.getPath("exe")), "logs");
 
+// 增强的日志文件路径
+const mainLogPath = path.join(logsDir, "main.log");
+const errorLogPath = path.join(logsDir, "error.log");
+
+// 日志文件健康检查
+let logFileHealthy = true;
+let lastLogCheck = 0;
+const LOG_CHECK_INTERVAL = 60000; // 每分钟检查一次
+
+// 检查日志文件是否可写
+async function checkLogFileHealth(): Promise<boolean> {
+	const now = Date.now();
+	if (now - lastLogCheck < LOG_CHECK_INTERVAL) {
+		return logFileHealthy;
+	}
+	lastLogCheck = now;
+
+	try {
+		const testPath = path.join(logsDir, ".health-check");
+		await fs.appendFile(testPath, `health-check-${now}\n`);
+		await fs.unlink(testPath);
+		logFileHealthy = true;
+		return true;
+	} catch (err) {
+		logFileHealthy = false;
+		console.error("[日志健康检查失败]:", err);
+		// 尝试重新创建日志目录
+		try {
+			await fs.mkdir(logsDir, { recursive: true });
+			logFileHealthy = true;
+		} catch (retryErr) {
+			console.error("[重建日志目录失败]:", retryErr);
+		}
+		return false;
+	}
+}
+
 // 确保日志目录存在
 async function ensureLogsDir() {
 	try {
 		await fs.mkdir(logsDir, { recursive: true });
+
+		// 初始化日志文件
+		const now = new Date().toISOString();
+		const header = `\n${"=".repeat(80)}\n应用启动: ${now}\nElectron 版本: ${process.versions.electron}\nChrome 版本: ${process.versions.chrome}\nNode 版本: ${process.versions.node}\n平台: ${process.platform}\n架构: ${process.arch}\n${"=".repeat(80)}\n\n`;
+
+		await fs.appendFile(mainLogPath, header, "utf-8");
+		await fs.appendFile(errorLogPath, header, "utf-8");
 	} catch (err) {
 		console.error("Failed to create logs directory:", err);
 	}
 }
 
-// 格式化日志条目
+// 格式化日志条目（增强版）
 function formatLogEntry(error: LogErrorData): string {
 	const now = new Date();
 	const timestamp = now.toISOString().replace("T", " ").substring(0, 19);
 
-	let log = `[${timestamp}] [${error.type}] ${error.message}\n`;
+	let log = `\n[${timestamp}] [${error.type}]\n`;
+	log += `消息: ${error.message}\n`;
+
+	if (error.info) {
+		log += `信息: ${error.info}\n`;
+	}
+
+	if (error.filename) {
+		log += `文件: ${error.filename}:${error.lineno}:${error.colno}\n`;
+	}
+
+	if (error.url) {
+		log += `URL: ${error.url}\n`;
+		if (error.method) {
+			log += `方法: ${error.method}\n`;
+		}
+		if (error.status) {
+			log += `状态码: ${error.status}\n`;
+		}
+	}
 
 	if (error.stack) {
-		log += `Stack: ${error.stack}\n`;
+		// 改进堆栈格式化
+		log += `\n堆栈跟踪:\n`;
+		const lines = error.stack.split('\n');
+		for (const line of lines) {
+			log += `  ${line}\n`;
+		}
 	}
-	if (error.info) {
-		log += `Info: ${error.info}\n`;
-	}
-	if (error.filename) {
-		log += `File: ${error.filename}:${error.lineno}:${error.colno}\n`;
+
+	if (error.additionalData) {
+		log += `\n附加数据:\n`;
+		try {
+			log += `  ${JSON.stringify(error.additionalData, null, 2)}\n`;
+		} catch (err) {
+			log += `  [无法序列化附加数据]\n`;
+		}
 	}
 
 	log += "-".repeat(80) + "\n";
 	return log;
 }
 
-// 写入错误日志
-async function writeErrorLog(error: LogErrorData): Promise<string | null> {
-	const today = new Date().toISOString().substring(0, 10);
-	const logFilePath = path.join(logsDir, `error-${today}.log`);
-
-	const logEntry = formatLogEntry(error);
+// 同时写入主日志和错误日志
+async function writeLogEntry(logEntry: string, isError: boolean = true): Promise<void> {
+	const healthOk = await checkLogFileHealth();
+	if (!healthOk) {
+		console.error("[日志系统异常] 无法写入日志文件");
+		return;
+	}
 
 	try {
-		await fs.appendFile(logFilePath, logEntry, "utf-8");
-		return logFilePath;
+		// 所有错误都写入主日志
+		await fs.appendFile(mainLogPath, logEntry, "utf-8");
+		// 错误也写入专门的错误日志
+		if (isError) {
+			await fs.appendFile(errorLogPath, logEntry, "utf-8");
+		}
 	} catch (err) {
-		console.error("Failed to write error log:", err);
-		return null;
+		console.error("[写入日志失败]:", err);
+		logFileHealthy = false;
 	}
+}
+
+// 写入错误日志（增强版）
+async function writeErrorLog(error: LogErrorData): Promise<string | null> {
+	const logEntry = formatLogEntry(error);
+
+	// 确定错误等级
+	const isError = ["Vue", "Promise", "Runtime", "Worker"].includes(error.type);
+
+	await writeLogEntry(logEntry, isError);
+
+	// 返回日志文件路径用于显示
+	return isError ? errorLogPath : mainLogPath;
 }
 
 autoUpdater.logger = log;
@@ -272,6 +367,68 @@ ipcMain.handle("quit-and-install", () => {
 // --- 错误日志 IPC 处理 ---
 ipcMain.on("log-error", (_event, error: LogErrorData) => {
 	writeErrorLog(error);
+});
+
+// 主进程未捕获异常
+process.on("uncaughtException", async (err) => {
+	console.error("[主进程未捕获异常]:", err);
+
+	await writeErrorLog({
+		type: "Runtime",
+		message: err.message,
+		stack: err.stack,
+		timestamp: new Date().toISOString(),
+		additionalData: {
+			process: "main",
+			uncaught: true
+		}
+	});
+});
+
+// 主进程未处理的 Promise 拒绝
+process.on("unhandledRejection", async (reason) => {
+	console.error("[主进程未处理的 Promise 拒绝]:", reason);
+
+	const errMessage = reason instanceof Error ? reason.message : String(reason);
+
+	await writeErrorLog({
+		type: "Promise",
+		message: errMessage,
+		stack: reason instanceof Error ? reason.stack : undefined,
+		timestamp: new Date().toISOString(),
+		additionalData: {
+			process: "main",
+			unhandledRejection: true
+		}
+	});
+});
+
+// 记录控制台输出到文件
+ipcMain.on("log-console", async (_event, data: { level: string; message: string; stack?: string }) => {
+	const timestamp = new Date().toISOString().replace("T", " ").substring(0, 19);
+	const logEntry = `[${timestamp}] [Console.${data.level}] ${data.message}\n`;
+
+	if (data.stack) {
+		const lines = data.stack.split('\n');
+		for (const line of lines) {
+			await writeLogEntry(`  ${line}\n`, false);
+		}
+	}
+});
+
+// 记录网络请求错误
+ipcMain.on("log-network", async (_event, data: { url: string; method: string; status?: number; error: string }) => {
+	await writeErrorLog({
+		type: "Network",
+		message: data.error,
+		url: data.url,
+		method: data.method,
+		status: data.status,
+		timestamp: new Date().toISOString(),
+		additionalData: {
+			process: "renderer"
+		}
+	});
 });
 
 // 打开日志文件夹

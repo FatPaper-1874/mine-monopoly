@@ -54,6 +54,83 @@ import type { Emitter } from "mitt";
 const operationListener = new OperateListener();
 let gameProcess: GameProcess | null = null;
 
+// ========== Web Worker 错误捕获 ==========
+
+// 格式化错误信息
+function formatWorkerError(error: Error | string, context?: string): string {
+	const errorMsg = error instanceof Error ? error.message : String(error);
+	let result = `[Worker Error] ${errorMsg}`;
+
+	if (context) {
+		result += `\nContext: ${context}`;
+	}
+
+	if (error instanceof Error && error.stack) {
+		result += `\nStack:\n${error.stack}`;
+	}
+
+	return result;
+}
+
+// 发送错误到主线程
+function reportWorkerError(error: Error | string, context?: string, additionalData?: Record<string, any>) {
+	const errorInfo = {
+		type: "Worker" as const,
+		message: error instanceof Error ? error.message : String(error),
+		stack: error instanceof Error ? error.stack : undefined,
+		info: context,
+		timestamp: new Date().toISOString(),
+		additionalData
+	};
+
+	// 通过 postMessage 发送到主线程
+	try {
+		self.postMessage({
+			type: "worker-error",
+			data: errorInfo
+		});
+	} catch (e) {
+		// 如果无法发送错误，至少在控制台输出
+		console.error("[Worker Error Reporting Failed]:", e);
+		console.error("[Original Error]:", errorInfo);
+	}
+}
+
+// 捕获 Worker 中的未处理错误
+self.addEventListener("error", (event) => {
+	console.error("[Worker Uncaught Error]:", event);
+
+	reportWorkerError(
+		event.error || event.message,
+		"Uncaught Exception in Worker",
+		{
+			filename: event.filename,
+			lineno: event.lineno,
+			colno: event.colno
+		}
+	);
+
+	event.preventDefault();
+});
+
+// 捕获 Worker 中的未处理 Promise 拒绝
+self.addEventListener("unhandledrejection", (event) => {
+	console.error("[Worker Unhandled Rejection]:", event.reason);
+
+	const reason = event.reason;
+	reportWorkerError(
+		reason instanceof Error ? reason : String(reason),
+		"Unhandled Promise Rejection in Worker",
+		{
+			promise: "Promise rejection"
+		}
+	);
+
+	event.preventDefault();
+});
+
+// ========== Web Worker 错误捕获结束 ==========
+
 self.postMessage(<WorkerCommMsg>{
 	type: WorkerCommType.WorkerReady,
 });
