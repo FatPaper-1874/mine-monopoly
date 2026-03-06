@@ -3,13 +3,12 @@ import * as monaco from "monaco-editor";
 import { ref, onMounted, onBeforeUnmount, nextTick, watch } from "vue";
 import loader from "@monaco-editor/loader";
 
-// 引用路径 (保持你的路径)
 import { useMapDataStore } from "@src/stores";
 
 const props = withDefaults(
 	defineProps<{
 		templateText: string;
-		extraLibs?: string[]; // 外部传入的类型 (如 UISchema)
+		extraLibs?: string[];
 		language?: "typescript" | "javascript" | "html" | string;
 	}>(),
 	{
@@ -17,53 +16,72 @@ const props = withDefaults(
 	},
 );
 
-// 双向绑定
 const code = defineModel<string>();
 
 const containerRef = ref<HTMLDivElement | null>(null);
-let editor: monaco.editor.IStandaloneCodeEditor | null = null;
-let model: monaco.editor.ITextModel | null = null;
-let resizeObserver: ResizeObserver | null = null;
-let monacoInstance: typeof monaco | null = null;
-
-// --- 资源管理 ---
-// 专门存储 extraLib 的销毁器，用于更新时清理旧库
-let libDisposables: monaco.IDisposable[] = [];
-let decorationCollection: monaco.editor.IEditorDecorationsCollection | null = null;
 const mapDataStore = useMapDataStore();
 
-// 1. 组件实例 ID：区分不同组件实例 (比如同时打开两个编辑器)
-const instanceId = Date.now();
-// 2. 库版本号：区分同一次实例中的不同更新批次 (解决缓存问题)
-let libVersion = 0;
+// =========================================================
+// 📦 全局单例：Monaco Editor 实例和类型库管理
+// =========================================================
+
+// 全局管理器（在模块级别持久化）
+interface MonacoInstance {
+	editor: monaco.editor.IStandaloneCodeEditor | null;
+	model: monaco.editor.ITextModel | null;
+	instance: typeof monaco | null;
+	extraLibs: monaco.IDisposable[];
+	containerId: string;
+}
+
+const globalMonacoState: {
+	currentInstance: MonacoInstance | null;
+} = {
+	currentInstance: null,
+};
 
 // =========================================================
-// 📚 核心功能: 动态更新类型库 (清理旧 -> 注入新)
+// 🎯 组件状态
 // =========================================================
+
+let decorationCollection: monaco.editor.IEditorDecorationsCollection | null = null;
+let resizeObserver: ResizeObserver | null = null;
+
+// 为此容器生成唯一 ID
+const containerId = `monaco-container-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+
+// =========================================================
+// 📚 类型库管理
+// =========================================================
+
 const updateLibs = () => {
-	if (!monacoInstance) return;
+	const state = globalMonacoState.currentInstance;
+	if (!state?.instance) return;
 
-	// [关键步骤 1] 清理上一次注入的所有 libs
-	// 如果不 dispose，Monaco 会把新旧代码叠加，导致 "Duplicate identifier" 错误
-	libDisposables.forEach((d) => d.dispose());
-	libDisposables = [];
-
-	// 版本号自增，生成全新的 URI，防止 Worker 缓存旧文件内容
-	libVersion++;
-
+	const monacoInstance = state.instance;
 	const tsDefaults = monacoInstance.languages.typescript.typescriptDefaults;
 
-	// [关键步骤 2] 注入外部传入的 extraLibs
+	// 1. 清理当前实例的所有旧库
+	state.extraLibs.forEach((disposable) => {
+		try {
+			disposable.dispose();
+		} catch (e) {
+			// 忽略已经 dispose 的错误
+		}
+	});
+	state.extraLibs = [];
+
+	// 2. 注入外部传入的 extraLibs（使用固定 URI）
 	if (props.extraLibs) {
 		props.extraLibs.forEach((content, index) => {
-			// 技巧：URI 包含 version，强制认为是新文件
-			const uri = `file:///extra-lib-${index}-${instanceId}-v${libVersion}.d.ts`;
+			// 使用固定的 URI，确保新的库覆盖旧的库
+			const uri = `file:///extra-lib-${index}.d.ts`;
 			const disposable = tsDefaults.addExtraLib(content, uri);
-			libDisposables.push(disposable);
+			state.extraLibs.push(disposable);
 		});
 	}
 
-	// [关键步骤 3] 注入动态 Store 变量 ($ui__xxx)
+	// 3. 注入动态 Store 变量 ($ui__xxx)
 	const uis = mapDataStore.uiTemplates || [];
 	if (uis.length > 0) {
 		const declarations = uis
@@ -86,20 +104,24 @@ const updateLibs = () => {
     export {};
   `;
 
-		const uri = `file:///dynamic-ui-types-${instanceId}-v${libVersion}.d.ts`;
+		// 使用固定的 URI
+		const uri = `file:///dynamic-ui-types.d.ts`;
 		const disposable = tsDefaults.addExtraLib(libContent, uri);
-		libDisposables.push(disposable);
+		state.extraLibs.push(disposable);
 	}
-
-	// 调试日志 (可选)
-	// console.log(`Libs Updated (v${libVersion})`, tsDefaults.getExtraLibs());
 };
 
 // =========================================================
-// 🎨 核心功能: 高亮显示 (原有逻辑)
+// 🎨 高亮显示
 // =========================================================
+
 const updateHighlights = () => {
-	if (!editor || !monacoInstance || !model) return;
+	const state = globalMonacoState.currentInstance;
+	if (!state?.editor || !state?.model || !state.instance) return;
+
+	const editor = state.editor;
+	const model = state.model;
+	const monacoInstance = state.instance;
 
 	const text = model.getValue();
 	const regex = /(\$ui__[a-zA-Z0-9_\-]+)/g;
@@ -130,14 +152,23 @@ const updateHighlights = () => {
 };
 
 // =========================================================
-// 🚀 初始化编辑器
+// 🚀 初始化/重新创建编辑器
 // =========================================================
+
 const initEditor = async () => {
-	if (editor || !containerRef.value) return;
+	// 如果已存在实例，先完全销毁
+	if (globalMonacoState.currentInstance) {
+		destroyEditor();
+	}
 
 	try {
+		// 等待容器准备好
+		await nextTick();
+		if (!containerRef.value) return;
+
+		// 初始化 Monaco
 		loader.config({ monaco });
-		monacoInstance = await loader.init();
+		const monacoInstance = await loader.init();
 
 		// 配置 TS 编译器
 		monacoInstance.languages.typescript.typescriptDefaults.setCompilerOptions({
@@ -149,16 +180,30 @@ const initEditor = async () => {
 			esModuleInterop: true,
 		});
 
-		// 初始注入类型
+		// 创建全局状态
+		globalMonacoState.currentInstance = {
+			editor: null,
+			model: null,
+			instance: monacoInstance,
+			extraLibs: [],
+			containerId,
+		};
+
+		// 注入类型库
 		updateLibs();
 
-		if (!containerRef.value) return;
+		// 创建 Model（使用唯一 URI）
+		const modelUri = monacoInstance.Uri.parse(`file:///main-${containerId}.ts`);
+		const model = monacoInstance.editor.createModel(
+			code.value || props.templateText || "",
+			props.language,
+			modelUri
+		);
 
-		// 创建 Model (使用唯一 URI)
-		const modelUri = monacoInstance.Uri.parse(`file:///main-${instanceId}.ts`);
-		model = monacoInstance.editor.createModel(code.value || props.templateText || "", props.language, modelUri);
+		globalMonacoState.currentInstance.model = model;
 
-		editor = monacoInstance.editor.create(containerRef.value, {
+		// 创建编辑器
+		const editor = monacoInstance.editor.create(containerRef.value, {
 			model: model,
 			minimap: { enabled: false },
 			wordWrap: "on",
@@ -168,9 +213,11 @@ const initEditor = async () => {
 			fontSize: 13,
 		});
 
+		globalMonacoState.currentInstance.editor = editor;
+
 		// 监听内容变化
 		editor.onDidChangeModelContent(() => {
-			const val = editor!.getValue();
+			const val = editor.getValue();
 			if (val !== code.value) {
 				code.value = val;
 			}
@@ -179,9 +226,57 @@ const initEditor = async () => {
 
 		// 初始高亮
 		updateHighlights();
+
+		// 设置 ResizeObserver
+		resizeObserver = new ResizeObserver(() => {
+			editor.layout();
+		});
+		resizeObserver.observe(containerRef.value);
 	} catch (error) {
 		console.error("Monaco Init Failed:", error);
 	}
+};
+
+const destroyEditor = () => {
+	const state = globalMonacoState.currentInstance;
+	if (!state) return;
+
+	// 1. 清理 ResizeObserver
+	if (resizeObserver) {
+		resizeObserver.disconnect();
+		resizeObserver = null;
+	}
+
+	// 2. 清理高亮
+	if (decorationCollection) {
+		decorationCollection.clear();
+		decorationCollection = null;
+	}
+
+	// 3. 清理类型库
+	state.extraLibs.forEach((disposable) => {
+		try {
+			disposable.dispose();
+		} catch (e) {
+			// 忽略
+		}
+	});
+	state.extraLibs = [];
+
+	// 4. 销毁 Model
+	if (state.model) {
+		state.model.dispose();
+		state.model = null;
+	}
+
+	// 5. 销毁编辑器
+	if (state.editor) {
+		state.editor.dispose();
+		state.editor = null;
+	}
+
+	// 清空全局状态
+	globalMonacoState.currentInstance = null;
 };
 
 // =========================================================
@@ -190,8 +285,9 @@ const initEditor = async () => {
 
 // 1. 外部代码变化 -> 同步到编辑器
 watch(code, (newValue) => {
-	if (editor && newValue !== editor.getValue()) {
-		editor.setValue(newValue || "");
+	const state = globalMonacoState.currentInstance;
+	if (state?.editor && newValue !== state.editor.getValue()) {
+		state.editor.setValue(newValue || "");
 		updateHighlights();
 	}
 });
@@ -210,7 +306,7 @@ watch(
 	() => mapDataStore.uiTemplates,
 	() => {
 		updateLibs();
-		updateHighlights(); // 变量名可能变了，高亮也要重扫
+		updateHighlights();
 	},
 	{ deep: true },
 );
@@ -219,8 +315,10 @@ watch(
 watch(
 	() => props.language,
 	(lang) => {
-		if (model && monacoInstance) {
-			monacoInstance.editor.setModelLanguage(model, lang);
+		const state = globalMonacoState.currentInstance;
+		if (state?.model && state?.instance) {
+			const monacoInstance = state.instance;
+			monacoInstance.editor.setModelLanguage(state.model, lang);
 		}
 	},
 );
@@ -230,42 +328,20 @@ watch(
 // =========================================================
 
 onMounted(async () => {
-	await nextTick();
 	await initEditor();
-
-	// Resize 逻辑
-	resizeObserver = new ResizeObserver(() => {
-		if (editor) editor.layout();
-	});
-	if (containerRef.value) resizeObserver.observe(containerRef.value);
 });
 
 onBeforeUnmount(() => {
-	resizeObserver?.disconnect();
-
-	// 1. 销毁注入的类型库
-	libDisposables.forEach((d) => d.dispose());
-
-	// 2. 销毁 Model (防止旧 Model 残留在内存，下次打开显示旧报错)
-	if (model) {
-		model.dispose();
-		model = null;
-	}
-
-	// 3. 销毁编辑器实例
-	if (editor) {
-		editor.dispose();
-		editor = null;
-	}
+	destroyEditor();
 });
 </script>
 
 <template>
-	<div ref="containerRef" id="editor"></div>
+	<div ref="containerRef" class="monaco-editor-container"></div>
 </template>
 
 <style lang="scss">
-/* 全局样式：绿色胶囊 */
+/* 全局样式：UI 组件高亮 */
 .custom-ui-token {
 	background-color: #f0f5ffd7;
 	color: #1d39c4 !important;
@@ -275,6 +351,7 @@ onBeforeUnmount(() => {
 	font-style: oblique;
 	margin: 0 1px;
 }
+
 .vs-dark .custom-ui-token {
 	background-color: #162447;
 	color: #6a85b6 !important;
@@ -283,7 +360,7 @@ onBeforeUnmount(() => {
 </style>
 
 <style lang="scss" scoped>
-#editor {
+.monaco-editor-container {
 	width: 100%;
 	height: 100%;
 	border: 1px solid #cccccc;
