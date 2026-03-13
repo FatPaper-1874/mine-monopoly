@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { toRaw } from "vue";
+import { toRaw, computed } from "vue";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import HtmlRenderer from "../ui-renderer/ui-renderer.vue";
 import { useGameData } from "@src/store/game";
@@ -8,13 +8,22 @@ interface Prop {
 	column: number;
 	itemList: Array<any>;
 	keyName: string;
-	multiple: boolean;
+	multiple: number | boolean;
 	selectedKey: string[];
 }
 
 const props = defineProps<Prop>();
 
 const emits = defineEmits(["select", "update:selectedKey"]);
+
+// 规范化 multiple 参数
+const maxSelect = computed(() => {
+	if (props.multiple === true) return 999;
+	if (props.multiple === false || props.multiple === undefined) return 1;
+	return typeof props.multiple === 'number' ? Math.max(1, props.multiple) : 1;
+});
+
+const isMultipleMode = computed(() => maxSelect.value > 1);
 
 const isItemSelected = (itemId: string): boolean => {
 	const currentList = Array.isArray(props.selectedKey) ? props.selectedKey : [];
@@ -25,11 +34,14 @@ function handleItemClick(item: any) {
 	const itemId: string = item[props.keyName];
 	let currentList = (Array.isArray(props.selectedKey) ? [...toRaw(props.selectedKey)] : []) as string[];
 
-	if (props.multiple) {
+	if (isMultipleMode.value) {
 		const index = currentList.indexOf(itemId);
 		if (index !== -1) {
 			currentList.splice(index, 1);
 		} else {
+			if (currentList.length >= maxSelect.value) {
+				return; // 达到上限，不允许继续选择
+			}
 			currentList.push(itemId);
 		}
 	} else {

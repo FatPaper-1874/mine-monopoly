@@ -6,7 +6,7 @@ interface SelectorOptions<T = any> {
 	title?: string;
 	itemList: Array<T>;
 	keyName?: keyof T;
-	multiple?: boolean;
+	multiple?: number | boolean;
 	column?: number;
 	selectedKey?: string[];
 	appContext?: AppContext;

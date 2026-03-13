@@ -35,7 +35,7 @@ apiClient.interceptors.response.use(
     if (msg && status === 200) {
       FPMessage({ type: "success", message: msg });
     }
-    return response.data;
+    return response.data as any;
   },
   // 响应拦截器 - 错误
   (error: AxiosError) => {

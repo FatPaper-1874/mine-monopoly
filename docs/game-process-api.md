@@ -348,9 +348,43 @@ showItemSelectDialog(playerId: string, option: ItemSelectDialogOption): Promise<
 **参数:**
 - `playerId`: 玩家 ID
 - `option`: 对话框选项
+  - `itemList`: 物品列表
+  - `keyName`: 作为显示名称的键名（可选，默认为 "id"）
+  - `multiple`: 多选数量限制（可选）
+    - `undefined` 或不传：单选
+    - `0` 或 `1`：单选
+    - `>=2`：最多选择指定数量的物品
+    - `true`：多选（向后兼容，等同于物品总数）
+    - `false`：单选（向后兼容）
+  - `column`: 列表列数（可选）
+  - `selectedKey`: 已选中的键列表（可选）
 
 **返回:**
 - `Promise<ItemSelectDialogResult>`: 对话框结果
+  - `selected`: 选中的物品 ID 列表
+
+**示例:**
+```typescript
+// 单选模式
+const result1 = await gameProcess.showItemSelectDialog(player.id, {
+  title: '选择一个物品',
+  itemList: items
+});
+
+// 最多选择3个
+const result2 = await gameProcess.showItemSelectDialog(player.id, {
+  title: '选择最多3个物品',
+  itemList: items,
+  multiple: 3
+});
+
+// 无限制多选
+const result3 = await gameProcess.showItemSelectDialog(player.id, {
+  title: '选择任意数量的物品',
+  itemList: items,
+  multiple: true
+});
+```
 
 ---
 

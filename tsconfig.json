@@ -12,7 +12,9 @@
 		"paths": {
 			"@G/*": ["./*"],
 			"@mine-monopoly/types": ["packages/types/index.ts"],
-			"@mine-monopoly/types/*": ["packages/types/*"]
+			"@mine-monopoly/types/*": ["packages/types/*"],
+			"@mine-monopoly/env": ["packages/env/src/browser.ts"],
+			"@mine-monopoly/utils": ["packages/utils/src/index.ts"]
 		},
 		"resolveJsonModule": true,
 

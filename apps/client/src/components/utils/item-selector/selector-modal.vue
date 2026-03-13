@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { ref, PropType } from "vue";
+import { ref, PropType, computed } from "vue";
 import FpDialog from "../fp-dialog/fp-dialog.vue";
 import ItemSelector from "./item-selector.vue";
+import HtmlRenderer from "../ui-renderer/ui-renderer.vue";
+import type { UISchema } from "@mine-monopoly/types";
 
 // 定义接收的参数
 const props = defineProps({
@@ -9,12 +11,14 @@ const props = defineProps({
 	itemList: { type: Array as PropType<any[]>, default: () => [] },
 	column: { type: Number, default: 3 },
 	keyName: { type: String, default: "id" },
-	multiple: { type: Boolean, default: false },
+	multiple: { type: [Number, Boolean] as PropType<number | boolean>, default: 1 },
 	selectedKey: { type: [String, Array] as PropType<string | string[]>, default: "" },
 	// 弹窗参数
 	title: { type: String, default: "请选择" },
 	// 用于自定义 item 显示的渲染函数 (可选)
 	renderItem: { type: Function, default: undefined },
+	// 对话框内容（字符串或 UI Schema），显示在物品列表之前（可选）
+	content: { type: [String, Object] as PropType<string | UISchema>, default: undefined },
 });
 
 const emit = defineEmits(["confirm", "cancel"]);
@@ -22,9 +26,26 @@ const emit = defineEmits(["confirm", "cancel"]);
 const visible = ref(false);
 const currentSelected = ref<string | string[]>(props.multiple ? [] : "");
 
+// 规范化为数组，用于传递给 ItemSelector
+const normalizedSelectedKey = computed(() => {
+	if (Array.isArray(currentSelected.value)) {
+		return currentSelected.value;
+	}
+	return currentSelected.value ? [currentSelected.value] : [];
+});
+
+// 规范化 multiple 参数
+const normalizedMaxSelect = computed(() => {
+	if (props.multiple === true) return 999;
+	if (props.multiple === false || props.multiple === undefined) return 1;
+	return typeof props.multiple === 'number' ? Math.max(1, props.multiple) : 1;
+});
+
+const isMultiple = computed(() => normalizedMaxSelect.value > 1);
+
 // 初始化数据
 const init = () => {
-	if (props.multiple) {
+	if (isMultiple.value) {
 		currentSelected.value = Array.isArray(props.selectedKey) ? [...props.selectedKey] : [];
 	} else {
 		currentSelected.value = props.selectedKey;
@@ -40,6 +61,10 @@ const handleSubmit = () => {
 	visible.value = false;
 };
 
+const handleSelectedKeyUpdate = (value: string[]) => {
+	currentSelected.value = isMultiple.value ? value : (value[0] || "");
+};
+
 const handleCancel = () => {
 	emit("cancel");
 	visible.value = false;
@@ -51,12 +76,20 @@ const handleCancel = () => {
 		<template #title>{{ title }}</template>
 
 		<div class="selector-container">
+			<!-- 内容区域 -->
+			<div v-if="content" class="dialog-content">
+				<html-renderer v-if="typeof content === 'object'" :schema="content" :context="{}" />
+				<div v-else class="text-content">{{ content }}</div>
+			</div>
+
+			<!-- 物品选择器 -->
 			<ItemSelector
 				:column="column"
 				:item-list="itemList"
 				:key-name="keyName"
 				:multiple="multiple"
-				v-model:selected-key="currentSelected"
+				:selected-key="normalizedSelectedKey"
+				@update:selected-key="handleSelectedKeyUpdate"
 			>
 				<template #item="itemProps">
 					<component v-if="renderItem" :is="renderItem(itemProps)" />
@@ -76,6 +109,19 @@ const handleCancel = () => {
 	overflow-y: auto;
 	padding: 10px;
 }
+
+.dialog-content {
+	margin-bottom: 1rem;
+	color: var(--color-primary);
+	text-align: center;
+}
+
+.dialog-content .text-content {
+	white-space: pre-wrap;
+	word-wrap: break-word;
+	line-height: 1.6;
+}
+
 .default-item-content {
 	padding: 20px;
 	text-align: center;

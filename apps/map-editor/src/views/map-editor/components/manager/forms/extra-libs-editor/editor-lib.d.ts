@@ -239,12 +239,21 @@ interface ItemSelectDialogOption<T = SelectorItem> extends Omit<DialogOption, "c
 	itemList: Array<T>;
 	/** 作为显示名称的键名（可选） */
 	keyName?: keyof T;
-	/** 是否支持多选（可选） */
-	multiple?: boolean;
+	/** 多选数量限制 */
+	/**
+	 * - undefined 或不传: 单选
+	 * - 0 或 1: 单选
+	 * - >=2: 最多选择指定数量的物品
+	 * - true: 多选（向后兼容，等同于物品总数）
+	 * - false: 单选（向后兼容）
+	 */
+	multiple?: number | boolean;
 	/** 列表列数（可选） */
 	column?: number;
 	/** 已选中的键列表（可选） */
 	selectedKey?: string[];
+	/** 对话框内容（字符串或 UI Schema），显示在物品列表之前（可选） */
+	content?: string | UISchema;
 }
 /**
  * 选择器项接口

@@ -10,7 +10,12 @@
 		"noEmit": true,
 		"baseUrl": "./",
 		"paths": {
-			"@src/*": ["src/*"]
+			"@src/*": ["src/*"],
+			"@mine-monopoly/types": ["../../packages/types/index.ts"],
+			"@mine-monopoly/types/*": ["../../packages/types/*"],
+			"@mine-monopoly/env": ["../../packages/env/src/browser.ts"],
+			"@mine-monopoly/ui": ["../../packages/components/src/index.ts"],
+			"@mine-monopoly/utils": ["../../packages/utils/src/index.ts"]
 		}
 	},
 	"include": ["src/**/*", "electron/**/*", "types/**/*", "env/*.d.ts"],

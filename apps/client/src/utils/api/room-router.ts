@@ -1,22 +1,25 @@
 import apiClient from "./index";
-import type { ApiResponse } from "@mine-monopoly/types";
 import { env } from "@mine-monopoly/env";
 
 export async function joinRoomApi(roomId: string) {
-	const response = await apiClient.get<
-		ApiResponse<{ hostPeerId: string; needCreate: boolean; deleteIntervalMs: number }>
-	>(`/room-router/join`, { params: { roomId } });
-	return response.data;
+	const response = await apiClient.get<{ hostPeerId: string; needCreate: boolean; deleteIntervalMs: number }>(
+		`/room-router/join`,
+		{ params: { roomId } }
+	);
+	return response;
 }
 
 export async function emitHostPeerId(
 	roomId: string,
 	hostPeerId: string,
 	hostName: string,
-	hostId: string
+	hostId: string,
 ): Promise<void> {
 	await apiClient.post("/room-router/emit-host", {
-		roomId, hostPeerId, hostName, hostId,
+		roomId,
+		hostPeerId,
+		hostName,
+		hostId,
 	});
 }
 
@@ -30,22 +33,23 @@ export function deleteRoom(roomId: string) {
 	navigator.sendBeacon(url);
 }
 
-export async function getRandomPublicRoom(): Promise<{ roomId: string }> {
-	return await apiClient.get<{ roomId: string }>("/room-router/random-public-room");
+export async function getRandomPublicRoom() {
+	const response = await apiClient.get<{ roomId: string }>("/room-router/random-public-room");
+	return response;
 }
 
-export async function setRoomPrivate(roomId: string, isPrivate: boolean): Promise<{ roomId: string; isPrivate: boolean }> {
-	const response = await apiClient.post<ApiResponse<{ roomId: string; isPrivate: boolean }>>(
-		"/room-router/set-private",
-		{ roomId, isPrivate }
-	);
-	return response.data;
+export async function setRoomPrivate(roomId: string, isPrivate: boolean) {
+	const response = await apiClient.post<{ roomId: string; isPrivate: boolean }>("/room-router/set-private", {
+		roomId,
+		isPrivate,
+	});
+	return response;
 }
 
-export async function setRoomStarted(roomId: string, isStarted: boolean): Promise<{ roomId: string; isStarted: boolean }> {
-	const response = await apiClient.post<ApiResponse<{ roomId: string; isStarted: boolean }>>(
-		"/room-router/set-started",
-		{ roomId, isStarted }
-	);
-	return response.data;
+export async function setRoomStarted(roomId: string, isStarted: boolean) {
+	const response = await apiClient.post<{ roomId: string; isStarted: boolean }>("/room-router/set-started", {
+		roomId,
+		isStarted,
+	});
+	return response;
 }

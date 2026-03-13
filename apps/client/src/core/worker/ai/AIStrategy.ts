@@ -36,10 +36,13 @@ export interface IAIStrategy {
 	selectTarget(player: IPlayer, targets: any[]): any[];
 
 	/**
-	 * 决策选择哪个物品
-	 * @returns 选中的物品对象或ID
+	 * 决策选择多个物品
+	 * @param player AI玩家
+	 * @param items 可选物品列表
+	 * @param maxCount 最大选择数量（默认为1）
+	 * @returns 选中的物品数组
 	 */
-	selectItem(player: IPlayer, items: any[]): any;
+	selectItems(player: IPlayer, items: any[], maxCount?: number): any[];
 }
 
 /**
@@ -88,13 +91,17 @@ export class SimpleAIStrategy implements IAIStrategy {
 	}
 
 	/**
-	 * 决策选择哪个物品
-	 * 简单策略：选择第一个（如果有的话），否则返回null
-	 * @returns 选中的物品对象
+	 * 决策选择多个物品
+	 * 简单策略：选择前 N 个物品
+	 * @param player AI玩家
+	 * @param items 可选物品列表
+	 * @param maxCount 最大选择数量（默认为1）
+	 * @returns 选中的物品数组
 	 */
-	selectItem(player: IPlayer, items: any[]): any {
-		if (items.length === 0) return null;
-		return items[0];
+	selectItems(player: IPlayer, items: any[], maxCount: number = 1): any[] {
+		if (items.length === 0) return [];
+		const count = Math.min(maxCount, items.length);
+		return items.slice(0, count);
 	}
 }
 
@@ -223,20 +230,20 @@ export class AIManager {
 	 * 处理物品选择对话框
 	 */
 	private handleItemSelect(player: IPlayer, dialogOption?: any): ItemSelectDialogResult {
-		const items = dialogOption?.itemList || dialogOption?.items || [];
-		const selected = this.strategy.selectItem(player, items);
+		const items = dialogOption?.itemList || [];
 
-		// ItemSelectDialogResult 的 selected 字段应该是 string[] 类型
-		let selectedIds: string[] = [];
-		if (Array.isArray(selected)) {
-			selectedIds = selected.map(item => item?.id || item);
-		} else if (selected?.id) {
-			selectedIds = [selected.id];
-		} else if (typeof selected === 'string') {
-			selectedIds = [selected];
+		// 规范化 multiple 参数
+		let maxCount = 1;
+		if (dialogOption?.multiple === true) {
+			maxCount = items.length;
+		} else if (typeof dialogOption?.multiple === 'number') {
+			maxCount = Math.max(1, dialogOption.multiple);
 		}
 
-		console.log(`[AI] ${player.name} 选择物品: ${selectedIds.join(", ") || "空"}`);
+		const selected = this.strategy.selectItems(player, items, maxCount);
+		const selectedIds = Array.isArray(selected) ? selected.map(item => item?.id || item) : [];
+
+		console.log(`[AI] ${player.name} 选择物品: ${selectedIds.join(", ") || "空"} (最多 ${maxCount} 个)`);
 		return { selected: selectedIds };
 	}
 }

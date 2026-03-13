@@ -1,6 +1,8 @@
 import { RoomMapItem } from "@/interfaces/interfaces";
-import {_axios} from "@/utils/axios";
+import { _axios } from "@/utils/axios";
+import type { ApiResponse } from "@mine-monopoly/types";
+
 export const getRoomList = async () => {
-  const roomList = (await _axios.get("/room-router/room-list")) as RoomMapItem[];
-  return roomList;
+	const res = await _axios.get<ApiResponse<RoomMapItem[]>>("/room-router/room-list");
+	return res.data;
 };

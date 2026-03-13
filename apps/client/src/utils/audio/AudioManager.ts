@@ -67,7 +67,6 @@ class AudioManager {
 	 */
 	public playSound(soundName: SoundName): boolean {
 		const sound = this.sounds.get(soundName);
-		console.log("🚀 ~ AudioManager ~ playSound ~ sound:", sound)
 		if (!sound) {
 			console.warn(`[AudioManager] 音效 "${soundName}" 不存在`);
 			return false;

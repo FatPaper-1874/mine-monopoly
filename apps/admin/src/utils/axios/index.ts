@@ -58,7 +58,7 @@ _axios.interceptors.response.use(
 			// 	});
 			// }
 		}
-		return response.data.data;
+		return response.data;
 	},
 	function (error) {
 		const res = error.response;

@@ -78,7 +78,8 @@ export class MonopolyClient {
 
 	public async joinRoom(roomId: string) {
 		try {
-			const data = await joinRoomApi(roomId);
+			const res = await joinRoomApi(roomId);
+			const data = res.data;
 			const userStore = useUserInfo();
 			let hostPeerId = data.hostPeerId;
 
