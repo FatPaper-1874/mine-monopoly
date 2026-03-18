@@ -57,9 +57,10 @@ export class Player implements IPlayer {
 		initPositionIndex: number,
 		roundPhasesInfo: GamePhaseInfo[],
 		role: Role,
+		extraLibs?: string,
 	) {
 		this.roundPhases = roundPhasesInfo.map((roundPhaseInfo) => {
-			return new GamePhase(roundPhaseInfo);
+			return new GamePhase(roundPhaseInfo, undefined, extraLibs);
 		});
 		this.user = user;
 		this.id = user.userId;
@@ -110,7 +111,8 @@ export class Player implements IPlayer {
 		this.commandBus = new CommandBus<PlayerCommandMap>(this.modifierManager);
 		this.initCommandBus();
 
-		const codeCompiled = compileTsToJs(role.initCode, GameProcessTypes);
+		const fullTypes = extraLibs ? `${GameProcessTypes}\n${extraLibs}` : GameProcessTypes;
+		const codeCompiled = compileTsToJs(role.initCode, fullTypes);
 		this.roleInitFunction = new Function(codeCompiled)();
 	}
 

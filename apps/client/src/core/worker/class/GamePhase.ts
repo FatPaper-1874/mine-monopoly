@@ -21,7 +21,7 @@ export class GamePhase implements IGamePhase<GameContext> {
 
 	public eventQueue: GameEvent<GameContext>[] = [];
 
-	constructor(gamePhaseInfo: GamePhaseInfo, eventKey?: string) {
+	constructor(gamePhaseInfo: GamePhaseInfo, eventKey?: string, extraLibs?: string) {
 		this.id = gamePhaseInfo.id;
 		this.name = gamePhaseInfo.name;
 		this.description = gamePhaseInfo.description;
@@ -29,7 +29,8 @@ export class GamePhase implements IGamePhase<GameContext> {
 		this.from = gamePhaseInfo.from;
 		this.initEventCode = gamePhaseInfo.initEventCode;
 		this.eventKey = eventKey;
-		const codeCompiled = compileTsToJs(this.initEventCode, GameProcessTypes);
+		const fullTypes = extraLibs ? `${GameProcessTypes}\n${extraLibs}` : GameProcessTypes;
+		const codeCompiled = compileTsToJs(this.initEventCode, fullTypes);
 		const gameEventGenerator = new Function(codeCompiled);
 		const gameEvent: GameEvent<GameContext> = {
 			fn: gameEventGenerator(),

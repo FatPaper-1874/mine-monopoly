@@ -202,6 +202,9 @@ export class GameProcess implements IGameProcess {
 
 	public currentMultiplier: number = 1;
 
+	// 完整的类型定义（包含 GameProcessTypes 和 extraLibs）
+	private fullTypes: string = "";
+
 	public gameOverRuleFunction = async () => {
 		return false;
 	};
@@ -213,6 +216,9 @@ export class GameProcess implements IGameProcess {
 
 		console.dir(gameSetting);
 		console.dir(gameSetting.initMoney.value);
+
+		// 组合完整的类型定义（包含 GameProcessTypes 和 extraLibs）
+		this.fullTypes = `${GameProcessTypes}\n${mapData.extraLibs || ""}`;
 
 		// 绑定倒计时广播到 OperateListener
 		operationListener.setGlobalTickCallback((timeouts) => {
@@ -254,8 +260,8 @@ export class GameProcess implements IGameProcess {
 
 		this.preprocessingEffectCode();
 		this.gameRoundPhase = {
-			roundStartPhase: mapData.phases.gameRoundStart.map((phaseInfo) => new GamePhase(phaseInfo)),
-			roundEndPhase: mapData.phases.gameRoundEnd.map((phaseInfo) => new GamePhase(phaseInfo)),
+			roundStartPhase: mapData.phases.gameRoundStart.map((phaseInfo) => new GamePhase(phaseInfo, undefined, mapData.extraLibs)),
+			roundEndPhase: mapData.phases.gameRoundEnd.map((phaseInfo) => new GamePhase(phaseInfo, undefined, mapData.extraLibs)),
 		};
 		this.initGameOverRuleFunction();
 		this.initMap();
@@ -320,7 +326,7 @@ export class GameProcess implements IGameProcess {
 	private initGameOverRuleFunction() {
 		const { phases } = this.mapData;
 		const gameOverRule = phases.gameOverRule;
-		const compiledCode = compileTsToJs(gameOverRule[0].initEventCode, GameProcessTypes);
+		const compiledCode = compileTsToJs(gameOverRule[0].initEventCode, this.fullTypes);
 		this.gameOverRuleFunction = new Function(compiledCode)() as () => Promise<boolean>;
 	}
 
@@ -328,7 +334,7 @@ export class GameProcess implements IGameProcess {
 		const { mapItems, mapEvents, chanceCards } = this.mapData;
 
 		mapEvents.forEach((mapEvent) => {
-			const effectCode = compileTsToJs(mapEvent.effectCode, GameProcessTypes);
+			const effectCode = compileTsToJs(mapEvent.effectCode, this.fullTypes);
 			this.mapEvents.set(mapEvent.id, {
 				...mapEvent,
 				effectCode,
@@ -365,7 +371,7 @@ export class GameProcess implements IGameProcess {
 		mapItems.forEach((mapItem) => {
 			if (mapItem.property) {
 				const property = mapItem.property;
-				this.properties.set(property.id, new Property(property));
+				this.properties.set(property.id, new Property(property, this.mapData.extraLibs));
 			}
 			this.mapItems.set(mapItem.id, mapItem);
 		});
@@ -373,7 +379,7 @@ export class GameProcess implements IGameProcess {
 		chanceCards.forEach((chanceCard) => {
 			this.chanceCardInfos.set(chanceCard.id, {
 				...chanceCard,
-				effectCode: compileTsToJs(chanceCard.effectCode, GameProcessTypes),
+				effectCode: compileTsToJs(chanceCard.effectCode, this.fullTypes),
 			});
 		});
 	}
@@ -383,7 +389,7 @@ export class GameProcess implements IGameProcess {
 		this.userList.forEach((u) => {
 			const role = this.mapData.roles.find((r) => r.id === u.roleId);
 			if (!role) throw Error("找不到对应角色");
-			const player = new Player(u, this.gameSetting.initMoney.value || 10000, 0, this.mapData.phases.playerRound, role);
+			const player = new Player(u, this.gameSetting.initMoney.value || 10000, 0, this.mapData.phases.playerRound, role, this.mapData.extraLibs);
 			player.setPositionIndex(0);
 			this.players.set(player.id, player);
 
@@ -496,7 +502,7 @@ export class GameProcess implements IGameProcess {
 
 		// 步骤2: 运行玩家预初始化阶段（在 initRoleFn 之前）
 		for (const phaseInfo of this.mapData.phases.playerPreInit) {
-			const playerPreInitPhase = new GamePhase(phaseInfo);
+			const playerPreInitPhase = new GamePhase(phaseInfo, undefined, this.mapData.extraLibs);
 			await this.runGamePhase(playerPreInitPhase);
 		}
 
@@ -582,7 +588,7 @@ export class GameProcess implements IGameProcess {
 
 		// 步骤2: 运行地皮预初始化阶段（在 customInitFn 之前）
 		for (const phaseInfo of this.mapData.phases.propertyPreInit) {
-			const propertyPreInitPhase = new GamePhase(phaseInfo);
+			const propertyPreInitPhase = new GamePhase(phaseInfo, undefined, this.mapData.extraLibs);
 			await this.runGamePhase(propertyPreInitPhase);
 		}
 
@@ -595,7 +601,7 @@ export class GameProcess implements IGameProcess {
 
 	private async runInitedPhase() {
 		for (const phaseInfo of this.mapData.phases.gameInited) {
-			const gameInitedPhase = new GamePhase(phaseInfo);
+			const gameInitedPhase = new GamePhase(phaseInfo, undefined, this.mapData.extraLibs);
 			await this.runGamePhase(gameInitedPhase);
 		}
 	}

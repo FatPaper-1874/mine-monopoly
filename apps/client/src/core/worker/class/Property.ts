@@ -35,7 +35,7 @@ export class Property implements IProperty {
 
 	private customPropertyInitFunction: ((property: IProperty, gameProcess: IGameProcess) => void) | undefined;
 
-	constructor(property: PropertyInfo) {
+	constructor(property: PropertyInfo, extraLibs?: string) {
 		this.id = property.id;
 		this.name = property.name;
 		this.level = 0;
@@ -55,7 +55,8 @@ export class Property implements IProperty {
 		this.initCommandBus();
 
 		if (property.custom) {
-			const codeCompiled = compileTsToJs(property.custom.effectCode, GameProcessTypes);
+			const fullTypes = extraLibs ? `${GameProcessTypes}\n${extraLibs}` : GameProcessTypes;
+			const codeCompiled = compileTsToJs(property.custom.effectCode, fullTypes);
 			this.customPropertyInitFunction = new Function(codeCompiled)();
 		}
 	}
