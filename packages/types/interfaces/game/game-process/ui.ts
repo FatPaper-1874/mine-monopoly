@@ -63,39 +63,52 @@ export interface TargetSelectResult {
 
 /**
  * 确认对话框选项接口
- * @template I - 输入选项数组类型
  */
 // 确认Dialog
-export interface ConfirmDialogOption<I extends readonly InputOptionItem<string, any>[]> extends DialogOption {
-	/** 输入选项列表（可选） */
-	inputOptions?: I;
-}
-
-/**
- * 输入选项项接口
- * @template K - 键类型
- * @template D - 数据类型
- */
-export type InputOptionItem<K extends string, D> = {
-	/** 选项键 */
-	key: K;
-
-	/** 选项标签 */
-	label: string;
-
-	/** 初始数据 */
-	initData: D;
-};
+export interface ConfirmDialogOption extends DialogOption {}
 
 /**
  * 确认对话框结果接口
- * @template I - 输入选项数组类型
  */
-export type ConfirmDialogResult<I extends readonly InputOptionItem<string, any>[]> = {
+export type ConfirmDialogResult = {
 	/** 确认状态 */
 	confirm: boolean;
+};
+
+/**
+ * 表单项接口
+ * @template K - 字段键类型
+ * @template D - 字段数据类型
+ */
+export interface FormField<K extends string, D> {
+	/** 字段键 */
+	key: K;
+
+	/** 字段标签 */
+	label: string;
+
+	/** 默认值 */
+	defaultValue: D;
+}
+
+/**
+ * 表单对话框选项接口
+ * @template F - 表单字段数组类型
+ */
+export interface FormDialogOption<F extends readonly FormField<string, any>[]> extends DialogOption {
+	/** 表单字段列表 */
+	fields: F;
+}
+
+/**
+ * 表单对话框结果接口
+ * @template F - 表单字段数组类型
+ */
+export type FormDialogResult<F extends readonly FormField<string, any>[]> = {
+	/** 提交状态（true=提交，false=取消） */
+	submitted: boolean;
 } & {
-	[K in I[number]["key"]]: Extract<I[number], { key: K }>["initData"];
+	[K in F[number]["key"]]: Extract<F[number], { key: K }>["defaultValue"];
 };
 
 /**

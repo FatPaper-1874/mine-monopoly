@@ -9,6 +9,9 @@ import {
 	ServerSocketMessage,
 	SocketMessage,
 	SocketMsgType,
+	FormField,
+	UISchema,
+	FormSchema,
 } from "@mine-monopoly/types";
 import {
 	useChat,
@@ -126,6 +129,9 @@ export function handleServerSocketMessage(msg: ServerSocketMessage, client: Mono
 			break;
 		case SocketMsgType.ConfirmDialog:
 			handleConfirmDialog(msg, client);
+			break;
+		case SocketMsgType.FormDialog:
+			handleFormDialog(msg, client);
 			break;
 		case SocketMsgType.TargetSelectDialog:
 			handleTargetSelect(msg, client);
@@ -405,7 +411,7 @@ const handleConfirmDialog: ServerMessageHandler<SocketMsgType.ConfirmDialog> = (
 				source: SocketMsgSource.Client,
 				data: {
 					operateType: OperateType.ConfirmDialogResult,
-					data: { id: data.playerId, confirm: true, data: undefined },
+					data: { id: data.playerId, confirm: true },
 				},
 			});
 		})
@@ -415,7 +421,61 @@ const handleConfirmDialog: ServerMessageHandler<SocketMsgType.ConfirmDialog> = (
 				source: SocketMsgSource.Client,
 				data: {
 					operateType: OperateType.ConfirmDialogResult,
-					data: { id: data.playerId, confirm: false, data: undefined },
+					data: { id: data.playerId, confirm: false },
+				},
+			});
+		});
+};
+
+const handleFormDialog: ServerMessageHandler<SocketMsgType.FormDialog> = (msg, client) => {
+	const data = msg.data;
+
+	// 将 FormDialogOption 转换为 FormSchema 格式
+	const formSchema: FormSchema[] = data.option.fields.map((field) => ({
+		id: crypto.randomUUID(),
+		key: field.key,
+		type: typeof field.defaultValue === "number" ? "number-input" : "select",
+		label: field.label,
+		defaultValue: field.defaultValue,
+	}));
+
+	// 显示表单对话框，同时显示 content 和表单
+	FPMessageBox({
+		title: data.option.title,
+		content: data.option.content,
+		form: formSchema,
+		confirmText: data.option.confirmText || "提交",
+		cancelText: data.option.cancelText || "取消",
+	})
+		.then((formData) => {
+			// 用户提交，formData 包含表单数据
+			client.sendMsg({
+				type: SocketMsgType.Operation,
+				source: SocketMsgSource.Client,
+				data: {
+					operateType: OperateType.FormDialogResult,
+					data: {
+						id: data.playerId,
+						submitted: true,
+						...formData,
+					},
+				},
+			});
+		})
+		.catch(() => {
+			// 用户取消，发送默认值
+			const defaultData = buildDefaultFormData(data.option.fields);
+
+			client.sendMsg({
+				type: SocketMsgType.Operation,
+				source: SocketMsgSource.Client,
+				data: {
+					operateType: OperateType.FormDialogResult,
+					data: {
+						id: data.playerId,
+						submitted: false,
+						...defaultData,
+					},
 				},
 			});
 		});
@@ -475,3 +535,11 @@ const handleMessageCardDialog: ServerMessageHandler<SocketMsgType.MessageCard> =
 	const data = msg.data;
 	FPMessageCard(data.option);
 };
+
+function buildDefaultFormData(fields: FormField<string, any>[]): Record<string, any> {
+	const result: Record<string, any> = {};
+	for (const field of fields) {
+		result[field.key] = field.defaultValue;
+	}
+	return result;
+}

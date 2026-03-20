@@ -40,6 +40,8 @@ export const enum SocketMsgType {
 	ItemSelectDialog = "ItemSelectDialog", //在客户端唤起自定义选择dialog
 	MessageCard = "MessageCard", //在客户端唤起信息无交互的dialog
 	UI = "UI", //在客户端增添UI
+	/** 表单对话框 */
+	FormDialog = "FormDialog",
 }
 
 export enum SocketMsgSource {

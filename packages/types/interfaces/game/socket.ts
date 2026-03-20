@@ -4,9 +4,11 @@ import { OperateType } from "../../enums/game/game-process";
 import { GameMapInDb } from "./db";
 import {
 	ConfirmDialogOption,
+	FormDialogOption,
+	FormField,
+	FormDialogResult,
 	GameData,
 	GameSetting,
-	InputOptionItem,
 	ItemSelectDialogOption,
 	ItemSelectDialogResult,
 	MessageCardOption,
@@ -556,7 +558,7 @@ export interface SocketMessageDataType {
 			/** 玩家 ID */
 			playerId: string;
 			/** 对话框选项 */
-			option: ConfirmDialogOption<InputOptionItem<string, any>[]>;
+			option: ConfirmDialogOption;
 		};
 	};
 
@@ -603,6 +605,22 @@ export interface SocketMessageDataType {
 		server: {
 			/** 消息卡片选项 */
 			option: MessageCardOption;
+		};
+	};
+
+	/**
+	 * 表单对话框
+	 * 服务器向客户端显示表单对话框
+	 */
+	[SocketMsgType.FormDialog]: {
+		/** 客户端发送的数据（不支持） */
+		client: undefined;
+		/** 服务器发送的表单对话框选项 */
+		server: {
+			/** 玩家 ID */
+			playerId: string;
+			/** 表单对话框选项 */
+			option: FormDialogOption<FormField<string, any>[]>;
 		};
 	};
 
@@ -740,8 +758,6 @@ export interface PlayerOperationResult {
 		id: string;
 		/** 是否确认 */
 		confirm: boolean;
-		/** 对话框数据 */
-		data: any;
 	};
 
 	/** 目标选择对话框结果 */
@@ -749,4 +765,7 @@ export interface PlayerOperationResult {
 
 	/** 物品选择对话框结果 */
 	[OperateType.ItemSelectDialogResult]: ItemSelectDialogResult;
+
+	/** 表单对话框结果 */
+	[OperateType.FormDialogResult]: FormDialogResult<FormField<string, any>[]>;
 }

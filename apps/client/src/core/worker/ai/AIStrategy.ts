@@ -160,6 +160,10 @@ export class AIManager {
 				// 处理物品选择对话框
 				return this.handleItemSelect(player, dialogOption) as PlayerOperationResult[T];
 
+			case OperateType.FormDialogResult:
+				// 处理表单对话框
+				return this.handleFormDialog(player, dialogOption) as PlayerOperationResult[T];
+
 			case OperateType.UseChanceCard:
 				// 处理使用机会卡
 				const shouldUse = this.strategy.shouldUseChanceCard(player);
@@ -175,35 +179,27 @@ export class AIManager {
 	/**
 	 * 处理确认对话框（购买/升级）
 	 */
-	private handleConfirmDialog(player: IPlayer, dialogOption?: any): ConfirmDialogResult<any> {
+	private handleConfirmDialog(player: IPlayer, dialogOption?: any): ConfirmDialogResult {
 		const title = dialogOption?.title || "";
-		const inputOptions = dialogOption?.inputOptions || [];
 
-		// 构建返回结果：包含 confirm 和所有 inputOptions 的字段
-		const result: any = { confirm: false };
-
-		// 处理 inputOptions 中的每个字段
-		for (const option of inputOptions) {
-			if (option.key && option.initData !== undefined) {
-				result[option.key] = option.initData;
-			}
-		}
+		// 构建返回结果
+		let confirm = false;
 
 		if (title.includes("购买")) {
 			const shouldBuy = this.strategy.shouldBuyProperty(player, dialogOption.property);
 			console.log(`[AI] ${player.name} ${shouldBuy ? "购买" : "不购买"} ${dialogOption.property?.name || ""}`);
-			result.confirm = shouldBuy;
+			confirm = shouldBuy;
 		} else if (title.includes("升级")) {
 			const shouldUpgrade = this.strategy.shouldUpgradeProperty(player, dialogOption.property);
 			console.log(`[AI] ${player.name} ${shouldUpgrade ? "升级" : "不升级"} ${dialogOption.property?.name || ""}`);
-			result.confirm = shouldUpgrade;
+			confirm = shouldUpgrade;
 		} else {
 			// 默认拒绝
 			console.log(`[AI] ${player.name} 拒绝确认: ${title}`);
-			result.confirm = false;
+			confirm = false;
 		}
 
-		return result;
+		return { confirm };
 	}
 
 	/**
@@ -245,6 +241,45 @@ export class AIManager {
 
 		console.log(`[AI] ${player.name} 选择物品: ${selectedIds.join(", ") || "空"} (最多 ${maxCount} 个)`);
 		return { selected: selectedIds };
+	}
+
+	/**
+	 * 处理表单对话框
+	 */
+	private handleFormDialog(player: IPlayer, dialogOption?: any): FormDialogResult<any> {
+		const title = dialogOption?.title || "";
+		const fields = dialogOption?.fields || [];
+
+		// 构建返回结果：包含 submitted 和所有 fields 的字段
+		const result: any = { submitted: false };
+
+		// 处理 fields 中的每个字段
+		for (const field of fields) {
+			if (field.key && field.defaultValue !== undefined) {
+				// AI 可以根据策略调整默认值
+				result[field.key] = field.defaultValue; // 简化实现，直接使用默认值
+			}
+		}
+
+		// 根据标题和策略决定是否提交（简化实现）
+		result.submitted = this.shouldSubmitForm(title, dialogOption);
+
+		const fieldsInfo = fields.map((f: any) => `${f.key}=${result[f.key]}`).join(", ");
+		console.log(`[AI] ${player.name} 表单对话框 "${title}": ${result.submitted ? "提交" : "取消"} (字段: ${fieldsInfo})`);
+
+		return result;
+	}
+
+	/**
+	 * AI 决定是否提交表单
+	 */
+	private shouldSubmitForm(title: string, dialogOption?: any): boolean {
+		// 简化实现：根据标题关键词决策
+		if (title.includes("购买")) {
+			return this.strategy.shouldBuyProperty?.(dialogOption?.property) ?? false;
+		}
+		// 默认不提交
+		return false;
 	}
 }
 

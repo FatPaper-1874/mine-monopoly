@@ -25,4 +25,6 @@ export enum OperateType {
 	ConfirmDialogResult = "ConfirmDialogResult", //由服务端主机调起的dialog的结果返回
 	TargetSelectDialogResult = "TargetSelectDialogResult", //由服务端主机调起的dialog的结果返回
 	ItemSelectDialogResult = "ItemSelectDialogResult", //由服务端主机调起的dialog的结果返回
+	/** 表单对话框结果 */
+	FormDialogResult = "FormDialogResult",
 }

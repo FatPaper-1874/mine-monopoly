@@ -15,7 +15,6 @@ import {
 	GameSetting,
 	IGamePhase,
 	IGameProcess,
-	InputOptionItem,
 	IPlayer,
 	IProperty,
 	MapEvent,
@@ -36,6 +35,9 @@ import {
 	GameRuntimeEvent,
 	RuntimeMapEvent,
 	MapEventType,
+	FormDialogOption,
+	FormDialogResult,
+	FormField,
 } from "@mine-monopoly/types";
 
 import { Player } from "./class/Player";
@@ -998,16 +1000,16 @@ export class GameProcess implements IGameProcess {
 		this.gameBroadcast(msg);
 	}
 
-	public async showConfirmDialog<I extends InputOptionItem<string, any>[]>(
+	public async showConfirmDialog(
 		playerId: string,
-		option: ConfirmDialogOption<I>,
-		config?: { timeout?: number; defaultValue?: ConfirmDialogResult<I> },
-	): Promise<ConfirmDialogResult<I>> {
+		option: ConfirmDialogOption,
+		config?: { timeout?: number; defaultValue?: ConfirmDialogResult },
+	): Promise<ConfirmDialogResult> {
 		const player = this.players.get(playerId);
 
 		// 如果玩家是AI托管，直接返回决策，不显示对话框
 		if (player?.isAI) {
-			return (await aiManager.makeDecision(player, OperateType.ConfirmDialogResult, option)) as ConfirmDialogResult<I>;
+			return (await aiManager.makeDecision(player, OperateType.ConfirmDialogResult, option)) as ConfirmDialogResult;
 		}
 
 		// 真实玩家，显示对话框
@@ -1023,8 +1025,8 @@ export class GameProcess implements IGameProcess {
 		// 使用带超时的方法
 		return (await operationListener.onceAsyncWithTimeout(playerId, OperateType.ConfirmDialogResult, {
 			timeout: config?.timeout,
-			defaultValue: config?.defaultValue ?? ({ id: playerId, confirm: false, data: undefined } as any),
-		})) as ConfirmDialogResult<I>;
+			defaultValue: config?.defaultValue ?? { confirm: false },
+		})) as ConfirmDialogResult;
 	}
 
 	public async showTargetSelectDialog<I extends TargetSelectType>(
@@ -1089,6 +1091,59 @@ export class GameProcess implements IGameProcess {
 			timeout: config?.timeout,
 			defaultValue: config?.defaultValue ?? { selected: [] },
 		})) as ItemSelectDialogResult;
+	}
+
+	/**
+	 * 显示表单对话框
+	 * @param playerId - 玩家 ID
+	 * @param option - 表单对话框选项
+	 * @param config - 配置选项（超时时间和默认值）
+	 * @returns 表单对话框结果
+	 */
+	public async showFormDialog<F extends FormField<string, any>[]>(
+		playerId: string,
+		option: FormDialogOption<F>,
+		config?: { timeout?: number; defaultValue?: FormDialogResult<F> },
+	): Promise<FormDialogResult<F>> {
+		const player = this.players.get(playerId);
+
+		// 如果玩家是 AI 托管，直接返回决策，不显示对话框
+		if (player?.isAI) {
+			return (await aiManager.makeDecision(
+				player,
+				OperateType.FormDialogResult,
+				option,
+			)) as FormDialogResult<F>;
+		}
+
+		// 真实玩家，显示表单对话框
+		sendToUsers([playerId], {
+			type: SocketMsgType.FormDialog,
+			source: SocketMsgSource.Server,
+			data: {
+				playerId,
+				option,
+			},
+		});
+
+		// 使用带超时的方法等待响应
+		return (await operationListener.onceAsyncWithTimeout(playerId, OperateType.FormDialogResult, {
+			timeout: config?.timeout,
+			defaultValue: config?.defaultValue ?? this.buildDefaultFormResult(option.fields),
+		})) as FormDialogResult<F>;
+	}
+
+	/**
+	 * 构建表单默认结果
+	 */
+	private buildDefaultFormResult<F extends FormField<string, any>[]>(
+		fields: F,
+	): FormDialogResult<F> {
+		const result: any = { submitted: false };
+		for (const field of fields) {
+			result[field.key] = field.defaultValue;
+		}
+		return result;
 	}
 
 	public async showMessageCard(playerIds: string[], option: MessageCardOption): Promise<void> {

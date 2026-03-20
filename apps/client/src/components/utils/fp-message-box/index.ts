@@ -1,19 +1,21 @@
 import { createVNode, render, type AppContext, type VNode, getCurrentInstance } from "vue";
 import FPMessageBoxVue from "./fp-message-box.vue";
 import useEventBus from "@src/utils/event-bus"; // 假设你还需要它
-import { GameEventType, UISchema } from "@mine-monopoly/types"; // 假设你还需要它
+import { GameEventType, UISchema, FormSchema } from "@mine-monopoly/types"; // 假设你还需要它
 
 export interface MessageBoxOptions {
 	title?: string;
 	content?: string | VNode | (() => VNode) | UISchema;
+	form?: FormSchema[];
 	confirmText?: string;
 	cancelText?: string;
 	appContext?: AppContext;
+	showCancel?: boolean;
 	[key: string]: any;
 }
 
 export function FPMessageBox(options: MessageBoxOptions) {
-	return new Promise<void>((resolve, reject) => {
+	return new Promise<any>((resolve, reject) => {
 		// 1. 创建一个容器（虚拟的挂载点）
 		// 注意：因为 fp-dialog 内部使用了 <Teleport to="body">，
 		// 所以这个 container 实际上只是用来承载 FPMessageBoxVue 实例的逻辑，
@@ -29,8 +31,8 @@ export function FPMessageBox(options: MessageBoxOptions) {
 			}, 350);
 		};
 
-		const handleConfirm = () => {
-			resolve();
+		const handleConfirm = (formData?: any) => {
+			resolve(formData); // 修改为传递表单数据
 			destroy();
 		};
 

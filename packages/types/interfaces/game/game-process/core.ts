@@ -9,12 +9,14 @@ import { IGameRuntimeStack, GameContext, GameEvent, GameRuntimeEvent } from "./e
 import {
 	ConfirmDialogOption,
 	ConfirmDialogResult,
-	InputOptionItem,
 	ItemSelectDialogOption,
 	ItemSelectDialogResult,
 	MessageCardOption,
 	TargetSelectDialogOption,
 	TargetSelectDialogResult,
+	FormDialogOption,
+	FormDialogResult,
+	FormField,
 } from "./ui"; // 引用 ui
 import type { Emitter } from "mitt";
 
@@ -267,11 +269,24 @@ export interface IGameProcess extends IGameProcessCustomFields {
 	 * @param config - 配置选项（超时时间和默认值）
 	 * @returns 对话框结果
 	 */
-	showConfirmDialog<I extends InputOptionItem<string, any>[]>(
+	showConfirmDialog(
 		playerId: string,
-		option: ConfirmDialogOption<I>,
-		config?: { timeout?: number; defaultValue?: ConfirmDialogResult<I> }
-	): Promise<ConfirmDialogResult<I>>;
+		option: ConfirmDialogOption,
+		config?: { timeout?: number; defaultValue?: ConfirmDialogResult }
+	): Promise<ConfirmDialogResult>;
+
+	/**
+	 * 显示表单对话框
+	 * @param playerId - 玩家 ID
+	 * @param option - 表单对话框选项
+	 * @param config - 配置选项（超时时间和默认值）
+	 * @returns 表单对话框结果
+	 */
+	showFormDialog<F extends FormField<string, any>[]>(
+		playerId: string,
+		option: FormDialogOption<F>,
+		config?: { timeout?: number; defaultValue?: FormDialogResult<F> }
+	): Promise<FormDialogResult<F>>;
 
 	/**
 	 * 显示目标选择对话框

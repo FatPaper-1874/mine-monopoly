@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { ref, VNode, isVNode } from "vue";
 import FpDialog from "../fp-dialog/fp-dialog.vue";
-import { UISchema } from "@mine-monopoly/types";
+import { UISchema, FormSchema } from "@mine-monopoly/types";
 import UiRenderer from "../ui-renderer/ui-renderer.vue";
+import CustomForm from "../custom-form/index.vue";
 import { useGameData } from "@src/store/game";
 
 export interface Props {
 	title?: string;
-	content?: string | VNode | UISchema;
+	content?: string | VNode | (() => VNode) | UISchema;
+	form?: FormSchema[];
 	confirmText?: string;
 	cancelText?: string;
 	showCancel?: boolean;
@@ -19,7 +21,18 @@ const props = withDefaults(defineProps<Props>(), {
 	cancelText: "",
 });
 
-const emits = defineEmits(["confirm", "cancel", "close"]);
+const emits = defineEmits<{
+	confirm: [data?: any]; // 修改为支持传递数据
+	cancel: [];
+	close: [];
+}>();
+
+const formData = ref<Record<string, any>>({}); // 存储表单数据
+
+// 监听表单数据变化（由 UiRenderer 或 CustomForm 触发）
+const handleFormChange = (data: Record<string, any>) => {
+	formData.value = data;
+};
 
 const visible = ref(false);
 
@@ -30,7 +43,12 @@ const open = () => {
 defineExpose({ open });
 
 const handleConfirm = () => {
-	emits("confirm");
+	// 检查是否有表单数据
+	// 优先检查 props.form，其次检查 props.content 是否为 UISchema
+	const hasForm = props.form || (props.content && typeof props.content === "object" && "type" in props.content);
+	const dataToSubmit = hasForm ? formData.value : undefined;
+
+	emits("confirm", dataToSubmit);
 	visible.value = false;
 };
 
@@ -54,9 +72,23 @@ const handleDialogClose = () => {
 		@cancel="handleDialogClose"
 	>
 		<div class="message-content">
+			<!-- 渲染 content -->
 			<component v-if="isVNode(content)" :is="content" />
 			<div v-else-if="typeof content === 'string'" v-html="content"></div>
-			<UiRenderer v-else :context="useGameData().$state" :schema="content as UISchema" />
+			<UiRenderer
+				v-else-if="content && typeof content === 'object' && 'type' in content"
+				:context="useGameData().$state"
+				:schema="content as UISchema"
+				@update:model-value="handleFormChange"
+			/>
+
+			<!-- 渲染 form（如果有） -->
+			<CustomForm
+				v-if="form"
+				:schema="form"
+				:submit-text="undefined"
+				@update:model-value="handleFormChange"
+			/>
 		</div>
 
 		<div class="message-footer">

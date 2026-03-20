@@ -27,6 +27,7 @@ type SubmitPayload = Record<
 
 const emit = defineEmits<{
 	(e: "submit", payload: SubmitPayload): void;
+	(e: "update:modelValue", data: Record<string, any>): void;
 }>();
 
 const formData = ref<Record<string, any>>({});
@@ -56,6 +57,11 @@ const initData = () => {
 // [修改] 同时监听 schema 和 initialData 的变化
 // 这样无论是 schema 变了，还是父组件异步请求的数据回来了，表单都会刷新
 watch([() => props.schema, () => props.initialData], initData, { immediate: true, deep: true });
+
+// 监听 formData 变化，实时通知父组件
+watch(formData, (newData) => {
+	emit("update:modelValue", { ...newData });
+}, { deep: true });
 
 const handleSubmit = () => {
 	for (const field of props.schema) {
@@ -110,7 +116,7 @@ const handleSubmit = () => {
 			</select>
 		</div>
 
-		<button v-if="schema.length !== 0" type="submit" class="submit-btn btn-small" :disabled="disable">
+		<button v-if="schema.length !== 0 && submitText" type="submit" class="submit-btn btn-small" :disabled="disable">
 			{{ submitText }}
 		</button>
 	</form>
