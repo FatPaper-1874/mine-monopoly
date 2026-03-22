@@ -27,7 +27,7 @@ const _canUseChanceCard = computed(() => utilStore.canUseCard);
 async function handleChanceCardClick(card: ChanceCardClientInfo) {
 	if (!utilStore.canUseCard) return;
 	showTargetSelector(card.type, {
-		title: `使用机会卡: ${card.name}`,
+		title: `使用机会卡: “${card.name}”`,
 		confirmText: "使用",
 		cancelText: "取消",
 	})
