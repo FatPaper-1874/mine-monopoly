@@ -57,6 +57,7 @@ export async function loadGameMapFromFile(file: ArrayBuffer) {
 		name: gameMap.info.name,
 		author: gameMap.info.author,
 		version: gameMap.info.version,
+		description: gameMap.info.description,
 		hash: "",
 		coverUrl: coverResource.url,
 		mapUrl: "",

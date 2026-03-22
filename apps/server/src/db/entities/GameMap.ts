@@ -15,6 +15,9 @@ export class GameMap implements GameMapInDb {
 	@Column({ type: "varchar", nullable: false })
 	version: string;
 
+	@Column({ type: "text", nullable: true })
+	description: string;
+
 	@Column({ type: "varchar", nullable: false })
 	coverUrl: string;
 

@@ -15,6 +15,9 @@ export interface GameMapInDb {
 	/** 地图版本 */
 	version: string;
 
+	/** 地图描述 */
+	description: string;
+
 	/** 地图哈希值 */
 	hash: string;
 

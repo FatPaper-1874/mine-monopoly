@@ -52,7 +52,7 @@ gameMapRouter.post(
 			return;
 		}
 
-		const { name, author, version, hash } = req.body;
+		const { name, author, version, hash, description } = req.body;
 
 		if (name && author && version && hash) {
 			try {
@@ -70,6 +70,7 @@ gameMapRouter.post(
 					name,
 					author,
 					version,
+					description: description || "",
 					hash,
 					mapUrl: gameMapFileUrl,
 					coverUrl: coverImageFileUrl,
@@ -130,7 +131,7 @@ gameMapRouter.post(
 			return;
 		}
 
-		const { id, author, name, version, hash } = req.body;
+		const { id, author, name, version, hash, description } = req.body;
 
 		if (id && author && name && version && hash) {
 			try {
@@ -149,6 +150,7 @@ gameMapRouter.post(
 					name,
 					author,
 					version,
+					description: description || "",
 					hash,
 					mapUrl: gameMapFileUrl,
 					coverUrl: coverImageFileUrl,
