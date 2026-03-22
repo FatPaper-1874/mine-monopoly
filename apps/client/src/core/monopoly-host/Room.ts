@@ -180,7 +180,7 @@ export class Room {
 	 * @param conn peer链接
 	 * @returns 是否加入成功
 	 */
-	public join(user: User, conn: DataConnection) {
+	public async join(user: User, conn: DataConnection) {
 		if (this.userList.has(user.userId)) {
 			//用户已在房间内
 			this.sendToClient(
@@ -221,6 +221,38 @@ export class Room {
 				msg: { type: "success", content: `${userInRoom.username}加入了房间` },
 			});
 			this.roomInfoBroadcast();
+
+			// 如果房间已有地图，向新玩家发送地图信息
+			if (this.mapInfo) {
+				// 如果是自定义地图，需要玩家确认风险
+				if (this.mapInfo.from === "custom") {
+					// 发送确认对话框
+					this.sendToClient(userInRoom.socketClient, SocketMsgType.ConfirmDialog, {
+						playerId: userInRoom.userId,
+						option: {
+							title: "房主要启用非官方地图",
+							content: `此地图由房主 <b>${
+								this.getOwner().username
+							}</b> 提供，未经过官方验证，可能存在<b style='color: red'>数据异常、游戏不平衡或脚本风险。</b><br>请谨慎游玩，并自行承担使用非官方内容所带来的风险。`,
+							confirmText: "同意",
+							cancelText: "不同意",
+						},
+					});
+
+					// 等待玩家确认
+					const confirmResult = await this.operationListener.onceAsync(userInRoom.userId, OperateType.ConfirmDialogResult);
+
+					// 如果玩家拒绝，踢出房间
+					if (!confirmResult.confirm) {
+						this.leave(userInRoom.userId);
+						return false;
+					}
+				}
+
+				// 发送地图信息
+				this.sendToClient(userInRoom.socketClient, SocketMsgType.ChangeMap, this.mapInfo);
+			}
+
 			return true;
 		}
 	}
