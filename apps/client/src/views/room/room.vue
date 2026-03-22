@@ -47,6 +47,7 @@ const tempMapSelectedId = ref<string[]>(roomInfoStore.mapId ? [roomInfoStore.map
 
 function handleChangeMap() {
 	if (socketClient && tempMapSelectedId.value[0] !== currentMap.value?.id) {
+		useLoading().showLoading("地图传输中...");
 		socketClient.changeGameMap({ from: "server", data: tempMapSelectedId.value[0] });
 	}
 }

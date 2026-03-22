@@ -348,22 +348,24 @@ export class Room {
 		} else if ((data.from = "custom")) {
 			//如果地图来源为玩家 (有风险的)
 			//需要其他玩家确定
-			const promiseArr = Array.from(this.userList.values())
-				.filter((user) => user.userId !== this.ownerId)
-				.map((user) => {
-					this.sendToClient(user.socketClient, SocketMsgType.ConfirmDialog, {
-						playerId: user.userId,
-						option: {
-							title: "房主要启用非官方地图",
-							content: `此地图由房主 <b>${
-								this.getOwner().username
-							}</b> 提供，未经过官方验证，可能存在<b style='color: red'>数据异常、游戏不平衡或脚本风险。</b><br>请谨慎游玩，并自行承担使用非官方内容所带来的风险。`,
-							confirmText: "同意",
-							cancelText: "不同意",
-						},
-					});
-					return this.operationListener.onceAsync(user.userId, OperateType.ConfirmDialogResult);
+			const otherPlayers = Array.from(this.userList.values()).filter((user) => user.userId !== this.ownerId);
+			const totalPlayers = otherPlayers.length;
+
+			const promiseArr = otherPlayers.map((user, index) => {
+				this.sendToClient(user.socketClient, SocketMsgType.ConfirmDialog, {
+					playerId: user.userId,
+					option: {
+						title: "房主要启用非官方地图",
+						content: `此地图由房主 <b>${
+							this.getOwner().username
+						}</b> 提供，未经过官方验证，可能存在<b style='color: red'>数据异常、游戏不平衡或脚本风险。</b><br>请谨慎游玩，并自行承担使用非官方内容所带来的风险。`,
+						confirmText: "同意",
+						cancelText: "不同意",
+						totalPlayers: totalPlayers, // 添加总玩家数信息
+					},
 				});
+				return this.operationListener.onceAsync(user.userId, OperateType.ConfirmDialogResult);
+			});
 
 			const res = await Promise.all(promiseArr);
 			if (res.some((r) => !r.confirm)) {

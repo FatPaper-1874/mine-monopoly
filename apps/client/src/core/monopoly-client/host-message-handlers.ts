@@ -200,7 +200,9 @@ const handleRoomInfoReply: ServerMessageHandler<SocketMsgType.RoomInfo> = (msg) 
 const handleChangeMap: ServerMessageHandler<SocketMsgType.ChangeMap> = async (msg, client) => {
 	try {
 		const data = msg.data;
-		useLoading().showLoading("地图加载中...");
+		// 根据地图来源显示不同的 loading 文本
+		const loadingText = data.from === "custom" ? "地图传输中..." : "地图加载中...";
+		useLoading().showLoading(loadingText);
 		let gameMap, mapInfo;
 		switch (data.from) {
 			case "server": {
@@ -440,6 +442,10 @@ const handleConfirmDialog: ServerMessageHandler<SocketMsgType.ConfirmDialog> = (
 	const data = msg.data;
 	FPMessageBox(data.option)
 		.then(() => {
+			// 玩家同意后，根据还有多少玩家未确认显示不同的 loading
+			const totalPlayers = data.option.totalPlayers || 1;
+			const loadingText = totalPlayers === 1 ? "等待地图传输..." : "等待其他玩家同意...";
+			useLoading().showLoading(loadingText);
 			client.sendMsg({
 				type: SocketMsgType.Operation,
 				source: SocketMsgSource.Client,

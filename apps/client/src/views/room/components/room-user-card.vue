@@ -69,7 +69,7 @@ function handleColorChange(e: Event) {
 				@click="handleRoleSelect"
 				class="choose-role"
 				:style="{ 'background-color': role?.color }"
-				:class="{ 'no-role': role === undefined }"
+				:class="{ 'no-role': role === undefined, 'my-button': isMe }"
 				:disabled="!canSelectRole"
 			>
 				<span>{{ role ? role.name : "选择角色" }}</span>
@@ -110,6 +110,16 @@ function handleColorChange(e: Event) {
 @import "@src/assets/variables.scss";
 
 $top-bar-height: 2.8rem;
+
+// 定义跳动动画
+@keyframes bounce {
+	0%, 100% {
+		transform: translateY(0);
+	}
+	50% {
+		transform: translateY(-4px);
+	}
+}
 
 .room-user-card {
 	width: auto;
@@ -206,15 +216,21 @@ $top-bar-height: 2.8rem;
 		background-color: rgba(185, 185, 185, 0.5);
 		padding: 0 0.6rem;
 		box-sizing: border-box;
-		cursor: pointer;
-		transition: 0.2s transform;
 
-		&:hover {
-			transform: translateY(-2px);
-		}
+		// 只有自己的按钮才有交互效果
+		&.my-button {
+			cursor: pointer;
+			transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+			animation: bounce 1.5s ease-in-out infinite;
 
-		&.no-role[disabled] {
-			cursor: initial;
+			&:hover:not([disabled]) {
+				background-color: var(--color-primary);
+			}
+
+			&.no-role[disabled] {
+				cursor: initial;
+				animation: none;
+			}
 		}
 	}
 

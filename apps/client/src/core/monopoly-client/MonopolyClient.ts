@@ -162,6 +162,8 @@ export class MonopolyClient {
 					return value;
 				});
 				if (data.msg) {
+					// 在显示通知消息时，隐藏任何正在显示的 loading
+					useLoading().hideLoading();
 					FPMessage({
 						type: data.msg.type,
 						message: data.msg.content,
