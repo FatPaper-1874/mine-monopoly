@@ -95,6 +95,7 @@ export const useUtil = defineStore("util", {
 			rollDiceResult: new Array<number>(),
 			currentEventName: "", // 新增：独立的事件名称状态
 			waitingFor: { remainingTime: 0, totalTime: 0 }, // 移除 eventMsg
+			showCountdown: false, // 是否显示倒计时（由服务端控制）
 			timeOut: false,
 			canUseCard: useGameData().canIOperate,
 			canRoll: useGameData().canIOperate,

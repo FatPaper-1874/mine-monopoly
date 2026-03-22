@@ -440,19 +440,25 @@ export interface SocketMessageDataType {
 		server: {
 			/** 事件名称 */
 			eventName: string;
+			/** 是否显示倒计时（由服务端控制） */
+			showCountdown?: boolean;
 		};
 	};
 
 	/**
 	 * 回合超时
 	 * 服务器通知客户端回合超时
-	 * @deprecated 未实现
 	 */
 	[SocketMsgType.RoundTimeOut]: {
 		/** 客户端发送的数据（不支持） */
 		client: never;
-		/** 服务器返回的数据（不支持） */
-		server: never;
+		/** 服务器返回的数据 */
+		server: {
+			/** 超时的玩家ID */
+			playerId: string;
+			/** 超时的事件类型 */
+			eventType: OperateType;
+		};
 	};
 
 	/**

@@ -204,6 +204,9 @@ export class GameProcess implements IGameProcess {
 
 	public currentMultiplier: number = 1;
 
+	// 当前事件名称（用于倒计时显示）
+	private currentEventName: string = "";
+
 	// 完整的类型定义（包含 GameProcessTypes 和 extraLibs）
 	private fullTypes: string = "";
 
@@ -231,8 +234,29 @@ export class GameProcess implements IGameProcess {
 
 			// 找到最小的剩余时间（最紧急的操作），向上取整显示为整数秒
 			const minRemaining = Math.min(...timeouts.map((t) => t.remainingMs));
-			const minTotalTime = Math.min(...timeouts.map((t) => t.totalTime)); // 找到最小的总时间
-			this.roundRemainingTimeBroadcast(Math.ceil(minRemaining / 1000), Math.ceil(minTotalTime / 1000));
+			const minTotalTime = Math.min(...timeouts.map((t) => t.totalTime));
+			const remainingSeconds = Math.ceil(minRemaining / 1000);
+			const totalSeconds = Math.ceil(minTotalTime / 1000);
+
+			// 发送倒计时消息
+			this.roundRemainingTimeBroadcast(remainingSeconds, totalSeconds);
+
+			// 如果有倒计时，通知客户端显示倒计时
+			if (remainingSeconds > 0) {
+				this.updateCurrentEventShowCountdown(true);
+			}
+		});
+
+		// 绑定超时回调到 OperateListener
+		operationListener.setTimeoutCallback((playerId, eventType) => {
+			// 超时后通知客户端不显示倒计时
+			this.updateCurrentEventShowCountdown(false);
+
+			this.gameBroadcast(<ServerSocketMessage>{
+				type: SocketMsgType.RoundTimeOut,
+				source: SocketMsgSource.Server,
+				data: { playerId, eventType },
+			});
 		});
 
 		if (gameSetting.slackOffMode) {
@@ -262,8 +286,12 @@ export class GameProcess implements IGameProcess {
 
 		this.preprocessingEffectCode();
 		this.gameRoundPhase = {
-			roundStartPhase: mapData.phases.gameRoundStart.map((phaseInfo) => new GamePhase(phaseInfo, undefined, mapData.extraLibs)),
-			roundEndPhase: mapData.phases.gameRoundEnd.map((phaseInfo) => new GamePhase(phaseInfo, undefined, mapData.extraLibs)),
+			roundStartPhase: mapData.phases.gameRoundStart.map(
+				(phaseInfo) => new GamePhase(phaseInfo, undefined, mapData.extraLibs),
+			),
+			roundEndPhase: mapData.phases.gameRoundEnd.map(
+				(phaseInfo) => new GamePhase(phaseInfo, undefined, mapData.extraLibs),
+			),
 		};
 		this.initGameOverRuleFunction();
 		this.initMap();
@@ -391,7 +419,14 @@ export class GameProcess implements IGameProcess {
 		this.userList.forEach((u) => {
 			const role = this.mapData.roles.find((r) => r.id === u.roleId);
 			if (!role) throw Error("找不到对应角色");
-			const player = new Player(u, this.gameSetting.initMoney.value || 10000, 0, this.mapData.phases.playerRound, role, this.mapData.extraLibs);
+			const player = new Player(
+				u,
+				this.gameSetting.initMoney.value || 10000,
+				0,
+				this.mapData.phases.playerRound,
+				role,
+				this.mapData.extraLibs,
+			);
 			player.setPositionIndex(0);
 			this.players.set(player.id, player);
 
@@ -527,6 +562,7 @@ export class GameProcess implements IGameProcess {
 					if (owner.id === arrivedPlayer.id) {
 						//地产是自己的
 						if (property.level < property.maxLevel) {
+							this.setCurrentEventName(`等待${arrivedPlayer.name} 升级房屋`);
 							//已有房产, 升级房屋
 							const playerRes = await this.showConfirmDialog(arrivedPlayer.id, {
 								title: `升级 ${property.name}`,
@@ -540,6 +576,7 @@ export class GameProcess implements IGameProcess {
 						}
 					} else {
 						//地产是别人的
+							this.setCurrentEventName(`等待${arrivedPlayer.name} 给过路费`);
 						const ownerPlayer = this.getPlayerById(owner.id);
 						if (!ownerPlayer) return payload;
 						if (owner !== undefined && toll !== undefined) {
@@ -576,6 +613,7 @@ export class GameProcess implements IGameProcess {
 					//地皮没有购买
 					//空地, 买房
 					//等待客户端回应买房
+					this.setCurrentEventName(`等待${arrivedPlayer.name} 购买地皮`);
 					const playerRes = await this.showConfirmDialog(arrivedPlayer.id, {
 						title: `购买 ${property.name}`,
 						content: `${generatePropertyHtml(property.getPropertyInfo())}`,
@@ -1009,10 +1047,27 @@ export class GameProcess implements IGameProcess {
 	 * @param eventName - 事件名称
 	 */
 	public setCurrentEventName(eventName: string): void {
+		this.currentEventName = eventName;
 		const msg: ServerSocketMessage = {
 			type: SocketMsgType.CurrentEventName,
 			source: SocketMsgSource.Server,
 			data: { eventName },
+		};
+		this.gameBroadcast(msg);
+	}
+
+	/**
+	 * 更新当前事件的倒计时显示状态
+	 * @param showCountdown - 是否显示倒计时
+	 */
+	public updateCurrentEventShowCountdown(showCountdown: boolean): void {
+		const msg: ServerSocketMessage = {
+			type: SocketMsgType.CurrentEventName,
+			source: SocketMsgSource.Server,
+			data: {
+				eventName: this.currentEventName,
+				showCountdown,
+			},
 		};
 		this.gameBroadcast(msg);
 	}
@@ -1126,11 +1181,7 @@ export class GameProcess implements IGameProcess {
 
 		// 如果玩家是 AI 托管，直接返回决策，不显示对话框
 		if (player?.isAI) {
-			return (await aiManager.makeDecision(
-				player,
-				OperateType.FormDialogResult,
-				option,
-			)) as FormDialogResult<F>;
+			return (await aiManager.makeDecision(player, OperateType.FormDialogResult, option)) as FormDialogResult<F>;
 		}
 
 		// 真实玩家，显示表单对话框
@@ -1153,9 +1204,7 @@ export class GameProcess implements IGameProcess {
 	/**
 	 * 构建表单默认结果
 	 */
-	private buildDefaultFormResult<F extends FormField<string, any>[]>(
-		fields: F,
-	): FormDialogResult<F> {
+	private buildDefaultFormResult<F extends FormField<string, any>[]>(fields: F): FormDialogResult<F> {
 		const result: any = { submitted: false };
 		for (const field of fields) {
 			result[field.key] = field.defaultValue;

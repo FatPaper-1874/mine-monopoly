@@ -6,22 +6,35 @@ import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 const roomInfoStore = useRoomInfo();
 const utilStore = useUtil();
 
-const _currentEventName = computed(() => utilStore.currentEventName);
-const _waitingFor = computed(() => utilStore.waitingFor);
-const _timeOut = computed(() => utilStore.timeOut);
+// ==================== 计算属性 ====================
 
-// 使用动态的总时间，如果没有则默认为 20 秒
-const _roundTotalTime = computed(() => _waitingFor.value.totalTime || 20);
-const _blockWidth = computed(() => `${((_waitingFor.value.remainingTime + 1) / _roundTotalTime.value) * 100}%`);
+/** 当前事件名称 */
+const currentEventName = computed(() => utilStore.currentEventName);
+
+/** 倒计时信息 */
+const waitingFor = computed(() => utilStore.waitingFor);
+
+/** 总时间（秒），默认 20 秒 */
+const totalTime = computed(() => waitingFor.value.totalTime || 20);
+
+/** 倒计时进度百分比（0-100） */
+const progressPercent = computed(() => {
+	const ratio = Math.max(0, waitingFor.value.remainingTime / totalTime.value);
+	return `${ratio * 100}%`;
+});
+
+/** 是否显示倒计时（由服务端控制） */
+const showCountdown = computed(() => utilStore.showCountdown);
 </script>
 
 <template>
 	<div class="countdown-timer">
-		<div class="block" :style="{ width: _blockWidth }"></div>
-		<div class="text" v-if="!_timeOut">
-			<FontAwesomeIcon icon="clock" /><span>{{ _currentEventName }}: {{ _waitingFor.remainingTime + 1 }} 秒</span>
+		<div class="block" :style="{ width: progressPercent }"></div>
+		<div class="text">
+			<FontAwesomeIcon :icon="showCountdown ? 'clock' : 'clock-rotate-left'" />
+			<span v-if="showCountdown">{{ currentEventName }}: {{ waitingFor.remainingTime }} 秒</span>
+			<span v-else>{{ currentEventName }}</span>
 		</div>
-		<div class="text" v-else><FontAwesomeIcon icon="clock-rotate-left" /><span>等待下一步</span></div>
 	</div>
 </template>
 

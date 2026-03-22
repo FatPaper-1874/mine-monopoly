@@ -97,6 +97,9 @@ export function handleServerSocketMessage(msg: ServerSocketMessage, client: Mono
 		case SocketMsgType.RemainingTime:
 			handleRemainingTime(msg, client);
 			break;
+		case SocketMsgType.RoundTimeOut:
+			handleRoundTimeOut(msg, client);
+			break;
 		case SocketMsgType.CurrentEventName:
 			handleCurrentEventName(msg, client);
 			break;
@@ -332,21 +335,52 @@ const handleGameLog: ServerMessageHandler<SocketMsgType.GameLog> = (msg) => {
 	useGameLog().addNewLog(msg.data);
 };
 
+/**
+ * 处理倒计时剩余时间
+ */
 const handleRemainingTime: ServerMessageHandler<SocketMsgType.RemainingTime> = (msg) => {
 	const { remainingTime, totalTime } = msg.data;
 	const utilStore = useUtil();
+
 	utilStore.waitingFor = { remainingTime, totalTime };
-	utilStore.timeOut = remainingTime <= 0;
-	if (remainingTime <= 0) {
+	utilStore.showCountdown = remainingTime > 0; // 服务端控制是否显示倒计时
+
+	// 当有新的倒计时开始时，复位超时状态
+	if (remainingTime > 0) {
+		utilStore.timeOut = false;
+	}
+};
+
+/**
+ * 处理回合超时事件
+ */
+const handleRoundTimeOut: ServerMessageHandler<SocketMsgType.RoundTimeOut> = (msg) => {
+	const { playerId } = msg.data;
+	const utilStore = useUtil();
+	const currentUserId = useUserInfo().userId;
+
+	// 只有当前玩家的超时才触发
+	if (playerId === currentUserId) {
+		utilStore.timeOut = true;
 		utilStore.canRoll = false;
+		utilStore.showCountdown = false; // 超时后不显示倒计时
+		// 将剩余时间设置为 0，确保 UI 正确更新
+		utilStore.waitingFor = { ...utilStore.waitingFor, remainingTime: 0 };
 		useEventBus().emit(GameEventType.TimeOut);
 	}
 };
 
+/**
+ * 处理当前事件名称
+ */
 const handleCurrentEventName: ServerMessageHandler<SocketMsgType.CurrentEventName> = (msg) => {
-	const { eventName } = msg.data;
+	const { eventName, showCountdown = false } = msg.data;
 	const utilStore = useUtil();
 	utilStore.currentEventName = eventName;
+	// 服务端控制是否显示倒计时
+	if (showCountdown !== undefined) {
+		utilStore.showCountdown = showCountdown;
+	}
 };
 
 const handleRoundTurn: ServerMessageHandler<SocketMsgType.RoundTurn> = (msg) => {
