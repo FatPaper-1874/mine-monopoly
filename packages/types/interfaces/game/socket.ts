@@ -476,6 +476,10 @@ export interface SocketMessageDataType {
 			step: number;
 			/** 行走 ID */
 			walkId: string;
+			/** 总移动步数（用于分段走路时的步数显示） */
+			totalSteps?: number;
+			/** 当前是第几步（用于分段走路时的步数显示） */
+			startStep?: number;
 		};
 	};
 

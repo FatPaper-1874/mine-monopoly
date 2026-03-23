@@ -179,6 +179,10 @@ export class GameProcess implements IGameProcess {
 	public mapData: GameMap;
 	public gameSetting: GameSetting;
 
+	// 走路动画常量
+	private static readonly WALK_ANIMATION_BASE_DURATION = 350; // 单步动画基础时长
+	private static readonly WALK_ANIMATION_EXTRA_STEPS = 3; // 额外的安全步数
+
 	private userList: UserInRoomInfo[];
 	private startTime: number = Date.now();
 
@@ -372,32 +376,6 @@ export class GameProcess implements IGameProcess {
 			});
 		});
 
-		//处理经过事件
-		this.eventBus.on("player.passed", ({ passedMapItemsId, player }) => {
-			const passedEventFunctions: GameEvent<GameContext>[] = [];
-			for (const mapItemId of passedMapItemsId) {
-				const mapItem = this.mapItems.get(mapItemId);
-				if (!mapItem) throw Error("处理经过事件时, 找不到MapItem");
-				if (!mapItem.mapEventId) continue;
-				const mapEvent = this.mapEvents.get(mapItem.mapEventId);
-				if (!mapEvent) throw Error("处理经过事件时, 找不到MapEvent");
-				if (mapEvent.type !== MapEventType.PassedEvent) continue;
-				passedEventFunctions.push({
-					fn: async (context, gameProcess) => {
-						await mapEvent.fn(player, gameProcess);
-						gameProcess.gameMsgNotifyBroadcast("info", `${player.name} 经过了: ${mapEvent.name} 触发事件`);
-						gameProcess.gameLogBroadcast(
-							`${gameProcess.createGameLinkItem(
-								GameLinkItem.Player,
-								player.id,
-							)} 触发了地图事件: ${gameProcess.createGameLinkItem(GameLinkItem.ArrivedEvent, mapEvent.id)}`,
-						);
-					},
-				});
-			}
-			this.pushEventToStack(...passedEventFunctions);
-		});
-
 		mapItems.forEach((mapItem) => {
 			if (mapItem.property) {
 				const property = mapItem.property;
@@ -433,48 +411,65 @@ export class GameProcess implements IGameProcess {
 			player.commandBus.setHandler("player.walk", async (payload) => {
 				this.setCurrentEventName(`${player.name} 走路中`);
 				const { steps } = payload;
-				const walkId = randomString(16);
-				const msg: ServerSocketMessage = {
-					type: SocketMsgType.PlayerWalk,
-					source: SocketMsgSource.Server,
-					data: { playerId: player.id, step: steps, walkId },
-				};
 				const sourceIndex = player.positionIndex;
 				const total = this.mapData.mapIndex.length;
-				const newIndex = (((sourceIndex + steps) % total) + total) % total;
-
-				const passedMapItemsId: string[] = [];
 				const direction = steps > 0 ? 1 : -1;
-				for (let i = 1; i <= Math.abs(steps); i++) {
-					const nextIndex = (((sourceIndex + i * direction) % total) + total) % total;
-					const mapItemId = this.mapData.mapIndex[nextIndex];
-					passedMapItemsId.push(mapItemId);
-				}
+				const totalSteps = Math.abs(steps);
 
-				player.setPositionIndex(newIndex);
-				this.gameDataBroadcast();
-				this.gameBroadcast(msg);
+				let currentStep = 0;
 
-				//在计划的动画完成事件后取消监听, 防止客户端因特殊情况没有发送动画完成的指令造成永久等待
-				const animationDuration = 350 * (Math.abs(steps) + 3);
-				let animationTimer = setTimeout(() => {
-					operationListener.emit(player.id, OperateType.Animation, walkId);
-				}, animationDuration);
+				// 分段走路：每段检查是否有事件格，遇到事件格时触发事件后继续
+				while (currentStep < totalSteps) {
+					// 计算当前段的起点
+					const segmentStartIndex = this.normalizeIndex(sourceIndex + currentStep * direction, total);
 
-				//等待客户端完成动画发回指令
-				await new Promise((resolve) => {
-					listenAnimationCallback("");
-					function listenAnimationCallback(resAnimationId: string) {
-						if (resAnimationId !== walkId) {
-							operationListener.once(player.id, OperateType.Animation, listenAnimationCallback);
-						} else {
-							resolve("");
+					// 向前看，累积连续的无事件步数
+					let continuousSteps = 0;
+					while (currentStep + continuousSteps < totalSteps) {
+						const checkStep = currentStep + continuousSteps + 1;
+						const checkIndex = this.normalizeIndex(sourceIndex + checkStep * direction, total);
+						const mapItemId = this.mapData.mapIndex[checkIndex];
+
+						if (this.checkMapItemHasPassedEvent(mapItemId)) {
+							// 遇到事件格，包括这一步并停止累积
+							continuousSteps++;
+							break;
+						}
+						continuousSteps++;
+					}
+
+					// 至少走一步
+					if (continuousSteps === 0) continuousSteps = 1;
+
+					const segmentEndIndex = this.normalizeIndex(sourceIndex + (currentStep + continuousSteps) * direction, total);
+
+					// 走这一段
+					await this.walkSegment(player, segmentStartIndex, continuousSteps * direction, totalSteps, currentStep + 1);
+					currentStep += continuousSteps;
+
+					// 不立即更新 positionIndex，避免动画期间的位置冲突
+					// 只在所有动画完成后才统一更新位置
+
+					// 检查当前位置是否有事件
+					const currentIndex = this.normalizeIndex(sourceIndex + currentStep * direction, total);
+					const currentMapItemId = this.mapData.mapIndex[currentIndex];
+
+					if (this.checkMapItemHasPassedEvent(currentMapItemId)) {
+						// 触发经过事件
+						try {
+							await this.handlePlayerPassedEvents(player, [currentMapItemId]);
+						} catch (error) {
+							console.error("经过事件执行失败:", error);
+							// 继续走路，不中断游戏
 						}
 					}
-				});
+				}
 
-				clearTimeout(animationTimer);
-				this.eventBus.emit("player.passed", { passedMapItemsId, player });
+				// 最终位置更新：在所有动画完成后一次性更新
+				const finalIndex = this.normalizeIndex(sourceIndex + steps, total);
+				player.setPositionIndex(finalIndex);
+				this.gameDataBroadcast();
+
 				return payload;
 			});
 
@@ -945,6 +940,109 @@ export class GameProcess implements IGameProcess {
 			await property.arrived(arrivedPlayer);
 			this.gameDataBroadcast();
 		}
+	}
+
+	/**
+	 * 处理玩家经过某个格子的事件
+	 * @param player - 玩家
+	 * @param passedMapItemsId - 经过的格子ID列表
+	 */
+	private async handlePlayerPassedEvents(player: Player, passedMapItemsId: string[]): Promise<void> {
+		for (const mapItemId of passedMapItemsId) {
+			const mapItem = this.mapItems.get(mapItemId);
+			if (!mapItem) throw Error("处理经过事件时, 找不到MapItem");
+			if (!mapItem.mapEventId) continue;
+
+			const mapEvent = this.mapEvents.get(mapItem.mapEventId);
+			if (!mapEvent) throw Error("处理经过事件时, 找不到MapEvent");
+			if (mapEvent.type !== MapEventType.PassedEvent) continue;
+
+			// 直接 await 执行经过事件，不推入事件栈
+			await mapEvent.fn(player, this);
+			this.gameMsgNotifyBroadcast("info", `${player.name} 经过了: ${mapEvent.name} 触发事件`);
+			this.gameLogBroadcast(
+				`${this.createGameLinkItem(
+					GameLinkItem.Player,
+					player.id,
+				)} 触发了地图事件: ${this.createGameLinkItem(GameLinkItem.ArrivedEvent, mapEvent.id)}`,
+			);
+		}
+	}
+
+	/**
+	 * 规范化地图索引，处理循环地图的索引计算
+	 * @param index - 原始索引（可能为负数或超出范围）
+	 * @param total - 地图总格数
+	 * @returns 规范化后的索引（0 到 total-1）
+	 */
+	private normalizeIndex(index: number, total: number): number {
+		return ((index % total) + total) % total;
+	}
+
+	/**
+	 * 检查某个格子是否有经过事件
+	 * @param mapItemId - 格子ID
+	 * @returns 是否有经过事件
+	 */
+	private checkMapItemHasPassedEvent(mapItemId: string): boolean {
+		const mapItem = this.mapItems.get(mapItemId);
+		if (!mapItem || !mapItem.mapEventId) return false;
+
+		const mapEvent = this.mapEvents.get(mapItem.mapEventId);
+		if (!mapEvent) return false;
+
+		return mapEvent.type === MapEventType.PassedEvent;
+	}
+
+	/**
+	 * 走一段连续的路并等待动画完成
+	 * @param player - 玩家
+	 * @param sourceIndex - 起始格子索引
+	 * @param steps - 步数（可为负数表示后退）
+	 * @param totalSteps - 总移动步数（用于显示）
+	 * @param currentStep - 当前是第几步（用于显示）
+	 */
+	private async walkSegment(player: Player, sourceIndex: number, steps: number, totalSteps: number, currentStep: number): Promise<void> {
+		const walkId = randomString(16);
+		const targetIndex = this.normalizeIndex(sourceIndex + steps, this.mapData.mapIndex.length);
+
+		// 发送走路指令
+		const msg: ServerSocketMessage = {
+			type: SocketMsgType.PlayerWalk,
+			source: SocketMsgSource.Server,
+			data: {
+				playerId: player.id,
+				step: steps,
+				walkId,
+				totalSteps, // 传递总步数用于显示
+				startStep: currentStep, // 传递当前步数用于显示
+			},
+		};
+
+		this.gameBroadcast(msg);
+
+		// 等待动画完成
+		const animationDuration = GameProcess.WALK_ANIMATION_BASE_DURATION * (Math.abs(steps) + GameProcess.WALK_ANIMATION_EXTRA_STEPS);
+
+		// 使用超时机制防止永久等待
+		const animationTimer = setTimeout(() => {
+			operationListener.emit(player.id, OperateType.Animation, walkId);
+		}, animationDuration);
+
+		// 等待匹配的 AnimationComplete
+		await new Promise<void>((resolve) => {
+			const checkAnimationId = (receivedWalkId: string) => {
+				if (receivedWalkId === walkId) {
+					clearTimeout(animationTimer);
+					resolve();
+				} else {
+					// walkId 不匹配，继续等待下一个事件
+					operationListener.once(player.id, OperateType.Animation, checkAnimationId as any);
+				}
+			};
+
+			operationListener.once(player.id, OperateType.Animation, checkAnimationId as any);
+		});
 	}
 
 	private getPlayerById(id: string) {

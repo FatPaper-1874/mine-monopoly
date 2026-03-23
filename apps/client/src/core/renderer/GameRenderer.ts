@@ -67,6 +67,7 @@ export class GameRenderer {
 	>();
 	private arrivedEventIcons: Map<string, THREE.Mesh> = new Map<string, THREE.Mesh>();
 	private playerPosition: Map<string, number> = new Map<string, number>();
+	private playerPendingWalks: Map<string, string> = new Map<string, string>(); // 防止同一玩家的走路动画并发执行
 	private requestAnimationFrameId: number = -1;
 
 	private playerWatchers: Map<
@@ -502,34 +503,74 @@ export class GameRenderer {
 			this.focusOnSelf();
 		});
 
-		useEventBus().on("player-walk", async (walkPlayerId: string, step: number, walkId: string) => {
-			//拆散重叠的玩家模型;
-			// this.breakUpPlayersInSameMapItem();
-
-			const playerEntity = this.playerEntities.get(walkPlayerId);
-			if (playerEntity) {
-				const sourcePosition = toRaw(this.playerPosition.get(walkPlayerId)) as number;
-				const mapIndexLength = toRaw(mapDataStore.mapIndex.length);
-				const model = this.playerEntities.get(walkPlayerId)?.model;
-				if (model) {
-					this.currentFocusModule = model;
-					// this.playerInRoundOutlinePass.selectedObjects = [model];
+		useEventBus().on(
+			"player-walk",
+			async (walkPlayerId: string, step: number, walkId: string, totalSteps?: number, startStep?: number) => {
+				// 等待前一个动画完成，防止并发执行
+				const pendingWalk = this.playerPendingWalks.get(walkPlayerId);
+				if (pendingWalk) {
+					// 等待前一个动画完成
+					await new Promise<void>((resolve) => {
+						const checkPending = () => {
+							const currentPending = this.playerPendingWalks.get(walkPlayerId);
+							if (!currentPending) {
+								resolve();
+							} else {
+								// 继续等待，使用 setTimeout 避免阻塞
+								setTimeout(checkPending, 50);
+							}
+						};
+						checkPending();
+					});
 				}
-				this.isLockingRole = true;
-				gsap.to(playerEntity.model.scale, {
-					x: Math.sign(playerEntity.model.scale.x),
-					y: Math.sign(playerEntity.model.scale.y),
-					z: Math.sign(playerEntity.model.scale.z),
-				});
-				await this.updatePlayerPositionByStep(walkPlayerId, sourcePosition, step, mapIndexLength);
-				this.currentFocusModule = null;
-				this.isLockingRole = false;
 
-				//拆散重叠的玩家模型;
-				this.breakUpPlayersInSameMapItem();
-				useMonopolyClient().AnimationComplete(walkId);
-			}
-		});
+				// 标记动画开始
+				this.playerPendingWalks.set(walkPlayerId, walkId);
+
+				const playerEntity = this.playerEntities.get(walkPlayerId);
+				if (playerEntity) {
+					const sourcePosition = toRaw(this.playerPosition.get(walkPlayerId)) as number;
+					const mapIndexLength = toRaw(mapDataStore.mapIndex.length);
+					const endIndex = (((sourcePosition + step) % mapIndexLength) + mapIndexLength) % mapIndexLength;
+
+					const model = this.playerEntities.get(walkPlayerId)?.model;
+					if (model) {
+						this.currentFocusModule = model;
+						// this.playerInRoundOutlinePass.selectedObjects = [model];
+					}
+					this.isLockingRole = true;
+					gsap.to(playerEntity.model.scale, {
+						x: Math.sign(playerEntity.model.scale.x),
+						y: Math.sign(playerEntity.model.scale.y),
+						z: Math.sign(playerEntity.model.scale.z),
+					});
+
+					try {
+						await this.updatePlayerPositionByStep(
+							walkPlayerId,
+							sourcePosition,
+							step,
+							mapIndexLength,
+							totalSteps ?? Math.abs(step), // 向后兼容：如果没有提供 totalSteps，使用当前步数
+							startStep ?? 1, // 向后兼容：如果没有提供 startStep，从第1步开始
+						);
+					} finally {
+						// 无论动画成功还是失败，都要清除标志
+						this.playerPendingWalks.delete(walkPlayerId);
+					}
+
+					this.currentFocusModule = null;
+					this.isLockingRole = false;
+
+					// 更新 playerPosition Map，确保下一段走路从正确位置开始
+					this.playerPosition.set(walkPlayerId, endIndex);
+
+					// 拆散重叠的玩家模型
+					this.breakUpPlayersInSameMapItem();
+					useMonopolyClient().AnimationComplete(walkId);
+				}
+			},
+		);
 		useEventBus().on("player-tp", async (tpPlayerId: string, positionIndex: number, walkId: string) => {
 			const playerEntity = this.getPlayerEntity(tpPlayerId);
 
@@ -850,11 +891,25 @@ export class GameRenderer {
 		});
 	}
 
-	private async updatePlayerPositionByStep(playerId: string, sourceIndex: number, stepNum: number, total: number) {
+	private async updatePlayerPositionByStep(
+		playerId: string,
+		sourceIndex: number,
+		stepNum: number,
+		total: number,
+		totalSteps?: number,
+		startStep?: number,
+	) {
 		if (!this.playerEntities.has(playerId)) return;
 
+		// 向后兼容：如果没有提供 totalSteps，使用当前步数
+		const actualTotalSteps = totalSteps ?? Math.abs(stepNum);
+		const actualStartStep = startStep ?? 1;
+
+		// 动画执行次数基于这一段的步数，而不是总步数
+		const animationSteps = Math.abs(stepNum);
+
+		// 不提前设置 playerPosition，由服务器通过 GameData 统一控制
 		const endIndex = (((sourceIndex + stepNum) % total) + total) % total;
-		this.playerPosition.set(playerId, endIndex);
 
 		const playerEntity = this.playerEntities.get(playerId);
 
@@ -862,8 +917,9 @@ export class GameRenderer {
 			const playerModule = playerEntity.model;
 			const playerBody = playerEntity.bodyMesh;
 
-			const totalSteps = Math.abs(stepNum);
-			const stepTextSprite = new TextSprite(totalSteps.toString(), 64, "#ffb84d", 8, 0);
+			// 初始显示剩余步数
+			const initialRemaining = actualTotalSteps - actualStartStep + 1;
+			const stepTextSprite = new TextSprite(initialRemaining.toString(), 64, "#ffb84d", 8, 0);
 			const stepMesh = stepTextSprite.getSprite();
 			stepMesh.position.set(0.5, PLAY_MODEL_SIZE - 0.3, 0);
 			stepMesh.scale.set(3, 3, 3);
@@ -883,7 +939,7 @@ export class GameRenderer {
 			);
 
 			try {
-				for (let i = 1; i <= totalSteps; i++) {
+				for (let i = 1; i <= animationSteps; i++) {
 					if (animationShouldStop) {
 						currentAnimation && currentAnimation.kill();
 						const endMapItem = this.getMapItem(endIndex);
@@ -943,7 +999,8 @@ export class GameRenderer {
 									duration: duration * 0.2,
 									ease: "power2.in",
 									onComplete: () => {
-										const remaining = totalSteps - i;
+										// 计算剩余步数：总步数 - (起始步数 + 当前步索引 - 1)
+										const remaining = actualTotalSteps - (actualStartStep + i - 1);
 										if (remaining >= 0) {
 											stepTextSprite.updateText(remaining.toString());
 										}
@@ -1108,8 +1165,17 @@ export class GameRenderer {
 	}
 
 	private breakUpPlayersInSameMapItem() {
+		// 使用内部 playerPosition Map 而不是 GameData
+		// 因为在走路动画完成后，GameData 还没有更新，会导致位置被重置为旧值
 		const playersList = useGameData().players;
-		groupByPositionIndex(playersList).forEach((a) => {
+
+		// 使用 playerPosition Map 获取玩家实际位置
+		const positionMap = new Map<string, number>();
+		this.playerPosition.forEach((pos, playerId) => {
+			positionMap.set(playerId, pos);
+		});
+
+		groupByPositionIndex(playersList, positionMap).forEach((a) => {
 			const positionIndex = a[0].positionIndex;
 			const mapItem = this.getMapItem(positionIndex);
 			if (!mapItem) return;
@@ -1139,9 +1205,7 @@ export class GameRenderer {
 			} else {
 				const playerEntity = this.getPlayerEntity(a[0].id);
 				if (playerEntity) {
-					playerEntity.model.position.setX(x);
-					playerEntity.model.position.setY(surfaceY); // [关键修改]
-					playerEntity.model.position.setZ(z);
+					// 动画已经把模型移动到正确位置了，只需要调整朝向
 					gsap.to(playerEntity.model.scale, {
 						x: Math.sign(playerEntity.model.scale.x),
 						y: Math.sign(playerEntity.model.scale.y),
@@ -1151,14 +1215,16 @@ export class GameRenderer {
 			}
 		});
 
-		function groupByPositionIndex(items: PlayerInfo[]): PlayerInfo[][] {
+		function groupByPositionIndex(items: PlayerInfo[], positionMap: Map<string, number>): PlayerInfo[][] {
 			const groups = new Map<number, PlayerInfo[]>();
 
 			for (const item of items) {
-				if (!groups.has(item.positionIndex)) {
-					groups.set(item.positionIndex, []);
+				// 使用 positionMap 而不是 item.positionIndex
+				const pos = positionMap.get(item.id) ?? item.positionIndex;
+				if (!groups.has(pos)) {
+					groups.set(pos, []);
 				}
-				groups.get(item.positionIndex)!.push(item);
+				groups.get(pos)!.push(item);
 			}
 
 			return Array.from(groups.values());

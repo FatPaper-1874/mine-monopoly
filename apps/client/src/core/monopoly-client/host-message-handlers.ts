@@ -321,7 +321,7 @@ const handleCostMoney: ServerMessageHandler<SocketMsgType.CostMoney> = (msg) => 
 const handleGameData: ServerMessageHandler<SocketMsgType.GameData> = (msg) => {
 	const gameDataStore = useGameData();
 	const gameData = msg.data;
-	console.log("🚀 ~ handleGameData ~ gameData:", gameData);
+
 	if (gameData) {
 		gameDataStore.updateGameData(gameData);
 		const me = gameData.players.find((p) => p.id === useUserInfo().userId);
@@ -431,8 +431,8 @@ const handleUsedChanceCard: ServerMessageHandler<SocketMsgType.UseChanceCard> = 
 };
 
 const handlePlayerWalk: ServerMessageHandler<SocketMsgType.PlayerWalk> = (msg) => {
-	const { playerId, step, walkId } = msg.data;
-	useEventBus().emit("player-walk", playerId, step, walkId);
+	const { playerId, step, walkId, totalSteps, startStep } = msg.data;
+	useEventBus().emit("player-walk", playerId, step, walkId, totalSteps, startStep);
 };
 
 const handlePlayerTp: ServerMessageHandler<SocketMsgType.PlayerTp> = (msg) => {
