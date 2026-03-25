@@ -27,7 +27,7 @@ const formattedDescription = computed(() => {
 </script>
 
 <template>
-	<div class="chance-card" :class="{ disable }" :style="{ border: `0.3em solid ${chanceCard.color}` }">
+	<div class="chance-card" :class="{ disable }" :style="{ border: `0.34em solid ${chanceCard.color}` }">
 		<div class="icon" v-if="chanceCard.iconId && iconUrl"><img :src="iconUrl" alt="" /></div>
 		<div class="name" :style="{ color: chanceCard.color }">{{ chanceCard.name }}</div>
 		<div class="describe" :style="{ color: chanceCard.color }">{{ formattedDescription }}</div>
@@ -41,6 +41,9 @@ const formattedDescription = computed(() => {
 	width: 11em;
 	height: 14em;
 	font-size: 0.8em;
+	background-image:
+		radial-gradient(circle at 50% 50%, transparent 0%, rgba(0, 0, 0, 0.05) 100%),
+		repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 0, 0, 0.02) 2px, rgba(0, 0, 0, 0.02) 4px);
 	background-color: #ffffff;
 	box-sizing: border-box;
 	border-radius: 1.8em;
@@ -61,6 +64,7 @@ const formattedDescription = computed(() => {
 	}
 
 	& > .icon {
+		margin-top: 0.6em;
 		margin-bottom: 0.3em;
 
 		& > img {
@@ -80,7 +84,7 @@ const formattedDescription = computed(() => {
 	& > .describe {
 		width: 80%;
 		font-size: 0.7em;
-		margin-bottom: 1em;
+		margin-bottom: 0.6em;
 		word-wrap: break-word;
 		overflow-y: scroll;
 		text-align: center;
