@@ -254,16 +254,27 @@ export class GameRenderer {
 			pointer.y = -(yInCanvas / rect.height) * 2 + 1;
 		};
 
+		// 检查事件目标是否在 canvas 内（不在 UI 上）
+		const isTargetOnCanvas = (target: EventTarget | null): boolean => {
+			if (!target || !(target instanceof Element)) return false;
+			// 检查是否是 canvas 本身或是 canvas 的子元素
+			return target === this.canvas || this.canvas.contains(target);
+		};
+
 		if (isMobileDevice()) {
 			const onPointerMove = (event: TouchEvent) => {
 				// 阻止默认滚动行为（可选，视需求而定）
 				// event.preventDefault();
+				// 只有当触摸目标在 canvas 上时才更新指针
+				if (!isTargetOnCanvas(event.target)) return;
 				const touch = event.touches[0];
 				updatePointer(touch.clientX, touch.clientY);
 			};
 			window.addEventListener("touchmove", onPointerMove, { passive: false });
 		} else {
 			const onPointerMove = (event: MouseEvent) => {
+				// 只有当鼠标目标在 canvas 上时才更新指针
+				if (!isTargetOnCanvas(event.target)) return;
 				updatePointer(event.clientX, event.clientY);
 			};
 			window.addEventListener("pointermove", onPointerMove);
