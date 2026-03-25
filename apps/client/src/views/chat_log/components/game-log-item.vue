@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import playerCard from "@src/views/game/components/player-card.vue";
 import propertyInfoCard from "@src/views/game/utils/components/property-info-card.vue";
-import chanceCard from "@src/views/game/components/chance-card.vue";
+import { ChanceCard } from "@mine-monopoly/ui";
 import arrivedEventCard from "@src/views/game/utils/components/map-event-card.vue";
 import { GameLog, GameLogLinkItem } from "@mine-monopoly/types";
 import { useDeviceStatus } from "@src/store";
@@ -118,8 +118,8 @@ function generatePopItem(e: MouseEvent, itemType: GameLogLinkItem, props: any) {
 			compoentProps = { arrivedEvent: props };
 			break;
 		case GameLogLinkItem.ChanceCard:
-			compoentToRender = chanceCard;
-			compoentProps = { chanceCard: props, disable: false };
+			compoentToRender = ChanceCard;
+			compoentProps = { chanceCard: props, disable: false, iconUrl: "" };
 			break;
 		case GameLogLinkItem.Player:
 			compoentToRender = playerCard;

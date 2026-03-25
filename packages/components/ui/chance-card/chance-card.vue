@@ -1,25 +1,34 @@
 <script setup lang="ts">
-import { computed, watch } from "vue";
-import { __PROTOCOL__ } from "@src/../global.config";
-import { ChanceCardClientInfo } from "@mine-monopoly/types";
-import { useResourceStore } from "@src/store/game";
+import { computed } from "vue";
 
-const props = defineProps<{ chanceCard: ChanceCardClientInfo; disable: boolean }>();
+// 宽松类型定义，兼容 ChanceCardInfo 和 ChanceCardClientInfo
+interface ChanceCardDisplayInfo {
+	id: string;
+	name: string;
+	description: string;
+	iconId: string;
+	color: string;
+	type: string;
+}
+
+const props = defineProps<{
+	/** 机会卡信息 */
+	chanceCard: ChanceCardDisplayInfo;
+	/** 图标 URL（由父组件传入） */
+	iconUrl: string;
+	/** 是否禁用 */
+	disable?: boolean;
+}>();
 
 // 转换 \n 为真实换行符
 const formattedDescription = computed(() => {
-	return props.chanceCard.description.replace(/\\n/g, '\n');
-});
-
-const iconUrl = computed(() => {
-	const resource = useResourceStore().getRecourceById(props.chanceCard.iconId);
-	return resource ? resource.url : "";
+	return props.chanceCard.description.replace(/\\n/g, "\n");
 });
 </script>
 
 <template>
 	<div class="chance-card" :class="{ disable }" :style="{ border: `0.4em solid ${chanceCard.color}` }">
-		<div class="icon" v-if="chanceCard.iconId"><img :src="iconUrl" alt="" /></div>
+		<div class="icon" v-if="chanceCard.iconId && iconUrl"><img :src="iconUrl" alt="" /></div>
 		<div class="name" :style="{ color: chanceCard.color }">{{ chanceCard.name }}</div>
 		<div class="describe" :style="{ color: chanceCard.color }">{{ formattedDescription }}</div>
 	</div>
@@ -35,7 +44,7 @@ const iconUrl = computed(() => {
 	background-color: #ffffff;
 	box-sizing: border-box;
 	border-radius: 2.2rem;
-	box-shadow: 0 0 0.2rem rgba(0, 0, 0, 0.32);
+	box-shadow: 0 0.1rem 0rem 0.2rem rgba(160, 160, 160, 0.5);
 	user-select: none;
 	display: flex;
 	justify-content: center;

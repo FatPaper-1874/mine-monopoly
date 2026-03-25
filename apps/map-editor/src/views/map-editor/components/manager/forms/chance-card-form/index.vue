@@ -8,7 +8,7 @@ import { message } from "ant-design-vue";
 import { ChanceCardInfo, TargetSelectType } from "@mine-monopoly/types";
 import { addNewImage, convertToFpUrl } from "@src/utils/file";
 import { Rule } from "ant-design-vue/es/form";
-import ChanceCardPreview from "@src/views/map-editor/components/common/chance-card-preview.vue";
+import { ChanceCard } from "@mine-monopoly/ui";
 
 const props = defineProps<{ chanceCard: ChanceCardInfo | undefined }>();
 const emits = defineEmits(["close"]);
@@ -118,11 +118,11 @@ const iconRule = async (_rule: Rule, value: string) => {
 <template>
 	<div class="chance-card-form-container">
 		<div class="chance-card-form">
-			<chance-card-preview
+			<ChanceCard
 				class="chance-card-preview"
 				:chance-card="chanceCardForm"
 				:disable="false"
-				:icon-preview="chanceCardIconPreview"
+				:icon-url="chanceCardIconPreview"
 			/>
 			<a-form @finish="handleAddChanceCard" :model="chanceCardForm" name="map-event" autocomplete="off">
 				<a-form-item label="ID">

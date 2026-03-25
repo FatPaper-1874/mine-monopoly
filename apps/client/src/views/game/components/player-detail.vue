@@ -2,7 +2,6 @@
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { __PROTOCOL__ } from "@src/../global.config";
 import { computed } from "vue";
-import ChanceCard from "./chance-card.vue";
 import BuffItem from "./buff-item.vue";
 import { PlayerInfo } from "@mine-monopoly/types";
 import { useRoomInfo } from "@src/store";

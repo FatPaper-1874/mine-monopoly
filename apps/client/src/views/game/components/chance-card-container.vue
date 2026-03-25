@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { useSettig, useUserInfo } from "@src/store";
 import { computed, provide, ref, watch, toRaw } from "vue";
-import ChanceCard from "./chance-card.vue";
+import { ChanceCard } from "@mine-monopoly/ui";
 import { useUtil } from "@src/store";
-import { useGameData } from "@src/store/game";
+import { useGameData, useResourceStore } from "@src/store/game";
 import { ChanceCardClientInfo, TargetSelectType } from "@mine-monopoly/types";
 import { showTargetSelector } from "@src/components/common/target-seletor";
 import { useMonopolyClient } from "@src/core/monopoly-client/MonopolyClient";
@@ -21,6 +21,13 @@ const _chanceCardsList = computed(() => {
 		return [];
 	}
 });
+
+// 性能说明：此函数在模板中调用，Vue 会在每个卡片实例中创建独立的 computed 缓存
+// 如果未来发现性能问题，可以考虑在父组件中预计算所有图标的 Map
+const getIconUrl = (card: ChanceCardClientInfo) => {
+	const resource = useResourceStore().getRecourceById(card.iconId);
+	return resource ? resource.url : "";
+};
 
 const _canUseChanceCard = computed(() => utilStore.canUseCard);
 
@@ -53,6 +60,7 @@ async function handleChanceCardClick(card: ChanceCardClientInfo) {
 				v-for="card in _chanceCardsList"
 				:key="card.id"
 				:chance-card="card"
+				:icon-url="getIconUrl(card)"
 				:disable="!_canUseChanceCard"
 			/>
 		</TransitionGroup>

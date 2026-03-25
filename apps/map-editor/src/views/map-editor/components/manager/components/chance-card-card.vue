@@ -2,7 +2,7 @@
 import { useResourceStore } from "@src/stores";
 import { ChanceCardInfo } from "@mine-monopoly/types";
 import { computed } from "vue";
-import ChanceCardPreview from "../../common/chance-card-preview.vue";
+import { ChanceCard } from "@mine-monopoly/ui";
 
 const props = defineProps<{ chanceCard: ChanceCardInfo }>();
 const emits = defineEmits<{
@@ -49,7 +49,7 @@ function handleDelete() {
 			</a-popconfirm>
 		</template>
 
-		<chance-card-preview :chance-card="chanceCard" :disable="false" :icon-preview="iconPreviewUrl" />
+		<ChanceCard :chance-card="chanceCard" :icon-url="iconPreviewUrl" :disable="false" />
 	</a-card>
 </template>
 
