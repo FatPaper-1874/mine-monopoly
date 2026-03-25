@@ -133,6 +133,9 @@ function handleClose() {
 							show-count
 							:maxlength="200"
 						/>
+						<a-typography-paragraph type="secondary" style="font-size: 12px; margin-top: 4px;">
+							支持 \n 进行换行
+						</a-typography-paragraph>
 					</a-form-item>
 				</div>
 

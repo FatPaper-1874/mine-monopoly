@@ -8,6 +8,12 @@ const props = defineProps<{ property: PropertyInfo | null }>();
 
 const _property = ref<PropertyInfo | null>(props.property);
 
+// 转换地产自定义效果描述中的 \n
+const formattedCustomDescription = computed(() => {
+	if (!_property.value?.custom?.description) return "";
+	return _property.value.custom.description.replace(/\\n/g, '\n');
+});
+
 watch(
 	() => props.property,
 	(newProperty) => {
@@ -54,7 +60,7 @@ defineExpose({ updateProperty });
 			</div>
 
 			<template v-if="_property.custom">
-				<div class="data">{{ _property.custom.description }}</div>
+				<div class="data">{{ formattedCustomDescription }}</div>
 			</template>
 
 			<template v-else>
@@ -117,6 +123,7 @@ defineExpose({ updateProperty });
 			flex: 1;
 			text-align: center;
 			color: var(--color-second);
+			white-space: pre-wrap; /* 保留换行和空格 */
 
 			&.level {
 				color: #1947e0;

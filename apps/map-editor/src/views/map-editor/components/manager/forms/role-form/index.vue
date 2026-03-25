@@ -157,6 +157,9 @@ function handleClose() {
 
 			<a-form-item label="角色描述" name="description" :rules="[{ required: true, message: '请输入角色描述' }]">
 				<a-textarea v-model:value="roleForm.description" :auto-size="{ minRows: 4, maxRows: 6 }" />
+				<a-typography-paragraph type="secondary" style="font-size: 12px; margin-top: 4px;">
+					支持 \n 进行换行
+				</a-typography-paragraph>
 			</a-form-item>
 
 			<a-form-item label="代表颜色" name="color" :rules="[{ required: true, message: '请输入代表颜色' }]">

@@ -126,7 +126,10 @@ const iconRule = async (_rule: Rule, value: string) => {
 				<a-input v-model:value="mapEventForm.name" />
 			</a-form-item>
 			<a-form-item label="事件描述" name="description" :rules="[{ required: true, message: '请输入事件描述' }]">
-				<a-input v-model:value="mapEventForm.description" />
+				<a-textarea v-model:value="mapEventForm.description" :auto-size="{ minRows: 3, maxRows: 5 }" />
+				<a-typography-paragraph type="secondary" style="font-size: 12px; margin-top: 4px;">
+					支持 \n 进行换行
+				</a-typography-paragraph>
 			</a-form-item>
 			<a-form-item label="事件触发类型" name="type" :rules="[{ required: true, message: '请选择事件触发类型' }]">
 				<a-select v-model:value="mapEventForm.type" :options="eventTypeOptions" />

@@ -1,8 +1,14 @@
 <script setup lang="ts">
 import { Buff } from "@mine-monopoly/types";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
+import { computed } from "vue";
 
-defineProps<{ buff: Buff }>();
+const props = defineProps<{ buff: Buff }>();
+
+// 转换 \n 为真实换行符
+const formattedDescription = computed(() => {
+	return props.buff.description.replace(/\\n/g, '\n');
+});
 </script>
 
 <template>
@@ -20,7 +26,7 @@ defineProps<{ buff: Buff }>();
 			</div>
 
 			<div class="body">
-				<p class="desc-text">{{ buff.description }}</p>
+				<p class="desc-text">{{ formattedDescription }}</p>
 			</div>
 
 			<div class="footer">
@@ -131,6 +137,7 @@ defineProps<{ buff: Buff }>();
 		color: var(--color-text-regular);
 		line-height: 1.5;
 		text-align: justify;
+		white-space: pre-wrap; /* 保留换行和空格 */
 	}
 }
 

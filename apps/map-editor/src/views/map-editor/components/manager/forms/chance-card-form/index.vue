@@ -132,7 +132,10 @@ const iconRule = async (_rule: Rule, value: string) => {
 					<a-input v-model:value="chanceCardForm.name" />
 				</a-form-item>
 				<a-form-item label="机会卡描述" name="description" :rules="[{ required: true, message: '请输入机会卡描述' }]">
-					<a-input v-model:value="chanceCardForm.description" />
+					<a-textarea v-model:value="chanceCardForm.description" :auto-size="{ minRows: 3, maxRows: 5 }" />
+					<a-typography-paragraph type="secondary" style="font-size: 12px; margin-top: 4px;">
+						支持 \n 进行换行
+					</a-typography-paragraph>
 				</a-form-item>
 				<a-form-item label="机会卡类型" name="type" :rules="[{ required: true, message: '请选择机会卡目标类型' }]">
 					<a-select v-model:value="chanceCardForm.type">

@@ -283,6 +283,9 @@ const uiTemplate = computed(() => useMapDataStore().uiTemplates);
 				<div class="custom-block">
 					<div class="info-text">地皮描述</div>
 					<a-textarea v-model:value="formData.custom.description" placeholder="填写地皮描述" :rows="4" />
+					<a-typography-paragraph type="secondary" style="font-size: 12px; margin-top: 4px;">
+						支持 \n 进行换行
+					</a-typography-paragraph>
 				</div>
 
 				<a-divider style="margin: 12px 0" />

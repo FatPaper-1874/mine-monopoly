@@ -8,6 +8,11 @@ const props = defineProps<{ mapEvent: MapEvent | null }>();
 
 const arrivedEvent = ref<MapEvent | null>(props.mapEvent);
 
+// 转换 \n 为真实换行符
+const formattedDescription = computed(() => {
+	return arrivedEvent.value?.description.replace(/\\n/g, '\n') || "";
+});
+
 function updateArrivedEvent(newArrivedEvent: MapEvent) {
 	arrivedEvent.value = newArrivedEvent;
 }
@@ -27,7 +32,7 @@ const iconUrl = computed(() => {
 			<span>{{ arrivedEvent.name }}</span>
 		</div>
 		<div class="description">
-			{{ arrivedEvent.description }}
+			{{ formattedDescription }}
 		</div>
 	</div>
 </template>
@@ -71,6 +76,7 @@ const iconUrl = computed(() => {
 			#fff 1px 0 0,
 			#fff 0 1px 0,
 			#fff 0 -1px 0;
+		white-space: pre-wrap; /* 保留换行和空格 */
 	}
 }
 </style>

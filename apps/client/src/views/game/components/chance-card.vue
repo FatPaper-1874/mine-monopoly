@@ -6,6 +6,11 @@ import { useResourceStore } from "@src/store/game";
 
 const props = defineProps<{ chanceCard: ChanceCardClientInfo; disable: boolean }>();
 
+// 转换 \n 为真实换行符
+const formattedDescription = computed(() => {
+	return props.chanceCard.description.replace(/\\n/g, '\n');
+});
+
 const iconUrl = computed(() => {
 	const resource = useResourceStore().getRecourceById(props.chanceCard.iconId);
 	return resource ? resource.url : "";
@@ -16,7 +21,7 @@ const iconUrl = computed(() => {
 	<div class="chance-card" :class="{ disable }" :style="{ border: `0.4em solid ${chanceCard.color}` }">
 		<div class="icon" v-if="chanceCard.iconId"><img :src="iconUrl" alt="" /></div>
 		<div class="name" :style="{ color: chanceCard.color }">{{ chanceCard.name }}</div>
-		<div class="describe" :style="{ color: chanceCard.color }">{{ chanceCard.description }}</div>
+		<div class="describe" :style="{ color: chanceCard.color }">{{ formattedDescription }}</div>
 	</div>
 </template>
 
@@ -70,6 +75,7 @@ const iconUrl = computed(() => {
 		word-wrap: break-word;
 		overflow-y: scroll;
 		text-align: center;
+		white-space: pre-wrap; /* 保留换行和空格 */
 
 		&::-webkit-scrollbar {
 			display: none;

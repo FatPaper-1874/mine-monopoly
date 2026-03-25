@@ -6,6 +6,11 @@ import { useResourceStore } from "@src/stores";
 
 const props = defineProps<{ chanceCard: ChanceCardInfo; disable: boolean; iconPreview: string | undefined }>();
 
+// 转换 \n 为真实换行符
+const formattedDescription = computed(() => {
+	return props.chanceCard.description.replace(/\\n/g, '\n');
+});
+
 const _iconPreview = ref("");
 
 watch(
@@ -30,7 +35,7 @@ watch(
 	<div class="chance-card" :class="{ disable }" :style="{ border: `0.35em solid ${chanceCard.color}` }">
 		<div class="icon" v-if="chanceCard.iconId || iconPreview"><img :src="iconPreview || _iconPreview" alt="" /></div>
 		<div class="name" :style="{ color: chanceCard.color }">{{ chanceCard.name }}</div>
-		<div class="describe" :style="{ color: chanceCard.color }">{{ chanceCard.description }}</div>
+		<div class="describe" :style="{ color: chanceCard.color }">{{ formattedDescription }}</div>
 	</div>
 </template>
 
@@ -85,6 +90,7 @@ watch(
 		word-wrap: break-word;
 		overflow-y: scroll;
 		text-align: center;
+		white-space: pre-wrap; /* 保留换行和空格 */
 
 		&::-webkit-scrollbar {
 			display: none;
