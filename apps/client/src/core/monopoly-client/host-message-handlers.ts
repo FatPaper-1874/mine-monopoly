@@ -285,12 +285,12 @@ const handleGameInit: ServerMessageHandler<SocketMsgType.GameInit> = (msg) => {
 	const gameDataStore = useGameData();
 	const gameData = msg.data;
 	if (gameData) {
-		gameDataStore.$patch({
-			currentPlayerIdInRound: gameData.currentPlayerIdInRound,
-			currentRound: gameData.currentRound,
-			currentMultiplier: gameData.currentMultiplier,
-			players: gameData.players,
-			properties: gameData.properties,
+		gameDataStore.$patch((state) => {
+			state.currentPlayerIdInRound = gameData.currentPlayerIdInRound;
+			state.currentRound = gameData.currentRound;
+			state.currentMultiplier = gameData.currentMultiplier;
+			state.players = gameData.players;
+			state.properties = gameData.properties;
 		});
 		const me = gameData.players.find((p) => p.id === useUserInfo().userId);
 		if (me && me.isBankrupted) {
