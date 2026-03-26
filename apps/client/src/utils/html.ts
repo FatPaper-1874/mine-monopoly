@@ -1,79 +1,180 @@
-import { PropertyInfo } from "@mine-monopoly/types";
+import { PropertyInfo, UISchema } from "@mine-monopoly/types";
 
-export function generatePropertyHtml(property: PropertyInfo): string {
-	if (!property) return "";
+export function generatePropertySchema(property: PropertyInfo): UISchema {
+	const costList: UISchema[] = property.costList.map((cost, index) => ({
+		id: `cost-item-${index}`,
+		type: "div",
+		style: {
+			display: "flex",
+			justifyContent: "space-between",
+			alignItems: "center",
+			fontSize: "1.1rem",
+			width: "70%",
+			marginBottom: "1rem",
+		},
+		children: [
+			{
+				id: `cost-label-${index}`,
+				type: "text",
+				content: `LV${index} 过路费`,
+				style: {
+					flex: "1",
+					textAlign: "center",
+				},
+			},
+			{
+				id: `cost-value-${index}`,
+				type: "text",
+				content: String(cost),
+				style: {
+					flex: "1",
+					textAlign: "center",
+					color: "var(--color-second)",
+					textShadow: "var(--text-shadow)",
+				},
+			},
+		],
+	}));
 
-	// --- 样式定义 (将 SCSS 转换为内联样式) ---
-	const styles = {
-		container: `
-      width: 100%;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-around;
-      align-items: center;
-    `,
-		row: `
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 1.1rem;
-      width: 70%;
-      margin-bottom: 1rem;
-    `,
-		label: `
-      flex: 1;
-      text-align: center;
-    `,
-		data: `
-      flex: 1;
-      text-align: center;
-      color: var(--color-second);
-      text-shadow: var(--text-shadow);
-    `,
-		nameData: `
-      text-align: center;
-      font-size: 1.5rem;
-      color: var(--color-primary);
-      width: 100%;
-    `,
+	return {
+		id: "property-info",
+		type: "div",
+		style: {
+			width: "100%",
+			display: "flex",
+			flexDirection: "column",
+			justifyContent: "space-around",
+			alignItems: "center",
+		},
+		children: [
+			{
+				id: "property-name",
+				type: "div",
+				style: {
+					display: "flex",
+					justifyContent: "space-between",
+					alignItems: "center",
+					fontSize: "1.1rem",
+					width: "70%",
+					marginBottom: "1rem",
+				},
+				children: [
+					{
+						id: "name-text",
+						type: "text",
+						content: property.name,
+						style: {
+							textAlign: "center",
+							fontSize: "1.5rem",
+							color: "var(--color-primary)",
+							width: "100%",
+						},
+					},
+				],
+			},
+			{
+				id: "building-level",
+				type: "div",
+				style: {
+					display: "flex",
+					justifyContent: "space-between",
+					alignItems: "center",
+					fontSize: "1.1rem",
+					width: "70%",
+					marginBottom: "1rem",
+				},
+				children: [
+					{
+						id: "level-label",
+						type: "text",
+						content: "当前建筑等级",
+						style: {
+							flex: "1",
+							textAlign: "center",
+						},
+					},
+					{
+						id: "level-value",
+						type: "text",
+						content: `LV ${property.level}`,
+						style: {
+							flex: "1",
+							textAlign: "center",
+							color: "var(--color-second)",
+							textShadow: "var(--text-shadow)",
+						},
+					},
+				],
+			},
+			{
+				id: "build-cost",
+				type: "div",
+				style: {
+					display: "flex",
+					justifyContent: "space-between",
+					alignItems: "center",
+					fontSize: "1.1rem",
+					width: "70%",
+					marginBottom: "1rem",
+				},
+				children: [
+					{
+						id: "build-cost-label",
+						type: "text",
+						content: "升级费用",
+						style: {
+							flex: "1",
+							textAlign: "center",
+						},
+					},
+					{
+						id: "build-cost-value",
+						type: "text",
+						content: String(property.buildCost),
+						style: {
+							flex: "1",
+							textAlign: "center",
+							color: "var(--color-second)",
+							textShadow: "var(--text-shadow)",
+						},
+					},
+				],
+			},
+			{
+				id: "sell-cost",
+				type: "div",
+				style: {
+					display: "flex",
+					justifyContent: "space-between",
+					alignItems: "center",
+					fontSize: "1.1rem",
+					width: "70%",
+					marginBottom: "1rem",
+				},
+				children: [
+					{
+						id: "sell-cost-label",
+						type: "text",
+						content: "空地价格",
+						style: {
+							flex: "1",
+							textAlign: "center",
+						},
+					},
+					{
+						id: "sell-cost-value",
+						type: "text",
+						content: String(property.sellCost),
+						style: {
+							flex: "1",
+							textAlign: "center",
+							color: "var(--color-second)",
+							textShadow: "var(--text-shadow)",
+						},
+					},
+				],
+			},
+			...costList,
+		],
 	};
-
-	// --- 处理循环部分 (过路费列表) ---
-	// 如果你需要手动替换数据，这里只生成了结构
-	const costListHtml = property.costList
-		.map(
-			(cost, index) => `
-    <div class="cost_item" style="${styles.row}">
-      <span class="label" style="${styles.label}">LV${index} 过路费</span>
-      <span class="data" style="${styles.data}">${cost}</span>
-    </div>
-  `,
-		)
-		.join("");
-
-	// --- 组装最终 HTML ---
-	return `
-    <div class="property-info" style="${styles.container}">
-      <div class="name" style="${styles.row}">
-        <span class="data" style="${styles.nameData}">${property.name}</span>
-      </div>
-
-      <div class="buildingLevel" style="${styles.row}">
-        <span class="label" style="${styles.label}">当前建筑等级</span>
-        <span class="data" style="${styles.data}">LV ${property.level}</span>
-      </div>
-
-      <div class="buildCost" style="${styles.row}">
-        <span class="label" style="${styles.label}">升级费用</span>
-        <span class="data" style="${styles.data}">${property.buildCost}</span>
-      </div>
-
-      <div class="sellCost" style="${styles.row}">
-        <span class="label" style="${styles.label}">空地价格</span>
-        <span class="data" style="${styles.data}">${property.sellCost}</span>
-      </div>
-
-      ${costListHtml}
-    </div>
-  `;
 }

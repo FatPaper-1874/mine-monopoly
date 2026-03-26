@@ -4,6 +4,7 @@ import FpDialog from "../fp-dialog/fp-dialog.vue";
 import ItemSelector from "./item-selector.vue";
 import HtmlRenderer from "../ui-renderer/ui-renderer.vue";
 import type { UISchema } from "@mine-monopoly/types";
+import { parseRichText } from "@mine-monopoly/utils";
 
 // 定义接收的参数
 const props = defineProps({
@@ -28,6 +29,14 @@ const emit = defineEmits(["confirm", "cancel"]);
 
 const visible = ref(false);
 const currentSelected = ref<string | string[]>(props.multiple ? [] : "");
+
+// 解析富文本内容
+const parsedContent = computed(() => {
+	if (typeof props.content === "string") {
+		return parseRichText(props.content);
+	}
+	return props.content;
+});
 
 // 规范化为数组，用于传递给 ItemSelector
 const normalizedSelectedKey = computed(() => {
@@ -91,9 +100,9 @@ const handleCancel = () => {
 
 		<div class="selector-container">
 			<!-- 内容区域 -->
-			<div v-if="content" class="dialog-content">
-				<html-renderer v-if="typeof content === 'object'" :schema="content" :context="{}" />
-				<div v-else class="text-content">{{ content }}</div>
+			<div v-if="parsedContent" class="dialog-content">
+				<html-renderer v-if="typeof parsedContent === 'object'" :schema="parsedContent" :context="{}" />
+				<div v-else class="text-content">{{ parsedContent }}</div>
 			</div>
 
 			<!-- 物品选择器 -->

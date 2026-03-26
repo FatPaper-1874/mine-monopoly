@@ -233,14 +233,17 @@ export class Room {
 							title: "房主要启用非官方地图",
 							content: `此地图由房主 <b>${
 								this.getOwner().username
-							}</b> 提供，未经过官方验证，可能存在<b style='color: red'>数据异常、游戏不平衡或脚本风险。</b><br>请谨慎游玩，并自行承担使用非官方内容所带来的风险。`,
+							} </b> 提供，未经过官方验证，可能存在<b><color:red>数据异常、游戏不平衡或脚本风险。</color></b><br>请谨慎游玩，并自行承担使用非官方内容所带来的风险。`,
 							confirmText: "同意",
 							cancelText: "不同意",
 						},
 					});
 
 					// 等待玩家确认
-					const confirmResult = await this.operationListener.onceAsync(userInRoom.userId, OperateType.ConfirmDialogResult);
+					const confirmResult = await this.operationListener.onceAsync(
+						userInRoom.userId,
+						OperateType.ConfirmDialogResult,
+					);
 
 					// 如果玩家拒绝，踢出房间
 					if (!confirmResult.confirm) {
@@ -383,7 +386,7 @@ export class Room {
 						title: "房主要启用非官方地图",
 						content: `此地图由房主 <b>${
 							this.getOwner().username
-						}</b> 提供，未经过官方验证，可能存在<b style='color: red'>数据异常、游戏不平衡或脚本风险。</b><br>请谨慎游玩，并自行承担使用非官方内容所带来的风险。`,
+						} </b> 提供，未经过官方验证，可能存在<b><color:red>数据异常、游戏不平衡或脚本风险。</color></b><br>请谨慎游玩，并自行承担使用非官方内容所带来的风险。`,
 						confirmText: "同意",
 						cancelText: "不同意",
 						totalPlayers: totalPlayers, // 添加总玩家数信息
@@ -502,7 +505,7 @@ export class Room {
 			console.error("[Worker Error Event]:", event);
 			FPMessage({
 				type: "error",
-				message: "游戏进程发生错误，日志已记录"
+				message: "游戏进程发生错误，日志已记录",
 			});
 
 			// 通过 electron API 记录错误
@@ -514,8 +517,8 @@ export class Room {
 					additionalData: {
 						eventType: "error",
 						filename: event.filename,
-						lineno: event.lineno
-					}
+						lineno: event.lineno,
+					},
 				});
 			}
 		});
@@ -587,7 +590,7 @@ export class Room {
 
 			FPMessage({
 				type: "error",
-				message: `游戏进程错误: ${errorData.message}\n日志已记录，请查看 logs 文件夹`
+				message: `游戏进程错误: ${errorData.message}\n日志已记录，请查看 logs 文件夹`,
 			});
 
 			// 通过 electron API 记录错误

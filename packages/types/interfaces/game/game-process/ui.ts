@@ -8,7 +8,21 @@ interface DialogOption {
 	/** 对话框标题 */
 	title: string;
 
-	/** 对话框内容（字符串或 UI Schema） */
+	/** 对话框内容（字符串或 UI Schema）
+	 *
+	 * @remarks
+	 * 字符串内容支持富文本标记：
+	 * - 颜色: `<color:red>文字</color>`, `<color:#ff0000>文字</color>`, `<color:rgb(255,0,0)>文字</color>`
+	 * - 粗体: `<b>文字</b>`
+	 * - 斜体: `<i>文字</i>`
+	 * - 下划线: `<u>文字</u>`
+	 * - 换行: `<br>` 或 `\n`
+	 * - 支持嵌套: `<b><color:red>粗体红色</color></b>`
+	 *
+	 * 游戏主题色: `<color:primary>主色</color>`, `<color:second>次色</color>`, `<color:third>第三色</color>`
+	 *
+	 * 任何格式错误的标签将显示为纯文本。
+	 */
 	content: string | UISchema;
 
 	/** 确认按钮文本（可选） */
@@ -179,7 +193,21 @@ export interface MessageCardOption {
 	/** 标题 */
 	title: string;
 
-	/** 内容（字符串或 UI Schema） */
+	/** 内容（字符串或 UI Schema）
+	 *
+	 * @remarks
+	 * 字符串内容支持富文本标记：
+	 * - 颜色: `<color:red>文字</color>`, `<color:#ff0000>文字</color>`, `<color:rgb(255,0,0)>文字</color>`
+	 * - 粗体: `<b>文字</b>`
+	 * - 斜体: `<i>文字</i>`
+	 * - 下划线: `<u>文字</u>`
+	 * - 换行: `<br>` 或 `\n`
+	 * - 支持嵌套: `<b><color:red>粗体红色</color></b>`
+	 *
+	 * 游戏主题色: `<color:primary>主色</color>`, `<color:second>次色</color>`, `<color:third>第三色</color>`
+	 *
+	 * 任何格式错误的标签将显示为纯文本。
+	 */
 	content: string | UISchema;
 
 	/** 显示时长（毫秒） */
@@ -229,7 +257,7 @@ export interface UISchema {
 	// ===== 样式 =====
 
 	/** 静态样式（可选） */
-	style?: Record<string, string>;
+	style?: Partial<CSSStyleDeclaration>;
 
 	/** 动态样式绑定（可选，支持 CSS） */
 	styleBinding?: Record<string, string>;

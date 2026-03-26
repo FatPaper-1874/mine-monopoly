@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, VNode, isVNode } from "vue";
+import { ref, VNode, isVNode, computed } from "vue";
 import FpDialog from "../fp-dialog/fp-dialog.vue";
 import { UISchema, FormSchema } from "@mine-monopoly/types";
 import UiRenderer from "../ui-renderer/ui-renderer.vue";
 import CustomForm from "../custom-form/index.vue";
 import { useGameData } from "@src/store/game";
+import { parseRichText } from "@mine-monopoly/utils";
 
 export interface Props {
 	title?: string;
@@ -26,6 +27,14 @@ const emits = defineEmits<{
 	cancel: [];
 	close: [];
 }>();
+
+// 解析富文本内容
+const parsedContent = computed(() => {
+	if (typeof props.content === "string") {
+		return parseRichText(props.content);
+	}
+	return props.content;
+});
 
 const formData = ref<Record<string, any>>({}); // 存储表单数据
 
@@ -73,12 +82,12 @@ const handleDialogClose = () => {
 	>
 		<div class="message-content">
 			<!-- 渲染 content -->
-			<component v-if="isVNode(content)" :is="content" />
-			<div v-else-if="typeof content === 'string'" v-html="content"></div>
+			<component v-if="isVNode(parsedContent)" :is="parsedContent" />
+			<div v-else-if="typeof parsedContent === 'string'" v-html="parsedContent"></div>
 			<UiRenderer
-				v-else-if="content && typeof content === 'object' && 'type' in content"
+				v-else-if="parsedContent && typeof parsedContent === 'object' && 'type' in parsedContent"
 				:context="useGameData().$state"
-				:schema="content as UISchema"
+				:schema="parsedContent as UISchema"
 				@update:model-value="handleFormChange"
 			/>
 

@@ -42,7 +42,7 @@ const formattedDescription = computed(() => {
 	height: 14em;
 	font-size: 0.8em;
 	background-image:
-		radial-gradient(circle at 50% 50%, transparent 0%, rgba(0, 0, 0, 0.05) 100%),
+		radial-gradient(circle at 50% 50%, transparent 0%, rgba(0, 0, 0, 0.01) 100%),
 		repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 0, 0, 0.02) 2px, rgba(0, 0, 0, 0.02) 4px);
 	background-color: #ffffff;
 	box-sizing: border-box;

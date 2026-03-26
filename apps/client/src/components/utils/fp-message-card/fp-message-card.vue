@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, VNode, isVNode, onUnmounted } from "vue";
+import { ref, VNode, isVNode, onUnmounted, computed } from "vue";
 import FpDialog from "../fp-dialog/fp-dialog.vue";
 import { UISchema } from "@mine-monopoly/types";
 import UiRenderer from "../ui-renderer/ui-renderer.vue";
 import { useGameData } from "@src/store/game";
+import { parseRichText } from "@mine-monopoly/utils";
 
 export interface Props {
 	title?: string;
@@ -18,6 +19,14 @@ const emit = defineEmits<{
 const props = withDefaults(defineProps<Props>(), {
 	title: "提示",
 	duration: 3000,
+});
+
+// 解析富文本内容
+const parsedContent = computed(() => {
+	if (typeof props.content === "string") {
+		return parseRichText(props.content);
+	}
+	return props.content;
 });
 
 const visible = ref(false);
@@ -61,9 +70,9 @@ defineExpose({ open, close });
 		style="min-width: 26rem; max-width: 90vw"
 	>
 		<div class="message-content">
-			<component v-if="isVNode(content)" :is="content" />
-			<div v-else-if="typeof content === 'string'" v-html="content"></div>
-			<UiRenderer v-else :context="useGameData().$state" :schema="content as UISchema" />
+			<component v-if="isVNode(parsedContent)" :is="parsedContent" />
+			<div v-else-if="typeof parsedContent === 'string'" v-html="parsedContent"></div>
+			<UiRenderer v-else :context="useGameData().$state" :schema="parsedContent as UISchema" />
 		</div>
 
 		<div v-if="visible && duration > 0" class="duration-bar" :style="{ animationDuration: `${duration}ms` }"></div>

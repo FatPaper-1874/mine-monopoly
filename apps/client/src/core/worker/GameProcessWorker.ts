@@ -47,7 +47,7 @@ import { compileTsToJs, randomString } from "@src/utils";
 import { GamePhase } from "@src/core/worker/class/GamePhase";
 import { GameRuntimeStack } from "@src/core/worker/class/GameRuntimeStack";
 import GameProcessTypes from "./editor-lib.d.ts?raw";
-import { generatePropertyHtml } from "@src/utils/html";
+import { generatePropertySchema } from "@src/utils/html";
 import mitt from "mitt";
 import { aiManager } from "./ai/AIStrategy";
 import type { Emitter } from "mitt";
@@ -562,7 +562,7 @@ export class GameProcess implements IGameProcess {
 							//已有房产, 升级房屋
 							const playerRes = await this.showConfirmDialog(arrivedPlayer.id, {
 								title: `升级 ${property.name}`,
-								content: `${generatePropertyHtml(property.getPropertyInfo())}`,
+								content: generatePropertySchema(property.getPropertyInfo()),
 								cancelText: `不要`,
 								confirmText: `升！`,
 							});
@@ -572,7 +572,7 @@ export class GameProcess implements IGameProcess {
 						}
 					} else {
 						//地产是别人的
-							this.setCurrentEventName(`等待${arrivedPlayer.name} 给过路费`);
+						this.setCurrentEventName(`等待${arrivedPlayer.name} 给过路费`);
 						const ownerPlayer = this.getPlayerById(owner.id);
 						if (!ownerPlayer) return payload;
 						if (owner !== undefined && toll !== undefined) {
@@ -612,7 +612,7 @@ export class GameProcess implements IGameProcess {
 					this.setCurrentEventName(`等待${arrivedPlayer.name} 购买地皮`);
 					const playerRes = await this.showConfirmDialog(arrivedPlayer.id, {
 						title: `购买 ${property.name}`,
-						content: `${generatePropertyHtml(property.getPropertyInfo())}`,
+						content: generatePropertySchema(property.getPropertyInfo()),
 						cancelText: `不要`,
 						confirmText: `买！`,
 					});
@@ -1003,7 +1003,13 @@ export class GameProcess implements IGameProcess {
 	 * @param totalSteps - 总移动步数（用于显示）
 	 * @param currentStep - 当前是第几步（用于显示）
 	 */
-	private async walkSegment(player: Player, sourceIndex: number, steps: number, totalSteps: number, currentStep: number): Promise<void> {
+	private async walkSegment(
+		player: Player,
+		sourceIndex: number,
+		steps: number,
+		totalSteps: number,
+		currentStep: number,
+	): Promise<void> {
 		const walkId = randomString(16);
 		const targetIndex = this.normalizeIndex(sourceIndex + steps, this.mapData.mapIndex.length);
 
@@ -1023,7 +1029,8 @@ export class GameProcess implements IGameProcess {
 		this.gameBroadcast(msg);
 
 		// 等待动画完成
-		const animationDuration = GameProcess.WALK_ANIMATION_BASE_DURATION * (Math.abs(steps) + GameProcess.WALK_ANIMATION_EXTRA_STEPS);
+		const animationDuration =
+			GameProcess.WALK_ANIMATION_BASE_DURATION * (Math.abs(steps) + GameProcess.WALK_ANIMATION_EXTRA_STEPS);
 
 		// 使用超时机制防止永久等待
 		const animationTimer = setTimeout(() => {
