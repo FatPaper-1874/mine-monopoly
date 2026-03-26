@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { evalExpression, parseVFor } from "./utils"; // 调整引入路径
 import type { UISchema } from "@mine-monopoly/types"; // 假设的类型路径
 
@@ -47,6 +47,13 @@ const computedStyle = computed(() => {
 			}
 		});
 	}
+
+	// 如果没有任何样式，返回 undefined 而不是空对象
+	// 这样可以避免覆盖 CSS 继承的 white-space 属性
+	if (Object.keys(styles).length === 0) {
+		return undefined;
+	}
+
 	return styles;
 });
 
@@ -62,6 +69,14 @@ const computedProps = computed(() => {
 			}
 		});
 	}
+
+	// 添加对 class 属性的特殊处理
+	// 支持 className（React 风格）和 class（Vue 风格）
+	if (finalProps.className) {
+		finalProps.class = finalProps.className;
+		delete finalProps.className;
+	}
+
 	return finalProps;
 });
 
@@ -91,6 +106,9 @@ const getItemContext = (vForExpr: string, itemValue: any, index: number) => {
 		</span>
 	</template>
 
+	<!-- 处理 br 标签 -->
+	<br v-else-if="schema.type === 'br'" :class="computedProps.class" />
+
 	<component v-else :is="schema.type" v-show="shouldShow" v-bind="computedProps" :style="computedStyle">
 		{{ textContent }}
 
@@ -113,6 +131,18 @@ const getItemContext = (vForExpr: string, itemValue: any, index: number) => {
 
 <style scoped>
 .ui-text-node {
-	display: inline-block;
+	/* Remove inline-block, use default inline */
+	/* Inherit white-space from parent element */
+	white-space: inherit;
+
+	/* Support preserve-whitespace class */
+	&.preserve-whitespace {
+		white-space: pre-wrap;
+	}
+}
+
+.rich-text-line-break {
+	/* Line breaks should not affect text rendering */
+	/* Only use this for explicit <br> tags from rich text */
 }
 </style>

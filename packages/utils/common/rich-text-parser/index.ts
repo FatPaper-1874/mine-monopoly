@@ -67,6 +67,7 @@ export class RichTextParser {
       return {
         id,
         type: 'text',
+        style: { 'white-space': 'pre-wrap' },
         content: node.content || ''
       };
     }
@@ -76,6 +77,7 @@ export class RichTextParser {
       return {
         id,
         type: 'text',
+        style: { 'white-space': 'pre-wrap' },
         content: '\n'
       };
     }

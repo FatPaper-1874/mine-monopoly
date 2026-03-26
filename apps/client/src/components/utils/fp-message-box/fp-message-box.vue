@@ -119,9 +119,19 @@ const handleDialogClose = () => {
 	color: var(--color-text-regular, #333);
 	line-height: 1.5;
 
-	// 支持 \n 换行符
-	// 使用 pre-line 保留换行符，但折叠其他空白
-	white-space: pre-line;
+	// 使用 pre-wrap 保留换行符和空格
+	white-space: pre-wrap;
+
+	// 直接针对 UiRenderer 的文本节点设置样式
+	// 使用 :deep() 穿透到子组件，并使用 !important 确保优先级
+	:deep(.ui-text-node) {
+		white-space: pre-wrap !important;
+	}
+
+	// 确保所有子元素也继承 white-space
+	:deep(*) {
+		white-space: inherit;
+	}
 
 	// 在表单前添加 margin
 	:deep(.custom-form) {
