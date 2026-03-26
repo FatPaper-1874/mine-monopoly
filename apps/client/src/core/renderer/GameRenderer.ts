@@ -92,6 +92,8 @@ export class GameRenderer {
 
 	private diceManager: DiceManager | null = null;
 	private isRenderDice = false;
+	private diceRollQueue: DiceResult[][] = []; // 骰子动画队列
+	private isProcessingDiceRoll: boolean = false; // 是否正在处理骰子动画
 
 	// FPS 计算相关
 	private lastFrameTime: number = performance.now();
@@ -639,11 +641,42 @@ export class GameRenderer {
 
 		useEventBus().on("dice-roll", async (diceRes: DiceResult[]) => {
 			if (!this.diceManager) return;
-			this.diceManager.setDiceCount(diceRes.length);
-			this.isRenderDice = true;
-			await this.diceManager.roll(diceRes);
-			this.isRenderDice = false;
+
+			// 将请求加入队列
+			this.diceRollQueue.push(diceRes);
+
+			// 如果当前没有正在处理的动画，开始处理队列
+			if (!this.isProcessingDiceRoll) {
+				await this._processDiceRollQueue();
+			}
 		});
+	}
+
+	/**
+	 * 处理骰子动画队列（确保动画按顺序执行，不会并发）
+	 */
+	private async _processDiceRollQueue(): Promise<void> {
+		if (this.isProcessingDiceRoll || this.diceRollQueue.length === 0) {
+			return;
+		}
+
+		this.isProcessingDiceRoll = true;
+
+		while (this.diceRollQueue.length > 0) {
+			const diceRes = this.diceRollQueue.shift();
+			if (!diceRes) break;
+
+			try {
+				this.diceManager!.setDiceCount(diceRes.length);
+				this.isRenderDice = true;
+				await this.diceManager!.roll(diceRes);
+				this.isRenderDice = false;
+			} catch (error) {
+				console.error("[骰子动画] 执行失败:", error);
+			}
+		}
+
+		this.isProcessingDiceRoll = false;
 	}
 
 	private handlePropertyRaycaster(raycaster: THREE.Raycaster, pointer: THREE.Vector2) {

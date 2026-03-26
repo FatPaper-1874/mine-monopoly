@@ -180,6 +180,12 @@ export class DiceManager {
 	 * @param configs 对象数组，定义每个骰子的面和目标
 	 */
 	public roll(configs: DiceResult[]): Promise<void> {
+		// 如果已经在投掷中，拒绝新的投掷请求（防御性编程）
+		if (this.isRolling) {
+			console.warn("[DiceManager] 已在投掷中，忽略新的投掷请求");
+			return Promise.resolve();
+		}
+
 		return new Promise((resolve) => {
 			this.isRolling = true;
 			this.isArranged = false;
