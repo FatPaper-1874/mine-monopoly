@@ -409,7 +409,7 @@ export class GameProcess implements IGameProcess {
 			this.players.set(player.id, player);
 
 			player.commandBus.setHandler("player.walk", async (payload) => {
-				this.setCurrentEventName(`${player.name} 走路中`);
+				this.setCurrentEventName(`${player.name} 正在走路`);
 				const { steps } = payload;
 				const sourceIndex = player.positionIndex;
 				const total = this.mapData.mapIndex.length;
@@ -474,7 +474,7 @@ export class GameProcess implements IGameProcess {
 			});
 
 			player.commandBus.setHandler("player.tp", async (payload) => {
-				this.setCurrentEventName(`${player.name} 传送中`);
+				this.setCurrentEventName(`${player.name} 正在传送`);
 				const { positionIndex } = payload;
 				const walkId = randomString(16);
 				const msg: ServerSocketMessage = {
@@ -509,6 +509,7 @@ export class GameProcess implements IGameProcess {
 			});
 
 			player.commandBus.setHandler("player.dice.roll", async (payload) => {
+				this.setCurrentEventName(`${player.name} 正在掷骰子`);
 				const { dices } = payload;
 				const diceResult = dices.map((d) => d.roll());
 

@@ -146,7 +146,7 @@ export function handleServerSocketMessage(msg: ServerSocketMessage, client: Mono
 			handleMessageCardDialog(msg, client);
 			break;
 		case SocketMsgType.LoadingControl:
-			handleLoadingControl(msg);
+			handleLoadingControl(msg, client);
 			break;
 		default:
 			break;
@@ -589,7 +589,7 @@ const handleMessageCardDialog: ServerMessageHandler<SocketMsgType.MessageCard> =
 	FPMessageCard(data.option);
 };
 
-const handleLoadingControl: ServerMessageHandler<SocketMsgType.LoadingControl> = (msg) => {
+const handleLoadingControl: ServerMessageHandler<SocketMsgType.LoadingControl> = (msg, client) => {
 	const { show, text } = msg.data;
 	if (show) {
 		useLoading().showLoading(text || "加载中...");
