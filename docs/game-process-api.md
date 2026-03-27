@@ -523,12 +523,12 @@ gameDataBroadcast(): void
 
 ---
 
-#### gameMsgNotifyBroadcast
+#### msgNotifyBroadcast
 
 广播游戏消息通知。
 
 ```typescript
-gameMsgNotifyBroadcast(type: "success" | "warning" | "error" | "info", msg: string): void
+msgNotifyBroadcast(type: "success" | "warning" | "error" | "info", msg: string): void
 ```
 
 **参数:**
@@ -537,7 +537,7 @@ gameMsgNotifyBroadcast(type: "success" | "warning" | "error" | "info", msg: stri
 
 **示例:**
 ```typescript
-gameProcess.gameMsgNotifyBroadcast('success', '玩家获得 100 金钱！');
+gameProcess.msgNotifyBroadcast('success', '玩家获得 100 金钱！');
 ```
 
 ---

@@ -668,9 +668,9 @@ export class GameProcess implements IGameProcess {
 
 					// 根据剩余暂停次数显示不同的提示
 					if (player.isStop === 0) {
-						this.gameMsgNotifyBroadcast("info", `${player.name} 暂停中，下一回合将恢复`);
+						this.msgNotifyBroadcast("info", `${player.name} 暂停中，下一回合将恢复`);
 					} else {
-						this.gameMsgNotifyBroadcast("info", `${player.name} 暂停中，还需跳过 ${player.isStop} 回合`);
+						this.msgNotifyBroadcast("info", `${player.name} 暂停中，还需跳过 ${player.isStop} 回合`);
 					}
 					continue; // 跳过此玩家的回合
 				}
@@ -714,7 +714,7 @@ export class GameProcess implements IGameProcess {
 		if (player.money > property.sellCost) {
 			await property.setOwner(player);
 			this.gameDataBroadcast();
-			this.gameMsgNotifyBroadcast("info", `${player.name} 买下了地皮 ${property.name}`);
+			this.msgNotifyBroadcast("info", `${player.name} 买下了地皮 ${property.name}`);
 			this.gameLogBroadcast(
 				`${this.createGameLinkItem(GameLinkItem.Player, player.id)} 买下了地皮 ${this.createGameLinkItem(
 					GameLinkItem.Property,
@@ -737,7 +737,7 @@ export class GameProcess implements IGameProcess {
 		if (player.money > property.sellCost) {
 			property.levelUp();
 			this.gameDataBroadcast();
-			this.gameMsgNotifyBroadcast("info", `${player.name}把地皮${property.name}升到了${property.level}级`);
+			this.msgNotifyBroadcast("info", `${player.name}把地皮${property.name}升到了${property.level}级`);
 			this.gameLogBroadcast(
 				`${this.createGameLinkItem(GameLinkItem.Player, player.id)} 把地皮 ${this.createGameLinkItem(
 					GameLinkItem.Property,
@@ -810,7 +810,7 @@ export class GameProcess implements IGameProcess {
 				case TargetSelectType.ToSelf: {
 					await chanceCard.use(sourcePlayer, sourcePlayer, this);
 
-					this.gameMsgNotifyBroadcast("info", `${sourcePlayer.name} 对自己使用了机会卡: "${cardName}"`);
+					this.msgNotifyBroadcast("info", `${sourcePlayer.name} 对自己使用了机会卡: "${cardName}"`);
 					this.gameLogBroadcast(`${sourceLink} 对自己使用了机会卡: ${cardLink}`);
 					break;
 				}
@@ -823,7 +823,7 @@ export class GameProcess implements IGameProcess {
 					await chanceCard.use(sourcePlayer, targetPlayer, this);
 
 					const targetLink = this.createGameLinkItem(GameLinkItem.Player, targetPlayer.id);
-					this.gameMsgNotifyBroadcast(
+					this.msgNotifyBroadcast(
 						"info",
 						`${sourcePlayer.name} 对玩家 ${targetPlayer.name} 使用了机会卡: "${cardName}"`,
 					);
@@ -838,7 +838,7 @@ export class GameProcess implements IGameProcess {
 					await chanceCard.use(sourcePlayer, targetProperty, this);
 
 					const targetLink = this.createGameLinkItem(GameLinkItem.Property, targetProperty.id);
-					this.gameMsgNotifyBroadcast(
+					this.msgNotifyBroadcast(
 						"info",
 						`${sourcePlayer.name} 对地皮 ${targetProperty.name} 使用了机会卡: "${cardName}"`,
 					);
@@ -926,7 +926,7 @@ export class GameProcess implements IGameProcess {
 			// 是到达触发的事件
 			if (mapEvent.type === MapEventType.ArrivedEvent) {
 				await mapEvent.fn(arrivedPlayer, this);
-				this.gameMsgNotifyBroadcast("info", `${arrivedPlayer.name} 触发了地图事件: ${mapEvent.name}`);
+				this.msgNotifyBroadcast("info", `${arrivedPlayer.name} 触发了地图事件: ${mapEvent.name}`);
 				this.gameLogBroadcast(
 					`${this.createGameLinkItem(GameLinkItem.Player, arrivedPlayer.id)} 触发了地图事件: ${this.createGameLinkItem(
 						GameLinkItem.ArrivedEvent,
@@ -963,7 +963,7 @@ export class GameProcess implements IGameProcess {
 
 			// 直接 await 执行经过事件，不推入事件栈
 			await mapEvent.fn(player, this);
-			this.gameMsgNotifyBroadcast("info", `${player.name} 经过了: ${mapEvent.name} 触发事件`);
+			this.msgNotifyBroadcast("info", `${player.name} 经过了: ${mapEvent.name} 触发事件`);
 			this.gameLogBroadcast(
 				`${this.createGameLinkItem(
 					GameLinkItem.Player,
@@ -1433,7 +1433,7 @@ export class GameProcess implements IGameProcess {
 		});
 	}
 
-	public gameMsgNotifyBroadcast(type: "success" | "warning" | "error" | "info", msg: string) {
+	public msgNotifyBroadcast(type: "success" | "warning" | "error" | "info", msg: string) {
 		this.gameBroadcast({
 			type: SocketMsgType.MsgNotify,
 			data: undefined,

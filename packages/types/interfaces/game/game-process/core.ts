@@ -240,7 +240,7 @@ export interface IGameProcess extends IGameProcessCustomFields {
 	 * @param type - 消息类型（success/warning/error/info）
 	 * @param msg - 消息内容
 	 */
-	gameMsgNotifyBroadcast(type: "success" | "warning" | "error" | "info", msg: string): void;
+	msgNotifyBroadcast(type: "success" | "warning" | "error" | "info", msg: string): void;
 
 	/**
 	 * 发送消息通知给指定玩家列表
