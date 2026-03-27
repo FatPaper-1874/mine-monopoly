@@ -38,6 +38,7 @@ import {
 	FormDialogOption,
 	FormDialogResult,
 	FormField,
+	MoneyTag,
 } from "@mine-monopoly/types";
 
 import { Player } from "./class/Player";
@@ -576,7 +577,7 @@ export class GameProcess implements IGameProcess {
 						const ownerPlayer = this.getPlayerById(owner.id);
 						if (!ownerPlayer) return payload;
 						if (owner !== undefined && toll !== undefined) {
-							await owner.gain(toll);
+							await owner.gain(toll, MoneyTag.SYSTEM);
 							await arrivedPlayer.cost(toll);
 						}
 						this.messageNotify([arrivedPlayer.id], {

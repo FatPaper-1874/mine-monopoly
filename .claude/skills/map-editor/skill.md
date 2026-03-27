@@ -217,8 +217,8 @@ player.cost(50);
 ```
 
 **常用命令：**
-- `player.gain(money, source?)` - 获得金钱
-- `player.cost(money, target?)` - 花费金钱
+- `player.gain(money, tag?, source?)` - 获得金钱
+- `player.cost(money, tag?, target?)` - 花费金钱
 - `player.walk(steps)` - 行走指定步数
 - `player.tp(positionIndex)` - 传送到指定位置
 - `player.rollDices()` - 掷骰子
@@ -1896,10 +1896,10 @@ await update_map_item({
     const amount = 500;
 
     // 扣除目标金钱
-    await target.cost(amount, sourcePlayer);
+    await target.cost(amount, undefined, sourcePlayer);
 
     // 自己获得金钱
-    await sourcePlayer.gain(amount, target);
+    await sourcePlayer.gain(amount, undefined, target);
 
     // 记录日志
     gameProcess.gameLogBroadcast(`${sourcePlayer.name} 对 ${target.name} 使用了抢夺卡，抢夺了 ${amount} 元！`);
@@ -2457,8 +2457,8 @@ await add_chance_card({
     color: "#FF0000",
     effectCode: `
         (async (sourcePlayer: IPlayer, target: IPlayer, gameProcess: IGameProcess) => {
-            await target.cost(500, sourcePlayer);
-            await sourcePlayer.gain(500, target);
+            await target.cost(500, undefined, sourcePlayer);
+            await sourcePlayer.gain(500, undefined, target);
             gameProcess.gameLogBroadcast(\`\${sourcePlayer.name} 抢夺了 \${target.name} 的 500 元！\`);
         });
     `
@@ -2543,10 +2543,10 @@ await add_chance_card({
             // 检查目标玩家是否有足够的钱
             if (target.money >= amount) {
                 // 扣除目标的钱
-                await target.cost(amount, sourcePlayer);
+                await target.cost(amount, undefined, sourcePlayer);
 
                 // 自己获得
-                await sourcePlayer.gain(amount, target);
+                await sourcePlayer.gain(amount, undefined, target);
 
                 // 广播消息
                 gameProcess.gameLogBroadcast(\`\${sourcePlayer.name} 使用抢夺卡从 \${target.name} 处抢夺了 \${amount} 元！\`);
@@ -2608,8 +2608,8 @@ await add_chance_card({
 
             for (const player of target) {
                 if (player.money >= taxAmount) {
-                    await player.cost(taxAmount, sourcePlayer);
-                    await sourcePlayer.gain(taxAmount, player);
+                    await player.cost(taxAmount, undefined, sourcePlayer);
+                    await sourcePlayer.gain(taxAmount, undefined, player);
                     totalCollected += taxAmount;
                 }
             }

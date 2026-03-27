@@ -9,12 +9,84 @@
 
 ## 目录
 
+- [MoneyTag - 金钱流动标签](#moneytag)
 - [GameProcess - 游戏进程](#gameprocess)
 - [Player - 玩家](#player)
 - [Property - 地产](#property)
 - [ChanceCard - 机会卡](#chancecard)
 - [CommandBus - 命令总线](#commandbus)
 - [ModifierManager - 修饰器管理器](#modifiermanager)
+
+---
+
+## MoneyTag
+
+金钱流动标签类型，用于标识金钱流动的途径，供修饰器系统识别和处理。
+
+### 类型定义
+
+```typescript
+type MoneyTag = typeof MoneyTag[keyof typeof MoneyTag] | string;
+```
+
+### 预定义标签
+
+```typescript
+const MoneyTag = {
+  SYSTEM: 'system',  // 系统默认操作
+} as const;
+```
+
+### 使用说明
+
+`MoneyTag` 用于标识金钱流动的途径，使修饰器能够根据不同的标签实现特殊效果。
+
+**特点：**
+- 支持使用预定义标签（类型安全）
+- 支持使用自定义字符串（灵活性）
+- 可选参数，完全向后兼容
+
+**使用示例：**
+
+```typescript
+// 使用预定义标签
+await player.cost(100, MoneyTag.SYSTEM);
+await player.gain(200, MoneyTag.SYSTEM);
+
+// 使用自定义标签
+await player.cost(100, 'property_purchase');
+await player.gain(200, 'pass_go_bonus');
+
+// 在修饰器中使用
+modifier: {
+  condition: (context) => {
+    // 只对特定标签的金钱流动生效
+    return context.payload.tag === 'toll';
+  },
+  execute: (context) => {
+    // 修改金额
+    context.payload.money = Math.floor(context.payload.money * 0.5);
+    return context;
+  }
+}
+```
+
+### 扩展预定义标签
+
+可以在 `MoneyTag` 常量对象中添加更多预定义标签：
+
+```typescript
+const MoneyTag = {
+  SYSTEM: 'system',
+  PROPERTY_PURCHASE: 'property_purchase',
+  PROPERTY_UPGRADE: 'property_upgrade',
+  PROPERTY_RENT: 'property_rent',
+  CHANCE_CARD: 'chance_card',
+  PASS_GO: 'pass_go',
+  TAX: 'tax',
+  // ... 添加更多
+} as const;
+```
 
 ---
 
@@ -642,17 +714,26 @@ handlePlayerReconnect(userId: string): void
 获得金钱。
 
 ```typescript
-gain(money: number, source?: IPlayer): Promise<void>
+gain(money: number, tag?: MoneyTag, source?: IPlayer): Promise<void>
 ```
 
 **参数:**
 - `money`: 金钱数量
+- `tag`: 金钱流动标签（可选，用于标识收入途径）
 - `source`: 金钱来源玩家（可选）
 
 **示例:**
 ```typescript
+// 基础用法
 await player.gain(100);
 await player.gain(50, otherPlayer);
+
+// 使用标签
+await player.gain(200, MoneyTag.SYSTEM);
+await player.gain(200, 'pass_go_bonus');
+
+// 组合使用
+await player.gain(200, MoneyTag.SYSTEM, otherPlayer);
 ```
 
 ---
@@ -662,17 +743,26 @@ await player.gain(50, otherPlayer);
 花费金钱。
 
 ```typescript
-cost(money: number, target?: IPlayer): Promise<void>
+cost(money: number, tag?: MoneyTag, target?: IPlayer): Promise<void>
 ```
 
 **参数:**
 - `money`: 金钱数量
+- `tag`: 金钱流动标签（可选，用于标识花费途径）
 - `target`: 收取金钱的目标玩家（可选）
 
 **示例:**
 ```typescript
+// 基础用法
 await player.cost(100);
 await player.cost(50, otherPlayer);
+
+// 使用标签
+await player.cost(100, MoneyTag.SYSTEM);
+await player.cost(100, 'property_purchase');
+
+// 组合使用
+await player.cost(100, MoneyTag.SYSTEM, otherPlayer);
 ```
 
 ---
