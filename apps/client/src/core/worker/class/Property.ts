@@ -66,15 +66,15 @@ export class Property implements IProperty {
 	}
 
 	private initCommandBus() {
-		this.commandBus.setHandler("property.owner.change", (payload) => {
+		this.commandBus.setHandler("property.owner.change", async(payload) => {
 			const { oldOwner, newOwner } = payload;
 			//如果原本有主人
 			if (oldOwner) {
-				oldOwner.loseProperty(this);
+				await oldOwner.loseProperty(this);
 			}
 			this.owner = newOwner;
 			if (newOwner) {
-				newOwner.gainProperty(this);
+				await newOwner.gainProperty(this);
 			}
 			return payload;
 		});
