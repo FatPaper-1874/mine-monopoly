@@ -423,11 +423,22 @@ const handleRollDiceResult: ServerMessageHandler<SocketMsgType.RollDiceResult> =
 };
 
 const handleUsedChanceCard: ServerMessageHandler<SocketMsgType.UseChanceCard> = (msg) => {
+	const { error, animationId, chanceCard, sourcePlayerId, targetIdList } = msg.data;
 	const utilStore = useUtil();
-	if (msg.data.error) {
+	if (error) {
 		utilStore.canUseCard = true;
+		return; // 使用失败，不播放动画
 	}
-	utilStore.canRoll = true;
+
+	// 如果有动画信息，触发机会卡使用事件
+	if (animationId && chanceCard && sourcePlayerId && targetIdList) {
+		useEventBus().emit("chance-card-use", {
+			animationId,
+			chanceCard,
+			sourcePlayerId,
+			targetIdList,
+		});
+	}
 };
 
 const handlePlayerWalk: ServerMessageHandler<SocketMsgType.PlayerWalk> = (msg) => {

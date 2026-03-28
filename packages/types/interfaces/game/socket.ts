@@ -412,7 +412,33 @@ export interface SocketMessageDataType {
 		/** 客户端发送的数据（不支持） */
 		client: never;
 		/** 服务器返回的结果 */
-		server: { error: boolean };
+		server: {
+			/** 是否有错误 */
+			error: boolean;
+			/** 动画ID（用于客户端完成确认） */
+			animationId?: string;
+			/** 机会卡信息 */
+			chanceCard?: {
+				/** 机会卡实例ID */
+				id: string;
+				/** 机会卡来源ID */
+				sourceId: string;
+				/** 机会卡名称 */
+				name: string;
+				/** 机会卡描述 */
+				description: string;
+				/** 图标ID */
+				iconId: string;
+				/** 卡片颜色 */
+				color: string;
+				/** 目标类型 */
+				type: TargetSelectType;
+			};
+			/** 使用者玩家ID */
+			sourcePlayerId?: string;
+			/** 目标ID列表 */
+			targetIdList?: string[];
+		};
 	};
 
 	/**

@@ -138,8 +138,10 @@ map-cache
 # claude code
 CLAUDE.md
 docs/plans/
+docs/superpowers/
 .claude/settings.local.json
 .claude/skills/commit
+.worktrees/
 
 #d.ts
 apps/map-editor/components.d.ts

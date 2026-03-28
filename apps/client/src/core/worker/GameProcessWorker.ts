@@ -215,6 +215,9 @@ export class GameProcess implements IGameProcess {
 	// 完整的类型定义（包含 GameProcessTypes 和 extraLibs）
 	private fullTypes: string = "";
 
+	/** 动画完成处理器映射表（animationId -> cleanup函数） */
+	animationCompletionHandlers: Map<string, () => void> = new Map();
+
 	public gameOverRuleFunction = async () => {
 		return false;
 	};
@@ -808,7 +811,30 @@ export class GameProcess implements IGameProcess {
 			// 这里执行核心逻辑，如果有问题直接 throw new Error("原因")
 			switch (chanceCard.getType()) {
 				case TargetSelectType.ToSelf: {
+					// 执行机会卡效果
 					await chanceCard.use(sourcePlayer, sourcePlayer, this);
+
+					// 生成动画ID
+					const animationId = randomString(16);
+
+					// 获取机会卡客户端信息
+					const chanceCardInfo = chanceCard.getChanceCardInfo();
+
+					// 发送消息给所有客户端（包含动画信息）
+					this.gameBroadcast({
+						type: SocketMsgType.UseChanceCard,
+						source: SocketMsgSource.Server,
+						data: {
+							error: false,
+							animationId,
+							chanceCard: chanceCardInfo,
+							sourcePlayerId: sourcePlayer.id,
+							targetIdList: [sourcePlayer.id]
+						}
+					});
+
+					// 等待客户端动画完成（3秒超时）
+					await this.waitForAnimationComplete(animationId, 3000);
 
 					this.msgNotifyBroadcast("info", `${sourcePlayer.name} 对自己使用了机会卡: "${cardName}"`);
 					this.gameLogBroadcast(`${sourceLink} 对自己使用了机会卡: ${cardLink}`);
@@ -820,7 +846,30 @@ export class GameProcess implements IGameProcess {
 					const targetPlayer = this.players.get(targetIdList[0]);
 					if (!targetPlayer) throw new Error("目标玩家不存在");
 
+					// 执行机会卡效果
 					await chanceCard.use(sourcePlayer, targetPlayer, this);
+
+					// 生成动画ID
+					const animationId = randomString(16);
+
+					// 获取机会卡客户端信息
+					const chanceCardInfo = chanceCard.getChanceCardInfo();
+
+					// 发送消息给所有客户端（包含动画信息）
+					this.gameBroadcast({
+						type: SocketMsgType.UseChanceCard,
+						source: SocketMsgSource.Server,
+						data: {
+							error: false,
+							animationId,
+							chanceCard: chanceCardInfo,
+							sourcePlayerId: sourcePlayer.id,
+							targetIdList: [targetPlayer.id]
+						}
+					});
+
+					// 等待客户端动画完成（3秒超时）
+					await this.waitForAnimationComplete(animationId, 3000);
 
 					const targetLink = this.createGameLinkItem(GameLinkItem.Player, targetPlayer.id);
 					this.msgNotifyBroadcast(
@@ -835,7 +884,30 @@ export class GameProcess implements IGameProcess {
 					const targetProperty = this.properties.get(targetIdList[0]);
 					if (!targetProperty) throw new Error("目标建筑/地皮不存在");
 
+					// 执行机会卡效果
 					await chanceCard.use(sourcePlayer, targetProperty, this);
+
+					// 生成动画ID
+					const animationId = randomString(16);
+
+					// 获取机会卡客户端信息
+					const chanceCardInfo = chanceCard.getChanceCardInfo();
+
+					// 发送消息给所有客户端（包含动画信息）
+					this.gameBroadcast({
+						type: SocketMsgType.UseChanceCard,
+						source: SocketMsgSource.Server,
+						data: {
+							error: false,
+							animationId,
+							chanceCard: chanceCardInfo,
+							sourcePlayerId: sourcePlayer.id,
+							targetIdList: [targetProperty.id]
+						}
+					});
+
+					// 等待客户端动画完成（3秒超时）
+					await this.waitForAnimationComplete(animationId, 3000);
 
 					const targetLink = this.createGameLinkItem(GameLinkItem.Property, targetProperty.id);
 					this.msgNotifyBroadcast(
@@ -852,7 +924,34 @@ export class GameProcess implements IGameProcess {
 
 					if (targetPlayers.length === 0) throw new Error("选中的玩家不存在");
 
+					// 执行机会卡效果
 					await chanceCard.use(sourcePlayer, targetPlayers, this);
+
+					// 生成动画ID
+					const animationId = randomString(16);
+
+					// 获取机会卡客户端信息
+					const chanceCardInfo = chanceCard.getChanceCardInfo();
+
+					// 获取目标ID列表
+					const targetIdListForAnim = targetPlayers.map(t => t.id);
+
+					// 发送消息给所有客户端（包含动画信息）
+					this.gameBroadcast({
+						type: SocketMsgType.UseChanceCard,
+						source: SocketMsgSource.Server,
+						data: {
+							error: false,
+							animationId,
+							chanceCard: chanceCardInfo,
+							sourcePlayerId: sourcePlayer.id,
+							targetIdList: targetIdListForAnim
+						}
+					});
+
+					// 等待客户端动画完成（3秒超时）
+					await this.waitForAnimationComplete(animationId, 3000);
+
 					// MapItem 类型通常可能涉及群体效果，日志可以在 use 内部处理，或者这里补充通用日志
 					break;
 				}
@@ -1167,6 +1266,45 @@ export class GameProcess implements IGameProcess {
 			data: { eventName },
 		};
 		this.gameBroadcast(msg);
+	}
+
+	/**
+	 * 标记动画完成
+	 * @param animationId - 动画ID
+	 */
+	public markAnimationComplete(animationId: string): void {
+		const cleanup = this.animationCompletionHandlers.get(animationId);
+		if (cleanup) {
+			cleanup();
+		} else {
+			console.warn(`[GameProcess] 未找到动画完成处理器: ${animationId}`);
+		}
+	}
+
+	/**
+	 * 等待动画完成（带超时）
+	 * @param animationId - 动画ID
+	 * @param timeout - 超时时间（毫秒）
+	 * @returns Promise，动画完成或超时时resolve
+	 */
+	private waitForAnimationComplete(
+		animationId: string,
+		timeout: number
+	): Promise<void> {
+		return new Promise((resolve) => {
+			const timer = setTimeout(() => {
+				console.warn(`[GameProcess] 动画超时: ${animationId}`);
+				cleanup();
+			}, timeout);
+
+			const cleanup = () => {
+				clearTimeout(timer);
+				this.animationCompletionHandlers.delete(animationId);
+				resolve();
+			};
+
+			this.animationCompletionHandlers.set(animationId, cleanup);
+		});
 	}
 
 	/**

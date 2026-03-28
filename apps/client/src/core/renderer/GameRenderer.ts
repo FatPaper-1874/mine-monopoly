@@ -94,6 +94,13 @@ export class GameRenderer {
 	private isRenderDice = false;
 	private diceRollQueue: DiceResult[][] = []; // 骰子动画队列
 	private isProcessingDiceRoll: boolean = false; // 是否正在处理骰子动画
+	private chanceCardAnimationQueue: Array<{
+		animationId: string;
+		chanceCard: ChanceCardInfo;
+		sourcePlayerId: string;
+		targetIdList: string[];
+	}> = []; // 机会卡动画队列
+	private isProcessingChanceCardAnimation: boolean = false; // 是否正在处理机会卡动画
 
 	// FPS 计算相关
 	private lastFrameTime: number = performance.now();
@@ -480,6 +487,348 @@ export class GameRenderer {
 
 	private initOutlinePass() {}
 
+	/**
+	 * 将机会卡动画添加到队列
+	 */
+	public queueChanceCardAnimation(
+		animationId: string,
+		chanceCard: ChanceCardInfo,
+		sourcePlayerId: string,
+		targetIdList: string[],
+	) {
+		this.chanceCardAnimationQueue.push({
+			animationId,
+			chanceCard,
+			sourcePlayerId,
+			targetIdList,
+		});
+
+		// 如果当前没有正在处理的动画，开始处理队列
+		if (!this.isProcessingChanceCardAnimation) {
+			this.processChanceCardAnimationQueue();
+		}
+	}
+
+	/**
+	 * 处理机会卡动画队列（确保动画按顺序执行，不会并发）
+	 */
+	private async processChanceCardAnimationQueue(): Promise<void> {
+		if (this.isProcessingChanceCardAnimation || this.chanceCardAnimationQueue.length === 0) {
+			return;
+		}
+
+		this.isProcessingChanceCardAnimation = true;
+
+		try {
+			while (this.chanceCardAnimationQueue.length > 0) {
+				const animationTask = this.chanceCardAnimationQueue.shift();
+				if (!animationTask) break;
+
+				try {
+					const { animationId, chanceCard, sourcePlayerId, targetIdList } = animationTask;
+
+					// 获取源玩家位置
+					const sourcePlayer = this.playerEntities.get(sourcePlayerId);
+					if (!sourcePlayer) {
+						console.warn("[机会卡动画] 找不到源玩家:", sourcePlayerId);
+						continue;
+					}
+
+					// 计算目标位置
+					const targetPositions = this.getTargetPositions(chanceCard.type, targetIdList);
+
+					// 播放飞行动画
+					await this.playChanceCardFlyAnimation(chanceCard, sourcePlayer.model.position, targetPositions);
+
+					// 通知服务器动画完成
+					useMonopolyClient().AnimationComplete(animationId);
+				} catch (error) {
+					console.error("[机会卡动画] 执行失败:", error);
+				}
+			}
+		} finally {
+			this.isProcessingChanceCardAnimation = false;
+		}
+	}
+
+	/**
+	 * 根据目标类型计算目标位置列表
+	 */
+	private getTargetPositions(targetType: string, targetIdList: string[]): THREE.Vector3[] {
+		const positions: THREE.Vector3[] = [];
+
+		switch (targetType) {
+			case "ToSelf": {
+				// 自己
+				const playerId = targetIdList[0];
+				const player = this.playerEntities.get(playerId);
+				if (player) {
+					positions.push(player.model.position.clone());
+				}
+				break;
+			}
+			case "ToPlayer": {
+				// 指定玩家
+				for (const playerId of targetIdList) {
+					const player = this.playerEntities.get(playerId);
+					if (player) {
+						positions.push(player.model.position.clone());
+					}
+				}
+				break;
+			}
+			case "ToOtherPlayer": {
+				// 其他玩家
+				for (const playerId of targetIdList) {
+					const player = this.playerEntities.get(playerId);
+					if (player) {
+						positions.push(player.model.position.clone());
+					}
+				}
+				break;
+			}
+			case "ToProperty": {
+				// 地皮
+				const gameData = useGameData();
+				for (const propertyId of targetIdList) {
+					const property = gameData.getPropertyById(propertyId);
+					if (property) {
+						const mapItem = this.getMapItem(property.positionIndex);
+						if (mapItem) {
+							positions.push(mapItem.position.clone());
+						}
+					}
+				}
+				break;
+			}
+			case "ToMapItem": {
+				// 地图格子
+				for (const mapItemId of targetIdList) {
+					const mapItem = this.mapItemsInScene.get(mapItemId);
+					if (mapItem) {
+						positions.push(mapItem.position.clone());
+					}
+				}
+				break;
+			}
+			default:
+				console.warn("[机会卡动画] 未知的目标类型:", targetType);
+		}
+
+		return positions;
+	}
+
+	/**
+	 * 创建机会卡 3D 对象
+	 */
+	private async createChanceCardObject(chanceCard: ChanceCardInfo): Promise<{ css2DObject: CSS2DObject; unmount: () => void }> {
+		// 动态导入组件
+		const module = await import("@mine-monopoly/ui");
+		const ChanceCardComponent = module.ChanceCard;
+
+		// 获取图标URL
+		const { useResourceStore } = await import("@src/store/game");
+		const resourceStore = useResourceStore();
+		const iconUrl = resourceStore.getRecourceById(chanceCard.iconId)?.url || "";
+
+		const { css2DObject, unmount } = createCSS2DObjectFromVue(ChanceCardComponent, {
+			chanceCard,
+			iconUrl,
+		});
+
+		return { css2DObject, unmount };
+	}
+
+	/**
+	 * 播放机会卡飞行动画
+	 */
+	private async playChanceCardFlyAnimation(
+		chanceCard: ChanceCardInfo,
+		sourcePosition: THREE.Vector3,
+		targetPositions: THREE.Vector3[],
+	): Promise<void> {
+		// 保存原始摄像机状态
+		const originalCameraPosition = this.camera.position.clone();
+		const originalControlsTarget = this.controls.target.clone();
+
+		// 创建机会卡对象
+		const { css2DObject, unmount } = await this.createChanceCardObject(chanceCard);
+
+		// 设置初始位置（玩家中心）
+		css2DObject.position.copy(sourcePosition);
+		css2DObject.position.y += 0.5; // 玩家中心位置
+		css2DObject.scale.set(0.5, 0.5, 0.5); // 初始缩放为0.5倍
+		this.scene.add(css2DObject);
+
+		// 计算所有动画关键点的包围盒中心（用于摄像机聚焦）
+		const allPoints = [sourcePosition.clone(), ...targetPositions];
+		const boundingBox = new THREE.Box3();
+		allPoints.forEach(point => boundingBox.expandByPoint(point));
+		const focusCenter = new THREE.Vector3();
+		boundingBox.getCenter(focusCenter);
+
+		// 计算包围盒的大小，用于确定摄像机距离
+		const boundingBoxSize = new THREE.Vector3();
+		boundingBox.getSize(boundingBoxSize);
+		const maxDimension = Math.max(boundingBoxSize.x, boundingBoxSize.z);
+
+		// 计算摄像机新位置（在焦点上方，保持俯视角度）
+		const cameraDistance = Math.max(15, maxDimension * 2); // 根据包围盒大小动态调整距离
+		const newCameraPosition = new THREE.Vector3(
+			focusCenter.x,
+			focusCenter.y + cameraDistance * 0.6,
+			focusCenter.z + cameraDistance * 0.8
+		);
+
+		// 平滑移动摄像机和焦点
+		await Promise.all([
+			gsap.to(this.camera.position, {
+				x: newCameraPosition.x,
+				y: newCameraPosition.y,
+				z: newCameraPosition.z,
+				duration: 0.5,
+				ease: "power2.out",
+			}),
+			gsap.to(this.controls.target, {
+				x: focusCenter.x,
+				y: focusCenter.y,
+				z: focusCenter.z,
+				duration: 0.5,
+				ease: "power2.out",
+			}),
+		]);
+
+		// 计算真正的 canvas 中心对应的 3D 世界坐标
+		const ndc = new THREE.Vector3(0, 0, 0.5); // NDC 坐标系的中心点
+		const screenCenterPosition = ndc.clone().unproject(this.camera);
+
+		// 创建从相机到屏幕中心的射线
+		const raycaster = new THREE.Raycaster();
+		raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
+
+		// 创建一个水平面（y=1）来接收射线投射
+		const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -1);
+		const intersectPoint = new THREE.Vector3();
+		raycaster.ray.intersectPlane(plane, intersectPoint);
+
+		// 如果射线与平面相交，使用交点；否则使用 unproject 的结果
+		const targetPosition = intersectPoint.length() > 0 ? intersectPoint : screenCenterPosition;
+
+		// 创建动画时间线
+		const timeline = gsap.timeline({
+			onComplete: async () => {
+				// 动画完成后清理
+				this.scene.remove(css2DObject);
+				unmount();
+
+				// 恢复摄像机位置
+				await Promise.all([
+					gsap.to(this.camera.position, {
+						x: originalCameraPosition.x,
+						y: originalCameraPosition.y,
+						z: originalCameraPosition.z,
+						duration: 0.5,
+						ease: "power2.inOut",
+					}),
+					gsap.to(this.controls.target, {
+						x: originalControlsTarget.x,
+						y: originalControlsTarget.y,
+						z: originalControlsTarget.z,
+						duration: 0.5,
+						ease: "power2.inOut",
+					}),
+				]);
+			},
+		});
+
+		// 第一阶段：放大并移动到屏幕中心
+		timeline.to(css2DObject.position, {
+			x: screenCenterPosition.x,
+			y: screenCenterPosition.y,
+			z: screenCenterPosition.z,
+			duration: 0.5,
+			ease: "power2.out",
+		}, 0);
+
+		timeline.to(css2DObject.scale, {
+			x: 1.5,
+			y: 1.5,
+			z: 1.5,
+			duration: 0.5,
+			ease: "power2.out",
+		}, 0); // 与位置动画同时进行
+
+		// 在屏幕中心短暂停留
+		timeline.to(css2DObject.scale, {
+			x: 1.2,
+			y: 1.2,
+			z: 1.2,
+			duration: 0.2,
+			ease: "power1.inOut",
+			yoyo: true,
+			repeat: 1,
+		});
+
+		// 第二阶段：为每个目标位置添加飞行动画
+		for (let i = 0; i < targetPositions.length; i++) {
+			const targetPos = targetPositions[i];
+			const isLastTarget = i === targetPositions.length - 1;
+
+			// 飞向目标中心（不添加额外高度）
+			timeline.to(css2DObject.position, {
+				x: targetPos.x,
+				y: targetPos.y,
+				z: targetPos.z,
+				duration: 0.6,
+				ease: "power2.out",
+			});
+
+			// 同时缩小到正常大小
+			timeline.to(css2DObject.scale, {
+				x: 1,
+				y: 1,
+				z: 1,
+				duration: 0.6,
+				ease: "power2.out",
+			}, "<"); // 与飞行动画同时进行
+
+			if (isLastTarget) {
+				// 最后一个目标：在目标中心停留，然后慢慢消失
+				// 只缩小和淡出，不向上移动
+				timeline.to(css2DObject.scale, {
+					x: 0.3,
+					y: 0.3,
+					z: 0.3,
+					duration: 0.5,
+					ease: "power2.inOut",
+				});
+
+				// 透明度淡出（通过修改 CSS）
+				timeline.to(
+					(css2DObject.element as HTMLElement).style,
+					{
+						opacity: 0,
+						duration: 0.5,
+						ease: "power2.inOut",
+					},
+					"<" // 与缩放动画同时进行
+				);
+			} else {
+				// 不是最后一个目标：短暂停顿后继续
+				timeline.to(css2DObject.position, {
+					y: targetPos.y + 0.3,
+					duration: 0.15,
+					ease: "power1.out",
+					yoyo: true,
+					repeat: 1,
+				});
+			}
+		}
+
+		// 等待动画完成
+		await timeline;
+	}
+
 	private initEventListener() {
 		// 监听当前回合玩家变化
 		useEventBus().on("game-currentPlayerIdInRound", (newPlayerId: string, oldPlayerId: string) => {
@@ -650,6 +999,20 @@ export class GameRenderer {
 				await this._processDiceRollQueue();
 			}
 		});
+
+		// 监听机会卡使用事件
+		useEventBus().on(
+			"chance-card-use",
+			async (animationInfo: {
+				animationId: string;
+				chanceCard: ChanceCardInfo;
+				sourcePlayerId: string;
+				targetIdList: string[];
+			}) => {
+				const { animationId, chanceCard, sourcePlayerId, targetIdList } = animationInfo;
+				this.queueChanceCardAnimation(animationId, chanceCard, sourcePlayerId, targetIdList);
+			},
+		);
 	}
 
 	/**

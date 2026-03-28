@@ -82,6 +82,9 @@ export interface IGameProcess extends IGameProcessCustomFields {
 	/** 游戏结束规则检查函数 */
 	gameOverRuleFunction: () => Promise<boolean>;
 
+	/** 动画完成处理器映射表（animationId -> cleanup函数） */
+	animationCompletionHandlers: Map<string, () => void>;
+
 	// ===== 地产相关操作 =====
 
 	/**
