@@ -15,6 +15,17 @@ import { isFullScreen, isLandscape, setTimeOutAsync } from "@src/utils";
 import { getUserByToken } from "@src/utils/api/user";
 import { useGameData } from "./game";
 
+/**
+ * 回合状态枚举
+ */
+enum TurnState {
+	WAITING_TURN = "waiting_turn",      // 等待回合
+	MY_TURN = "my_turn",                // 我的回合（可操作）
+	ANIMATING = "animating",            // 动画中（不可操作）
+	TIMEOUT = "timeout",                // 超时（不可操作）
+	BANKRUPTED = "bankrupted"           // 已破产（不可操作）
+}
+
 export const useLoading = defineStore("loading", {
 	state: () => {
 		return {
@@ -93,13 +104,86 @@ export const useUtil = defineStore("util", {
 			fps: 0,
 			isRollDiceAnimationPlay: false,
 			rollDiceResult: new Array<number>(),
-			currentEventName: "", // 新增：独立的事件名称状态
-			waitingFor: { remainingTime: 0, totalTime: 0 }, // 移除 eventMsg
-			showCountdown: false, // 是否显示倒计时（由服务端控制）
+			currentEventName: "",
+			waitingFor: { remainingTime: 0, totalTime: 0 },
+			showCountdown: false,
 			timeOut: false,
-			canUseCard: useGameData().canIOperate,
-			canRoll: useGameData().canIOperate,
+			// 回合状态（直接在 store 中管理）
+			currentTurnState: TurnState.WAITING_TURN,
+			isMyTurn: false,
+			isBankrupted: false,
+			// 记录动画开始前的状态，用于失败时恢复
+			stateBeforeAnimation: TurnState.WAITING_TURN,
 		};
+	},
+	getters: {
+		canRoll: (state) => {
+			return state.currentTurnState === TurnState.MY_TURN;
+		},
+		canUseCard: (state) => {
+			return state.currentTurnState === TurnState.MY_TURN;
+		},
+	},
+	actions: {
+		// 切换回合
+		changeTurn(isMyTurn: boolean) {
+			this.isMyTurn = isMyTurn;
+
+			if (this.isBankrupted) {
+				this.currentTurnState = TurnState.BANKRUPTED;
+				return;
+			}
+
+			if (isMyTurn) {
+				this.currentTurnState = TurnState.MY_TURN;
+			} else {
+				this.currentTurnState = TurnState.WAITING_TURN;
+			}
+		},
+
+		// 设置破产状态
+		setBankrupted(isBankrupted: boolean) {
+			this.isBankrupted = isBankrupted;
+
+			if (isBankrupted) {
+				this.currentTurnState = TurnState.BANKRUPTED;
+			} else {
+				// 根据是否我的回合决定状态
+				this.changeTurn(this.isMyTurn);
+			}
+		},
+
+		// 开始动画
+		startAnimation() {
+			if (this.currentTurnState === TurnState.ANIMATING) return;
+			// 保存动画前的状态
+			this.stateBeforeAnimation = this.currentTurnState;
+			this.currentTurnState = TurnState.ANIMATING;
+		},
+
+		// 结束动画（成功情况：等待服务器更新状态）
+		endAnimation() {
+			// 动画成功结束，不自动恢复状态
+			// 等待服务器的 RoundTurn、GameData 等消息来更新状态
+		},
+
+		// 取消动画（失败情况：恢复到动画前的状态）
+		cancelAnimation() {
+			if (this.currentTurnState !== TurnState.ANIMATING) return;
+			this.currentTurnState = this.stateBeforeAnimation;
+		},
+
+		// 超时
+		timeout() {
+			this.currentTurnState = TurnState.TIMEOUT;
+		},
+
+		// 重置状态
+		resetTurnState() {
+			this.currentTurnState = TurnState.WAITING_TURN;
+			this.isMyTurn = false;
+			this.isBankrupted = false;
+		},
 	},
 });
 

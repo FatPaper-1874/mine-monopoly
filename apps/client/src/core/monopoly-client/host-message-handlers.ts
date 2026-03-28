@@ -292,12 +292,18 @@ const handleGameInit: ServerMessageHandler<SocketMsgType.GameInit> = (msg) => {
 			state.players = gameData.players;
 			state.properties = gameData.properties;
 		});
+
+		// 重置状态管理器，然后设置破产状态
+		const utilStore = useUtil();
+		utilStore.resetTurnState();
 		const me = gameData.players.find((p) => p.id === useUserInfo().userId);
-		if (me && me.isBankrupted) {
-			const utilStore = useUtil();
-			utilStore.canRoll = false;
-			utilStore.canUseCard = false;
+		if (me) {
+			utilStore.setBankrupted(me.isBankrupted);
 		}
+
+		// 同步回合状态
+		const isMyTurn = gameData.currentPlayerIdInRound === useUserInfo().userId;
+		utilStore.changeTurn(isMyTurn);
 	}
 	const loadingStore = useLoading();
 	loadingStore.text = "获取数据成功，加载中...";
@@ -325,10 +331,13 @@ const handleGameData: ServerMessageHandler<SocketMsgType.GameData> = (msg) => {
 	if (gameData) {
 		gameDataStore.updateGameData(gameData);
 		const me = gameData.players.find((p) => p.id === useUserInfo().userId);
-		if (me && me.isBankrupted) {
+		if (me) {
 			const utilStore = useUtil();
-			utilStore.canRoll = false;
-			utilStore.canUseCard = false;
+			utilStore.setBankrupted(me.isBankrupted);
+
+			// 同步回合状态
+			const isMyTurn = gameData.currentPlayerIdInRound === useUserInfo().userId;
+			utilStore.changeTurn(isMyTurn);
 		}
 	}
 };
@@ -364,7 +373,7 @@ const handleRoundTimeOut: ServerMessageHandler<SocketMsgType.RoundTimeOut> = (ms
 	// 只有当前玩家的超时才触发
 	if (playerId === currentUserId) {
 		utilStore.timeOut = true;
-		utilStore.canRoll = false;
+		utilStore.timeout();
 		utilStore.showCountdown = false; // 超时后不显示倒计时
 		// 将剩余时间设置为 0，确保 UI 正确更新
 		utilStore.waitingFor = { ...utilStore.waitingFor, remainingTime: 0 };
@@ -390,18 +399,15 @@ const handleRoundTurn: ServerMessageHandler<SocketMsgType.RoundTurn> = (msg) => 
 	const utilStore = useUtil();
 	const isMyTurn = currentRoundPlayerId === useUserInfo().userId;
 
-	// 只有当前回合玩家才能操作
+	// 使用 store 的 action 处理回合切换
+	utilStore.changeTurn(isMyTurn);
+
 	if (isMyTurn) {
-		utilStore.canRoll = true;
-		utilStore.canUseCard = true;
 		// 只在是自己的回合时显示提示
 		FPMessage({
 			type: "info",
 			message: "现在是你的回合啦！",
 		});
-	} else {
-		utilStore.canRoll = false;
-		utilStore.canUseCard = false;
 	}
 
 	useEventBus().emit("round-turn");
@@ -409,8 +415,7 @@ const handleRoundTurn: ServerMessageHandler<SocketMsgType.RoundTurn> = (msg) => 
 
 const handleRollDiceAnimationPlay: ServerMessageHandler<SocketMsgType.RollDiceStart> = () => {
 	const utilStore = useUtil();
-	utilStore.canRoll = false;
-	utilStore.canUseCard = false;
+	utilStore.startAnimation();
 	utilStore.isRollDiceAnimationPlay = true;
 };
 
@@ -420,16 +425,20 @@ const handleRollDiceResult: ServerMessageHandler<SocketMsgType.RollDiceResult> =
 	useEventBus().emit("dice-roll", res.rollDiceResult);
 	// utilStore.rollDiceResult = res.rollDiceResult;
 	utilStore.isRollDiceAnimationPlay = false;
+	// 动画结束后恢复状态
+	utilStore.endAnimation();
 };
 
 const handleUsedChanceCard: ServerMessageHandler<SocketMsgType.UseChanceCard> = (msg) => {
 	const { error, animationId, chanceCard, sourcePlayerId, targetIdList } = msg.data;
 	const utilStore = useUtil();
 	if (error) {
-		utilStore.canUseCard = true;
-		return; // 使用失败，不播放动画
+		// 使用失败，恢复状态
+		utilStore.cancelAnimation();
+		return;
 	}
 
+	// 使用成功，保持动画状态（客户端已经调用过 startAnimation）
 	// 如果有动画信息，触发机会卡使用事件
 	if (animationId && chanceCard && sourcePlayerId && targetIdList) {
 		useEventBus().emit("chance-card-use", {

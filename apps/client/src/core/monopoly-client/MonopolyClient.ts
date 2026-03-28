@@ -290,20 +290,22 @@ export class MonopolyClient {
 	}
 
 	public rollDice() {
+		// 客户端立即锁定，防止重复点击
+		const utilStore = useUtil();
+		utilStore.startAnimation();
+
 		this.sendMsg({
 			type: SocketMsgType.Operation,
 			source: SocketMsgSource.Client,
 			data: { operateType: OperateType.RollDice, data: undefined },
 		});
-		const utilStore = useUtil();
-		utilStore.canRoll = false;
-		utilStore.canUseCard = false;
 	}
 
 	public useChanceCard(chanceCardId: string, targetIdList: string[]) {
+		// 客户端立即锁定，防止重复点击
 		const utilStore = useUtil();
-		utilStore.canRoll = false;
-		utilStore.canUseCard = false;
+		utilStore.startAnimation();
+
 		this.sendMsg({
 			type: SocketMsgType.Operation,
 			source: SocketMsgSource.Client,
@@ -323,6 +325,10 @@ export class MonopolyClient {
 				data: animationId,
 			},
 		});
+
+		// 动画完成后解锁状态
+		const utilStore = useUtil();
+		utilStore.endAnimation();
 	}
 
 	public async sendMsg(msg: ClientSocketMessage) {
