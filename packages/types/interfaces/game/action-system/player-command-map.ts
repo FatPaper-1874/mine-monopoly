@@ -90,6 +90,30 @@ export interface PlayerCommandMap extends ICommandMap {
 	// ===== 游戏事件相关命令 =====
 
 	/**
+	 * 玩家回合跳过
+	 */
+	"player.round.skip": {
+		payload: { player: IPlayer };
+		result: { player: IPlayer };
+	};
+
+	/**
+	 * 玩家回合开始
+	 */
+	"player.round.start": {
+		payload: { player: IPlayer };
+		result: { player: IPlayer };
+	};
+
+	/**
+	 * 玩家回合结束
+	 */
+	"player.round.end": {
+		payload: { player: IPlayer };
+		result: { player: IPlayer };
+	};
+
+	/**
 	 * 设置玩家破产状态
 	 */
 	"player.bankrupted.set": {

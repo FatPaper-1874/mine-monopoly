@@ -820,6 +820,24 @@ export class GameProcess implements IGameProcess {
 
 				return { diceResult };
 			});
+
+			// 注册玩家回合跳过命令
+			player.commandBus.setHandler("player.round.skip", async (payload) => {
+				this.eventBus.emit("player.round.skip", { player });
+				return payload;
+			});
+
+			// 注册玩家回合开始命令
+			player.commandBus.setHandler("player.round.start", async (payload) => {
+				this.eventBus.emit("player.round.start", { player });
+				return payload;
+			});
+
+			// 注册玩家回合结束命令
+			player.commandBus.setHandler("player.round.end", async (payload) => {
+				this.eventBus.emit("player.round.end", { player });
+				return payload;
+			});
 		});
 
 		// 步骤2: 运行玩家预初始化阶段（在 initRoleFn 之前）
@@ -950,7 +968,7 @@ export class GameProcess implements IGameProcess {
 				if (player.isStop > 0) {
 					const originalStop = player.isStop;
 					player.isStop--; // 减少停止计数
-					this.eventBus.emit("player.round.skip", { player });
+					await player.commandBus.execute({ type: "player.round.skip", payload: { player } });
 
 					// 根据剩余暂停次数显示不同的提示
 					if (player.isStop === 0) {
@@ -963,11 +981,11 @@ export class GameProcess implements IGameProcess {
 
 				// 检查玩家是否破产
 				if (player.isBankrupted) {
-					this.eventBus.emit("player.round.skip", { player });
+					// await player.commandBus.execute({ type: "player.round.skip", payload: { player } });
 					continue;
 				}
 
-				this.eventBus.emit("player.round.start", { player });
+				await player.commandBus.execute({ type: "player.round.start", payload: { player } });
 				this.currentRoundPlayer = player;
 				this.roundTurnNotify(player.id);
 				this.gameDataBroadcast();
@@ -979,7 +997,7 @@ export class GameProcess implements IGameProcess {
 					await this.runGamePhase(phase, context);
 				}
 				this.currentRoundPlayer = null;
-				this.eventBus.emit("player.round.end", { player });
+				await player.commandBus.execute({ type: "player.round.end", payload: { player } });
 			}
 
 			//回合结束阶段
