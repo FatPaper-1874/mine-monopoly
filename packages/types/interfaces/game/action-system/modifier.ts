@@ -85,9 +85,10 @@ export interface IModifierManager<C extends ICommandMap, K extends keyof C = key
 	/**
 	 * 添加修饰器
 	 * @param mod - 要添加的修饰器
+	 * @param onComplete - 修饰器结束时的回调函数（可选）
 	 * @returns 生成的修饰器 ID
 	 */
-	add<KK extends keyof C>(mod: IModifier<C, KK>): string;
+	add<KK extends keyof C>(mod: IModifier<C, KK>, onComplete?: () => void): string;
 
 	/**
 	 * 根据 ID 移除修饰器

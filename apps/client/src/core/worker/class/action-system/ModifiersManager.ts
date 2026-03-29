@@ -3,8 +3,9 @@ import { clone, cloneDeep } from "lodash";
 
 export class ModifierManager<C extends ICommandMap, K extends keyof C = keyof C> implements IModifierManager<C> {
 	private modifiers = new Map<string, IModifier<C, any>>();
+	private completionCallbacks = new Map<string, () => void>();
 
-	public add<KK extends keyof C>(mod: IModifier<C, KK>): string {
+	public add<KK extends keyof C>(mod: IModifier<C, KK>, onComplete?: () => void): string {
 		const modClone = cloneDeep(mod);
 
 		const id = modClone.descriptor.id;
@@ -20,15 +21,42 @@ export class ModifierManager<C extends ICommandMap, K extends keyof C = keyof C>
 			} else {
 				existingMod.descriptor.remainingTriggers = currentCount + addCount;
 			}
+
+			// 如果提供了新的回调函数，更新回调
+			if (onComplete) {
+				this.completionCallbacks.set(id, onComplete);
+			}
+
 			return id;
 		}
 
 		this.modifiers.set(id, modClone);
+
+		// 存储完成回调
+		if (onComplete) {
+			this.completionCallbacks.set(id, onComplete);
+		}
+
 		return id;
 	}
 
 	public removeById(id: string): boolean {
-		return this.modifiers.delete(id);
+		const removed = this.modifiers.delete(id);
+
+		if (removed) {
+			// 触发完成回调
+			const callback = this.completionCallbacks.get(id);
+			if (callback) {
+				try {
+					callback();
+				} catch (error) {
+					console.error(`Error executing completion callback for modifier ${id}:`, error);
+				}
+				this.completionCallbacks.delete(id);
+			}
+		}
+
+		return removed;
 	}
 
 	public removeByTag(tag: string): void {
@@ -36,6 +64,17 @@ export class ModifierManager<C extends ICommandMap, K extends keyof C = keyof C>
 		for (const [id, mod] of this.modifiers) {
 			if (mod.descriptor.meta?.tags?.includes(tag)) {
 				this.modifiers.delete(id);
+
+				// 触发完成回调
+				const callback = this.completionCallbacks.get(id);
+				if (callback) {
+					try {
+						callback();
+					} catch (error) {
+						console.error(`Error executing completion callback for modifier ${id}:`, error);
+					}
+					this.completionCallbacks.delete(id);
+				}
 			}
 		}
 	}
@@ -119,8 +158,21 @@ export class ModifierManager<C extends ICommandMap, K extends keyof C = keyof C>
 			}
 		}
 
-		// 6. 统一执行移除
-		idsToRemove.forEach((id) => this.modifiers.delete(id));
+		// 6. 统一执行移除并触发回调
+		idsToRemove.forEach((id) => {
+			this.modifiers.delete(id);
+
+			// 触发完成回调
+			const callback = this.completionCallbacks.get(id);
+			if (callback) {
+				try {
+					callback();
+				} catch (error) {
+					console.error(`Error executing completion callback for modifier ${id}:`, error);
+				}
+				this.completionCallbacks.delete(id);
+			}
+		});
 	}
 
 	public consume(id: string, amount: number): ConsumeResult {
@@ -160,9 +212,20 @@ export class ModifierManager<C extends ICommandMap, K extends keyof C = keyof C>
 		modifier.descriptor.remainingTriggers -= amount;
 		const removed = modifier.descriptor.remainingTriggers <= 0;
 
-		// 5. 如果归零则移除
+		// 5. 如果归零则移除并触发回调
 		if (removed) {
 			this.modifiers.delete(id);
+
+			// 触发完成回调
+			const callback = this.completionCallbacks.get(id);
+			if (callback) {
+				try {
+					callback();
+				} catch (error) {
+					console.error(`Error executing completion callback for modifier ${id}:`, error);
+				}
+				this.completionCallbacks.delete(id);
+			}
 		}
 
 		return {
@@ -174,7 +237,17 @@ export class ModifierManager<C extends ICommandMap, K extends keyof C = keyof C>
 	}
 
 	public clear(): void {
+		// 触发所有回调
+		for (const [id, callback] of this.completionCallbacks) {
+			try {
+				callback();
+			} catch (error) {
+				console.error(`Error executing completion callback for modifier ${id}:`, error);
+			}
+		}
+
 		this.modifiers.clear();
+		this.completionCallbacks.clear();
 	}
 
 	public getModifiersList(): IModifier<C, K>[] {
