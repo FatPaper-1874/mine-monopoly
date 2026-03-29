@@ -10,4 +10,5 @@ export enum WorkerCommType {
 	SendToUsers,
 	GameStart,
 	GameOver,
+	GameProcessReady,
 }

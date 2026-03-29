@@ -148,6 +148,15 @@ export function handleServerSocketMessage(msg: ServerSocketMessage, client: Mono
 		case SocketMsgType.LoadingControl:
 			handleLoadingControl(msg, client);
 			break;
+		case SocketMsgType.ButtonRegister:
+			handleButtonRegister(msg, client);
+			break;
+		case SocketMsgType.ButtonStateChanged:
+			handleButtonStateChanged(msg, client);
+			break;
+		case SocketMsgType.ButtonRemove:
+			handleButtonRemove(msg, client);
+			break;
 		default:
 			break;
 	}
@@ -312,6 +321,9 @@ const handleGameInit: ServerMessageHandler<SocketMsgType.GameInit> = (msg) => {
 
 const handleGameInitFinished: ServerMessageHandler<SocketMsgType.GameInitFinished> = () => {
 	useLoading().hideLoading();
+	// 触发游戏初始化完成事件，用于同步动态按钮
+	const eventBus = useEventBus();
+	eventBus.emit('game:init-finished');
 };
 
 const handleGainMoney: ServerMessageHandler<SocketMsgType.GainMoney> = (msg) => {
@@ -616,6 +628,24 @@ const handleLoadingControl: ServerMessageHandler<SocketMsgType.LoadingControl> =
 	} else {
 		useLoading().hideLoading();
 	}
+};
+
+// 动态按钮相关处理器
+import { ButtonRegisterMessage, ButtonStateChangedMessage, ButtonRemoveMessage } from "@mine-monopoly/types";
+
+const handleButtonRegister: ServerMessageHandler<SocketMsgType.ButtonRegister> = (msg, client) => {
+	const eventBus = useEventBus();
+	eventBus.emit('button:register', msg.data);
+};
+
+const handleButtonStateChanged: ServerMessageHandler<SocketMsgType.ButtonStateChanged> = (msg, client) => {
+	const eventBus = useEventBus();
+	eventBus.emit('button:state-changed', msg.data);
+};
+
+const handleButtonRemove: ServerMessageHandler<SocketMsgType.ButtonRemove> = (msg, client) => {
+	const eventBus = useEventBus();
+	eventBus.emit('button:remove', msg.data);
 };
 
 function buildDefaultFormData(fields: FormField<string, any>[]): Record<string, any> {

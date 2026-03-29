@@ -5,6 +5,7 @@ import { PlayerOperationResult, ServerSocketMessage } from "../socket";
 import { IPlayer, IProperty, IChanceCard } from "./entities"; // 引用 entities
 import { ChanceCardInfo } from "./infos"; // 引用 infos
 import { IGameRuntimeStack, GameContext, GameEvent, GameRuntimeEvent } from "./events"; // 引用 events
+import { ButtonController } from "../button"; // 引用 button
 
 import {
 	ConfirmDialogOption,
@@ -336,6 +337,52 @@ export interface IGameProcess extends IGameProcessCustomFields {
 	 * @param option - 消息卡片选项
 	 */
 	showMessageCard(playerIds: string[], option: MessageCardOption): Promise<void>;
+
+	// ===== 动态按钮管理 =====
+
+	/**
+	 * 为指定玩家注册动态按钮
+	 * @param playerId - 玩家 ID
+	 * @param text - 按钮文案
+	 * @param callback - 点击回调函数
+	 * @returns ButtonController - 按钮控制实例
+	 */
+	registerPlayerButton(
+		playerId: string,
+		text: string,
+		callback: () => Promise<void> | void
+	): ButtonController;
+
+	/**
+	 * 设置按钮启用状态
+	 * @param playerId - 玩家 ID
+	 * @param buttonId - 按钮 ID
+	 * @param enabled - 是否启用
+	 */
+	setButtonEnabled(playerId: string, buttonId: string, enabled: boolean): void;
+
+	/**
+	 * 设置按钮可见性
+	 * @param playerId - 玩家 ID
+	 * @param buttonId - 按钮 ID
+	 * @param visible - 是否可见
+	 */
+	setButtonVisible(playerId: string, buttonId: string, visible: boolean): void;
+
+	/**
+	 * 更新按钮文案
+	 * @param playerId - 玩家 ID
+	 * @param buttonId - 按钮 ID
+	 * @param text - 新的按钮文案
+	 */
+	setButtonText(playerId: string, buttonId: string, text: string): void;
+
+	/**
+	 * 移除按钮
+	 * @param playerId - 玩家 ID
+	 * @param buttonId - 按钮 ID
+	 */
+	removeButton(playerId: string, buttonId: string): void;
 
 	// ===== 游戏结束 =====
 

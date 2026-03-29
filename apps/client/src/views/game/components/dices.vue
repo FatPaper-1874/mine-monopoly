@@ -126,17 +126,15 @@ const displayDices = computed(() => {
 </template>
 
 <style lang="scss" scoped>
+@import "@src/assets/variables.scss";
 .dice-control-panel {
-	// 定位
-	position: absolute;
-	right: 1rem;
-	bottom: 1rem;
+	@include felt-patch(#ffffff);
 	z-index: var(--z-ui);
 
 	// 尺寸与布局
-	min-width: 8rem;
-	min-height: 8rem;
-	padding: 0.8rem;
+	width: 10rem;
+	height: 8rem;
+	padding: 0;
 	border-radius: 1.5rem;
 
 	display: flex;
@@ -144,13 +142,6 @@ const displayDices = computed(() => {
 	align-items: center;
 	justify-content: center;
 	gap: 0.6rem;
-
-	// 视觉基础样式
-	background: rgba(255, 255, 255, 0.65);
-	backdrop-filter: blur(12px);
-	-webkit-backdrop-filter: blur(12px);
-	border: 4px solid rgba(255, 255, 255, 0.4);
-	box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
 
 	// 交互
 	cursor: pointer;
@@ -161,17 +152,14 @@ const displayDices = computed(() => {
 	// --- 状态：可以掷骰子 ---
 	&.can-roll {
 		background: var(--color-second);
-		border-color: rgba(255, 255, 255, 0.8);
 		color: #fff;
-		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
 
 		// 呼吸动画
-		animation: breathing 2s infinite ease-in-out;
+		animation: breathing 1.5s linear infinite;
 
 		&:hover {
 			background: var(--color-third);
-			transform: translateY(-4px) scale(1.02);
-			box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
+			transform: translateY(-0.1rem) scale(1.02);
 		}
 
 		&:active {
@@ -301,15 +289,17 @@ const displayDices = computed(() => {
 	opacity: 0.5;
 }
 
+
+
 @keyframes breathing {
 	0% {
-		box-shadow: 0 0 0 0 rgba(var(--color-second), 0.4);
+		background-color: var(--color-second);
 	}
-	70% {
-		box-shadow: 0 0 0 10px rgba(var(--color-second), 0);
+	50% {
+		background-color: var(--color-third);
 	}
 	100% {
-		box-shadow: 0 0 0 0 rgba(var(--color-second), 0);
+		background-color: var(--color-second);
 	}
 }
 </style>

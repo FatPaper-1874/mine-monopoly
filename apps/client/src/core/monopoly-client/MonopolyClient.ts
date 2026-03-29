@@ -316,6 +316,17 @@ export class MonopolyClient {
 		});
 	}
 
+	public sendDynamicButtonClick(buttonId: string) {
+		this.sendMsg({
+			type: SocketMsgType.Operation,
+			source: SocketMsgSource.Client,
+			data: {
+				operateType: OperateType.DynamicButtonClick,
+				data: { buttonId },
+			},
+		});
+	}
+
 	public AnimationComplete(animationId: string) {
 		this.sendMsg({
 			type: SocketMsgType.Operation,

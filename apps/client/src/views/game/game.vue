@@ -22,18 +22,22 @@ import ChanceCardContainer from "./components/chance-card-container.vue";
 import CountdownTimer from "./components/countdown-timer.vue";
 import scoreboard from "./components/scoreboard.vue";
 import PlayerContainer from "./components/player-container.vue";
+import GameButtonsPanel from "./components/game-buttons-panel.vue";
 import { useGameData, useMapData } from "@src/store/game";
+import { useUserInfo } from "@src/store";
 import { CustomUI, GameMap, UISchema } from "@mine-monopoly/types";
 import { compileTsToJs } from "@src/utils";
 import { storeToRefs } from "pinia";
-import HtmlRender from "@src/components/utils/ui-renderer/ui-renderer.vue";
 import UiRenderer from "@src/components/utils/ui-renderer/ui-renderer.vue";
 
 //pinia仓库
 const mapDataStore = useMapData();
+const userInfoStore = useUserInfo();
 
 const windowWidth = computed(() => window.innerWidth);
 const windowHeight = computed(() => window.innerHeight);
+
+const currentPlayerId = computed(() => userInfoStore.userId);
 
 let socketClient: MonopolyClient;
 let gameRenderer: GameRenderer | null;
@@ -106,7 +110,8 @@ function getUiTemplateById(id: string) {
 
 			<ChanceCardContainer />
 
-			<Dices @click="handleRollDice"></Dices>
+			<!-- 游戏按钮面板：包含骰子按钮和动态按钮 -->
+			<GameButtonsPanel :player-id="currentPlayerId" title="操作面板" @rollDice="handleRollDice" />
 
 			<teleport to="body">
 				<CountdownTimer />

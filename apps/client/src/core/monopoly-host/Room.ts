@@ -43,6 +43,7 @@ export class Room {
 	private ownerId: string = "";
 	private gameSetting: GameSetting;
 	private gameProcessWorker: Worker | null = null;
+	private gameProcess: any = null; // 存储从worker传递的gameProcess引用
 	public isStarted: boolean;
 	private operationListener: OperateListener;
 
@@ -491,6 +492,9 @@ export class Room {
 					break;
 				case WorkerCommType.GameOver:
 					this.handleGameOver();
+					break;
+				case WorkerCommType.GameProcessReady:
+					console.log("GameProcess已就绪");
 					break;
 			}
 		});

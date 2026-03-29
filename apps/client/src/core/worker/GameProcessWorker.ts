@@ -39,7 +39,12 @@ import {
 	FormDialogResult,
 	FormField,
 	MoneyTag,
+	ButtonConfig,
+	ButtonRegisterMessage,
+	ButtonStateChangedMessage,
+	ButtonRemoveMessage,
 } from "@mine-monopoly/types";
+import { ButtonController } from "./ButtonController";
 
 import { Player } from "./class/Player";
 import { Property } from "./class/Property";
@@ -137,6 +142,12 @@ self.addEventListener("message", (ev) => {
 				const { mapInfo, setting, userList, roomOwnerId } = data.data;
 				gameProcess = new GameProcess(mapInfo, setting, userList, roomOwnerId);
 				gameProcess.start();
+
+				// 发送gameProcess就绪消息给主线程，包含gameProcess引用
+				self.postMessage(<WorkerCommMsg>{
+					type: WorkerCommType.GameProcessReady,
+					data: undefined, // 暂时不需要数据
+				});
 			}
 			break;
 		case WorkerCommType.EmitOperation:
@@ -217,6 +228,13 @@ export class GameProcess implements IGameProcess {
 
 	/** 动画完成处理器映射表（animationId -> cleanup函数） */
 	animationCompletionHandlers: Map<string, () => void> = new Map();
+
+	/** 动态按钮注册表（外层key: playerId, 内层key: buttonId） */
+	private playerButtons: Map<string, Map<string, ButtonConfig>> = new Map();
+	/** 跟踪已注册监听器的玩家ID */
+	private playerButtonListeners: Set<string> = new Set();
+	/** 按钮ID计数器 */
+	private buttonIdCounter: number = 0;
 
 	public gameOverRuleFunction = async () => {
 		return false;
@@ -303,6 +321,265 @@ export class GameProcess implements IGameProcess {
 		};
 		this.initGameOverRuleFunction();
 		this.initMap();
+	}
+
+	/**
+	 * 为指定玩家注册动态按钮
+	 * @param playerId 玩家ID
+	 * @param text 按钮文案
+	 * @param callback 点击回调函数
+	 * @returns ButtonController 按钮控制实例
+	 */
+	public registerPlayerButton(
+		playerId: string,
+		text: string,
+		callback: () => Promise<void> | void
+	): ButtonController {
+		// 验证玩家ID
+		if (!this.players.has(playerId)) {
+			throw new Error(`玩家不存在: ${playerId}`);
+		}
+
+		// 验证文案
+		const buttonText = text.trim() || "按钮";
+
+		// 验证回调
+		if (typeof callback !== 'function') {
+			throw new TypeError('callback must be a function');
+		}
+
+		// 生成唯一buttonId
+		const buttonId = `dynamic-btn-${playerId}-${++this.buttonIdCounter}`;
+
+		// 创建按钮配置
+		const config: ButtonConfig = {
+			id: buttonId,
+			playerId,
+			text: buttonText,
+			enabled: true,
+			visible: true,
+			callback
+		};
+
+		// 存储配置
+		if (!this.playerButtons.has(playerId)) {
+			this.playerButtons.set(playerId, new Map());
+		}
+		this.playerButtons.get(playerId)!.set(buttonId, config);
+
+		// 创建控制器
+		const controller = new ButtonController(buttonId, playerId, this);
+
+		// 为该玩家注册按钮点击监听器（每个玩家只注册一次）
+		if (!this.playerButtonListeners.has(playerId)) {
+			this.playerButtonListeners.add(playerId);
+			operationListener.on(
+				playerId,
+				OperateType.DynamicButtonClick,
+				async (data: PlayerOperationResult[OperateType.DynamicButtonClick]) => {
+					await this.handleDynamicButtonClick(playerId, data.buttonId);
+				}
+			);
+		}
+
+		// 通知客户端
+		const registerMessage: ButtonRegisterMessage = {
+			buttonId,
+			text: buttonText,
+			enabled: true,
+			visible: true
+		};
+
+		this.sendToPlayer(playerId, {
+			type: SocketMsgType.ButtonRegister,
+			source: SocketMsgSource.Server,
+			data: registerMessage
+		});
+
+		return controller;
+	}
+
+	/**
+	 * 设置按钮启用状态
+	 * @param playerId 玩家ID
+	 * @param buttonId 按钮ID
+	 * @param enabled 是否启用
+	 */
+	public setButtonEnabled(playerId: string, buttonId: string, enabled: boolean): void {
+		const playerButtons = this.playerButtons.get(playerId);
+		if (!playerButtons || !playerButtons.has(buttonId)) {
+			return;
+		}
+
+		const config = playerButtons.get(buttonId)!;
+		config.enabled = enabled;
+
+		const stateMessage: ButtonStateChangedMessage = {
+			buttonId,
+			enabled
+		};
+
+		this.sendToPlayer(playerId, {
+			type: SocketMsgType.ButtonStateChanged,
+			source: SocketMsgSource.Server,
+			data: stateMessage
+		});
+	}
+
+	/**
+	 * 设置按钮可见性
+	 * @param playerId 玩家ID
+	 * @param buttonId 按钮ID
+	 * @param visible 是否可见
+	 */
+	public setButtonVisible(playerId: string, buttonId: string, visible: boolean): void {
+		const playerButtons = this.playerButtons.get(playerId);
+		if (!playerButtons || !playerButtons.has(buttonId)) {
+			return;
+		}
+
+		const config = playerButtons.get(buttonId)!;
+		config.visible = visible;
+
+		const stateMessage: ButtonStateChangedMessage = {
+			buttonId,
+			visible
+		};
+
+		this.sendToPlayer(playerId, {
+			type: SocketMsgType.ButtonStateChanged,
+			source: SocketMsgSource.Server,
+			data: stateMessage
+		});
+	}
+
+	/**
+	 * 设置按钮文案
+	 * @param playerId 玩家ID
+	 * @param buttonId 按钮ID
+	 * @param text 按钮文案
+	 */
+	public setButtonText(playerId: string, buttonId: string, text: string): void {
+		const playerButtons = this.playerButtons.get(playerId);
+		if (!playerButtons || !playerButtons.has(buttonId)) {
+			return;
+		}
+
+		const config = playerButtons.get(buttonId)!;
+		config.text = text.trim() || "按钮";
+
+		const stateMessage: ButtonStateChangedMessage = {
+			buttonId,
+			text: config.text
+		};
+
+		this.sendToPlayer(playerId, {
+			type: SocketMsgType.ButtonStateChanged,
+			source: SocketMsgSource.Server,
+			data: stateMessage
+		});
+	}
+
+	/**
+	 * 移除按钮
+	 * @param playerId 玩家ID
+	 * @param buttonId 按钮ID
+	 */
+	public removeButton(playerId: string, buttonId: string): void {
+		const playerButtons = this.playerButtons.get(playerId);
+		if (!playerButtons || !playerButtons.has(buttonId)) {
+			return;
+		}
+
+		// 从存储中删除
+		playerButtons.delete(buttonId);
+
+		// 通知客户端
+		const removeMessage: ButtonRemoveMessage = {
+			buttonId
+		};
+
+		this.sendToPlayer(playerId, {
+			type: SocketMsgType.ButtonRemove,
+			source: SocketMsgSource.Server,
+			data: removeMessage
+		});
+	}
+
+	/**
+	 * 获取玩家的所有按钮（用于解决时序问题）
+	 * @param playerId 玩家ID
+	 * @returns 玩家的所有按钮配置列表
+	 */
+	public getPlayerButtons(playerId: string): ButtonConfig[] {
+		const playerButtons = this.playerButtons.get(playerId);
+		if (!playerButtons) {
+			return [];
+		}
+		return Array.from(playerButtons.values());
+	}
+
+	/**
+	 * 处理客户端按钮点击操作
+	 * @param playerId 玩家ID
+	 * @param buttonId 按钮ID
+	 */
+	private async handleDynamicButtonClick(playerId: string, buttonId: string): Promise<void> {
+		// 特殊处理：同步按钮请求
+		if (buttonId === '__sync__') {
+			const playerButtons = this.playerButtons.get(playerId);
+			if (playerButtons) {
+				for (const [id, config] of playerButtons) {
+					const registerMessage: ButtonRegisterMessage = {
+						buttonId: id,
+						text: config.text,
+						enabled: config.enabled,
+						visible: config.visible
+					};
+
+					this.sendToPlayer(playerId, {
+						type: SocketMsgType.ButtonRegister,
+						source: SocketMsgSource.Server,
+						data: registerMessage
+					});
+				}
+			}
+			return;
+		}
+
+		const playerButtons = this.playerButtons.get(playerId);
+		if (!playerButtons || !playerButtons.has(buttonId)) {
+			console.warn(`[ButtonAPI] 按钮不存在: ${buttonId}`);
+			return;
+		}
+
+		const config = playerButtons.get(buttonId)!;
+
+		// 检查按钮是否启用
+		if (!config.enabled) {
+			return;
+		}
+
+		// 临时禁用按钮（防止重复点击）
+		this.setButtonEnabled(playerId, buttonId, false);
+		config.enabled = false;
+
+		try {
+			// 执行回调
+			await config.callback();
+		} catch (error) {
+			console.error(`[ButtonAPI] 按钮回调执行失败: ${buttonId}`, error);
+
+			// 发送失败通知
+			this.messageNotify([playerId], {
+				type: "error",
+				content: error instanceof Error ? error.message : '操作失败'
+			});
+		} finally {
+			// 重新启用按钮
+			config.enabled = true;
+			this.setButtonEnabled(playerId, buttonId, true);
+		}
 	}
 
 	private preprocessingEffectCode() {
@@ -1597,9 +1874,42 @@ export class GameProcess implements IGameProcess {
 		);
 	}
 
+	/**
+	 * 清理玩家的所有按钮
+	 * @param playerId 玩家ID
+	 */
+	private cleanupPlayerButtons(playerId: string): void {
+		const playerButtons = this.playerButtons.get(playerId);
+		if (!playerButtons) {
+			return;
+		}
+
+		// 通知客户端移除所有按钮
+		for (const buttonId of playerButtons.keys()) {
+			const removeMessage: ButtonRemoveMessage = {
+				buttonId
+			};
+
+			sendToUsers([playerId], {
+				type: SocketMsgType.ButtonRemove,
+				source: SocketMsgSource.Server,
+				data: removeMessage
+			});
+		}
+
+		// 清理监听器
+		this.playerButtonListeners.delete(playerId);
+
+		// 清理内存
+		this.playerButtons.delete(playerId);
+	}
+
 	public handlePlayerOffline(userId: string) {
 		const player = this.getPlayerById(userId);
 		if (player) {
+			// 清理玩家的所有按钮
+			this.cleanupPlayerButtons(userId);
+
 			player.setIsOffline(true);
 			// 启用AI托管
 			player.isAI = true;

@@ -44,6 +44,12 @@ export const enum SocketMsgType {
 	FormDialog = "FormDialog",
 	/** Loading 控制 */
 	LoadingControl = "LoadingControl",
+	/** 按钮注册 */
+	ButtonRegister = "ButtonRegister",
+	/** 按钮状态变更 */
+	ButtonStateChanged = "ButtonStateChanged",
+	/** 按钮移除 */
+	ButtonRemove = "ButtonRemove",
 }
 
 export enum SocketMsgSource {

@@ -28,4 +28,5 @@ interface WorkerCommDataTypeMap {
 	[WorkerCommType.SendToUsers]: { userIdList: string[]; data: ServerSocketMessage };
 	[WorkerCommType.GameStart]: undefined;
 	[WorkerCommType.GameOver]: undefined;
+	[WorkerCommType.GameProcessReady]: undefined;
 }

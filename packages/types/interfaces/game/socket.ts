@@ -2,6 +2,7 @@ import { ChatMessageType, MonopolyWebSocketMsgType, SocketMsgSource, SocketMsgTy
 import { GameOverRule, TargetSelectType } from "../../enums/game/game";
 import { OperateType } from "../../enums/game/game-process";
 import { GameMapInDb } from "./db";
+import { ButtonRegisterMessage, ButtonStateChangedMessage, ButtonRemoveMessage, DynamicButtonClickOperationResult } from "./button";
 import {
 	ConfirmDialogOption,
 	FormDialogOption,
@@ -686,6 +687,39 @@ export interface SocketMessageDataType {
 			text?: string;
 		};
 	};
+
+	/**
+	 * 按钮注册
+	 * 服务器通知客户端注册新的动态按钮
+	 */
+	[SocketMsgType.ButtonRegister]: {
+		/** 客户端发送的数据（不支持） */
+		client: never;
+		/** 服务器发送的按钮注册信息 */
+		server: ButtonRegisterMessage;
+	};
+
+	/**
+	 * 按钮状态变更
+	 * 服务器通知客户端按钮状态发生变化
+	 */
+	[SocketMsgType.ButtonStateChanged]: {
+		/** 客户端发送的数据（不支持） */
+		client: never;
+		/** 服务器发送的按钮状态变更信息 */
+		server: ButtonStateChangedMessage;
+	};
+
+	/**
+	 * 按钮移除
+	 * 服务器通知客户端移除某个动态按钮
+	 */
+	[SocketMsgType.ButtonRemove]: {
+		/** 客户端发送的数据（不支持） */
+		client: never;
+		/** 服务器发送的按钮移除信息 */
+		server: ButtonRemoveMessage;
+	};
 }
 
 /**
@@ -820,4 +854,7 @@ export interface PlayerOperationResult {
 
 	/** 表单对话框结果 */
 	[OperateType.FormDialogResult]: FormDialogResult<FormField<string, any>[]>;
+
+	/** 动态按钮点击 */
+	[OperateType.DynamicButtonClick]: DynamicButtonClickOperationResult;
 }
