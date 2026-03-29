@@ -29,6 +29,8 @@ import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass";
 import { storeToRefs } from "pinia";
 import { __PROTOCOL__ } from "@src/../global.config";
 import { TextSprite } from "../three/TextSprite";
+import { ChanceCard3D } from "../three/ChanceCard3D";
+import { ChanceCardTextureGenerator } from "../three/ChanceCardTextureGenerator";
 import { useGameData, useMapData, useResourceStore } from "@src/store/game";
 import { getModelById } from "@src/utils/file/game-map";
 import { PlayerModel } from "@mine-monopoly/utils";
@@ -101,6 +103,7 @@ export class GameRenderer {
 		targetIdList: string[];
 	}> = []; // 机会卡动画队列
 	private isProcessingChanceCardAnimation: boolean = false; // 是否正在处理机会卡动画
+	private activeChanceCard3Ds: ChanceCard3D[] = []; // 活跃的3D卡片
 
 	// FPS 计算相关
 	private lastFrameTime: number = performance.now();
@@ -229,7 +232,7 @@ export class GameRenderer {
 
 		loadingMask.text = "正在进行初始化加载：机会卡";
 		//加载机会卡
-		this.initChanceCard();
+		await this.initChanceCard();
 
 		//初始化灯光
 		this.initLight();
@@ -439,7 +442,52 @@ export class GameRenderer {
 		});
 	}
 
-	private initChanceCard() {}
+	private async initChanceCard() {
+		try {
+			// 预加载所有机会卡纹理
+			const mapData = useMapData();
+			const resourceStore = useResourceStore();
+
+			// 获取所有机会卡
+			const allChanceCards = mapData.chanceCards || [];
+
+			if (allChanceCards.length === 0) {
+				console.log("[机会卡] 没有找到机会卡数据，跳过预加载");
+				return;
+			}
+
+			// 准备预加载数据
+			const preloadData = allChanceCards.map((card: ChanceCardInfo) => {
+				const iconUrl = resourceStore.getRecourceById(card.iconId)?.url || "";
+				return { card, iconUrl };
+			});
+
+			const total = preloadData.length;
+
+			// 按顺序同步加载，并实时更新进度
+			for (let i = 0; i < preloadData.length; i++) {
+				const { card, iconUrl } = preloadData[i];
+
+				// 更新loading状态
+				loadingMask.text = `正在预加载机会卡 (${i + 1}/${total}): ${card.name}`;
+
+				try {
+					await ChanceCardTextureGenerator.generateTexture(card, iconUrl);
+					console.log(`[机会卡] 预加载进度: ${i + 1}/${total} - ${card.name}`);
+				} catch (error) {
+					console.error(`[机会卡] 预加载失败: ${card.name}`, error);
+					// 单个失败继续加载下一个
+				}
+			}
+
+			console.log(`[机会卡] 预加载完成，共 ${total} 个机会卡`);
+			loadingMask.text = "机会卡纹理预加载完成";
+		} catch (error) {
+			console.error("[机会卡] 预加载失败:", error);
+			// 预加载失败不影响游戏继续进行
+			loadingMask.text = "机会卡预加载失败，继续初始化...";
+		}
+	}
 
 	private initLight() {
 		const centerPos = this.getGroupCenter(this.mapContainer);
@@ -621,22 +669,16 @@ export class GameRenderer {
 	/**
 	 * 创建机会卡 3D 对象
 	 */
-	private async createChanceCardObject(chanceCard: ChanceCardInfo): Promise<{ css2DObject: CSS2DObject; unmount: () => void }> {
-		// 动态导入组件
-		const module = await import("@mine-monopoly/ui");
-		const ChanceCardComponent = module.ChanceCard;
-
+	private async createChanceCard3D(chanceCard: ChanceCardInfo): Promise<ChanceCard3D> {
 		// 获取图标URL
-		const { useResourceStore } = await import("@src/store/game");
 		const resourceStore = useResourceStore();
 		const iconUrl = resourceStore.getRecourceById(chanceCard.iconId)?.url || "";
 
-		const { css2DObject, unmount } = createCSS2DObjectFromVue(ChanceCardComponent, {
-			chanceCard,
-			iconUrl,
-		});
+		// 创建3D卡片对象
+		const card3d = new ChanceCard3D(chanceCard, iconUrl, this.scene);
+		await card3d.createCard();
 
-		return { css2DObject, unmount };
+		return card3d;
 	}
 
 	/**
@@ -651,14 +693,27 @@ export class GameRenderer {
 		const originalCameraPosition = this.camera.position.clone();
 		const originalControlsTarget = this.controls.target.clone();
 
-		// 创建机会卡对象
-		const { css2DObject, unmount } = await this.createChanceCardObject(chanceCard);
+		// 创建3D机会卡对象
+		const card3d = await this.createChanceCard3D(chanceCard);
+		this.activeChanceCard3Ds.push(card3d);
+
+		const mesh = card3d.getMesh();
+		const pivot = card3d.getPivot();
+
+		if (!mesh) {
+			console.error("[机会卡动画] 无法创建3D卡片对象");
+			return;
+		}
 
 		// 设置初始位置（玩家中心）
-		css2DObject.position.copy(sourcePosition);
-		css2DObject.position.y += 0.5; // 玩家中心位置
-		css2DObject.scale.set(0.5, 0.5, 0.5); // 初始缩放为0.5倍
-		this.scene.add(css2DObject);
+		pivot.position.copy(sourcePosition);
+		pivot.position.y += 0.5; // 玩家中心位置
+
+		// 初始缩放为0
+		mesh.scale.set(0, 0, 0);
+
+		// 显示卡片
+		card3d.show();
 
 		// 计算所有动画关键点的包围盒中心（用于摄像机聚焦）
 		const allPoints = [sourcePosition.clone(), ...targetPositions];
@@ -698,28 +753,19 @@ export class GameRenderer {
 			}),
 		]);
 
-		// 计算真正的 canvas 中心对应的 3D 世界坐标
-		const ndc = new THREE.Vector3(0, 0, 0.5); // NDC 坐标系的中心点
-		const screenCenterPosition = ndc.clone().unproject(this.camera);
-
-		// 创建从相机到屏幕中心的射线
+		// 计算屏幕中心位置（使用射线投射到y=1的平面）
 		const raycaster = new THREE.Raycaster();
 		raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
-
-		// 创建一个水平面（y=1）来接收射线投射
 		const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -1);
-		const intersectPoint = new THREE.Vector3();
-		raycaster.ray.intersectPlane(plane, intersectPoint);
-
-		// 如果射线与平面相交，使用交点；否则使用 unproject 的结果
-		const targetPosition = intersectPoint.length() > 0 ? intersectPoint : screenCenterPosition;
+		const screenCenterPos = new THREE.Vector3();
+		raycaster.ray.intersectPlane(plane, screenCenterPos);
 
 		// 创建动画时间线
 		const timeline = gsap.timeline({
 			onComplete: async () => {
 				// 动画完成后清理
-				this.scene.remove(css2DObject);
-				unmount();
+				card3d.dispose();
+				this.activeChanceCard3Ds = this.activeChanceCard3Ds.filter(c => c !== card3d);
 
 				// 恢复摄像机位置
 				await Promise.all([
@@ -741,87 +787,151 @@ export class GameRenderer {
 			},
 		});
 
-		// 第一阶段：放大并移动到屏幕中心
-		timeline.to(css2DObject.position, {
-			x: screenCenterPosition.x,
-			y: screenCenterPosition.y,
-			z: screenCenterPosition.z,
+		// ===== 阶段1：放大到屏幕中央（带随机方向的抛物线运动）=====
+		// ⭐ 强制重置pivot的旋转为初始状态
+		pivot.rotation.set(0, 0, 0);
+
+		// ⭐ 生成随机方向（0到2π之间的随机角度）
+		const randomAngle = Math.random() * Math.PI * 2;
+		const horizontalOffset = 5; // 水平偏移量
+
+		// ⭐ 位置动画：带随机方向大幅度弧度的运动（向上 + 随机水平方向）
+		// 计算中间点（抛物线顶点）
+		const midPoint = new THREE.Vector3(
+			(sourcePosition.x + screenCenterPos.x) / 2 + Math.cos(randomAngle) * horizontalOffset, // ⭐ X轴随机偏移
+			Math.max(sourcePosition.y, screenCenterPos.y) + 6, // ⭐ 向上弧度6个单位
+			(sourcePosition.z + screenCenterPos.z) / 2 + Math.sin(randomAngle) * horizontalOffset  // ⭐ Z轴随机偏移
+		);
+
+		// 使用贝塞尔曲线路径创建弧度运动
+		const curve = new THREE.QuadraticBezierCurve3(
+			sourcePosition.clone().add(new THREE.Vector3(0, 0.5, 0)), // 起点（玩家位置+0.5）
+			midPoint,                                                      // 控制点（随机方向的高点）
+			screenCenterPos                                                // 终点（屏幕中心）
+		);
+
+		// 创建路径动画对象
+		const pathProgress = { value: 0 };
+		timeline.to(pathProgress, {
+			value: 1,
 			duration: 0.5,
 			ease: "power2.out",
+			onUpdate: () => {
+				const point = curve.getPoint(pathProgress.value);
+				pivot.position.copy(point);
+				// ⭐ 不使用pivot.lookAt，保持pivot.rotation不变
+			}
 		}, 0);
 
-		timeline.to(css2DObject.scale, {
-			x: 1.5,
-			y: 1.5,
-			z: 1.5,
+		// 缩放动画：0 → 2倍（使用临时对象避免GSAP从0开始的问题）
+		const scaleObj = { value: 0 };
+		timeline.to(scaleObj, {
+			value: 2,
+			duration: 0.5,
+			ease: "back.out(1.7)", // 弹性效果
+			onUpdate: () => {
+				mesh.scale.set(scaleObj.value, scaleObj.value, scaleObj.value);
+			}
+		}, 0); // 与位置动画同时进行
+
+		// ⭐ 阶段1也添加旋转动画（只有Y轴）
+		timeline.to(mesh.rotation, {
+			x: 0,           // ⭐ X轴不旋转
+			y: Math.PI * 2,  // ⭐ Y轴旋转360度
+			z: 0,           // Z轴保持0，不影响朝向
 			duration: 0.5,
 			ease: "power2.out",
 		}, 0); // 与位置动画同时进行
 
-		// 在屏幕中心短暂停留
-		timeline.to(css2DObject.scale, {
-			x: 1.2,
-			y: 1.2,
-			z: 1.2,
-			duration: 0.2,
-			ease: "power1.inOut",
-			yoyo: true,
-			repeat: 1,
+		// ===== 阶段2：停留展示 =====
+		// ⭐ 停留时面向摄像机
+		timeline.to({}, {
+			duration: 0.6,  // ⭐ 延长停留时间到0.6秒
+			onStart: () => {
+				// 阶段2停留时，让卡片面向摄像机
+				pivot.lookAt(this.camera.position);
+			}
 		});
 
-		// 第二阶段：为每个目标位置添加飞行动画
+		// ===== 阶段3：3D翻转 + 曲线飞向目标 =====
 		for (let i = 0; i < targetPositions.length; i++) {
 			const targetPos = targetPositions[i];
 			const isLastTarget = i === targetPositions.length - 1;
 
-			// 飞向目标中心（不添加额外高度）
-			timeline.to(css2DObject.position, {
-				x: targetPos.x,
-				y: targetPos.y,
-				z: targetPos.z,
-				duration: 0.6,
-				ease: "power2.out",
-			});
+			// ⭐ 第一个目标开始时，重置pivot的旋转状态
+			if (i === 0) {
+				// 强制重置pivot为初始状态（X轴垂直于摄像机视线）
+				pivot.rotation.set(0, 0, 0);
+			}
 
-			// 同时缩小到正常大小
-			timeline.to(css2DObject.scale, {
-				x: 1,
-				y: 1,
-				z: 1,
-				duration: 0.6,
-				ease: "power2.out",
-			}, "<"); // 与飞行动画同时进行
+			// ⭐ 为每个目标生成随机方向
+			const randomAngle = Math.random() * Math.PI * 2;
+			const horizontalOffset = 3; // ⭐ 飞行时的水平偏移量（比出现时小一些）
+
+			// ⭐ 计算当前曲线的中间控制点
+			const currentPos = pivot.position.clone();
+			const curveMidPoint = new THREE.Vector3(
+				(currentPos.x + targetPos.x) / 2 + Math.cos(randomAngle) * horizontalOffset,
+				Math.max(currentPos.y, targetPos.y) + 3, // ⭐ 向上弧度3个单位
+				(currentPos.z + targetPos.z) / 2 + Math.sin(randomAngle) * horizontalOffset
+			);
+
+			// ⭐ 使用贝塞尔曲线创建随机方向的弧线运动
+			const flyCurve = new THREE.QuadraticBezierCurve3(
+				currentPos,           // 起点（当前位置）
+				curveMidPoint,        // 控制点（随机方向的弧线顶点）
+				targetPos             // 终点（目标位置）
+			);
+
+			// 位置动画：沿曲线飞向目标（不改变pivot的旋转）
+			const flyProgress = { value: 0 };
+			timeline.to(flyProgress, {
+				value: 1,
+				duration: 0.8,
+				ease: "power2.inOut",
+				onUpdate: () => {
+					// ⭐ 沿曲线移动
+					const point = flyCurve.getPoint(flyProgress.value);
+					pivot.position.copy(point);
+					// ⭐ 不使用pivot.lookAt，保持pivot.rotation不变，避免倾斜
+				},
+			}, `target${i}`);
+
+			// 缩放动画：2倍 → 1倍（使用临时对象）
+			const scaleObj2 = { value: 2 };
+			timeline.to(scaleObj2, {
+				value: 1,
+				duration: 0.8,
+				ease: "power2.inOut",
+				onUpdate: () => {
+					mesh.scale.set(scaleObj2.value, scaleObj2.value, scaleObj2.value);
+				}
+			}, `target${i}`); // 与位置动画同时进行
+
+			// ⭐ 3D翻转动画：继续旋转360度（从当前值继续）
+			// 阶段1已经旋转到Math.PI * 2，所以阶段3继续旋转到Math.PI * 4
+			timeline.to(mesh.rotation, {
+				x: 0,           // ⭐ X轴不旋转（始终保持0）
+				y: Math.PI * 4,  // ⭐ 从Math.PI*2继续旋转到Math.PI*4（再转360度）
+				z: 0,           // Z轴保持0，不影响朝向
+				duration: 0.8,
+				ease: "power2.inOut",
+			}, `target${i}`); // 与位置动画同时进行
 
 			if (isLastTarget) {
-				// 最后一个目标：在目标中心停留，然后慢慢消失
-				// 只缩小和淡出，不向上移动
-				timeline.to(css2DObject.scale, {
-					x: 0.3,
-					y: 0.3,
-					z: 0.3,
-					duration: 0.5,
-					ease: "power2.inOut",
+				// ===== 阶段4：淡出消失 =====
+				const scaleObj3 = { value: 1 };
+				timeline.to(scaleObj3, {
+					value: 0,
+					duration: 0.2,
+					ease: "power2.in",
+					onUpdate: () => {
+						mesh.scale.set(scaleObj3.value, scaleObj3.value, scaleObj3.value);
+					}
 				});
-
-				// 透明度淡出（通过修改 CSS）
-				timeline.to(
-					(css2DObject.element as HTMLElement).style,
-					{
-						opacity: 0,
-						duration: 0.5,
-						ease: "power2.inOut",
-					},
-					"<" // 与缩放动画同时进行
-				);
 			} else {
 				// 不是最后一个目标：短暂停顿后继续
-				timeline.to(css2DObject.position, {
-					y: targetPos.y + 0.3,
-					duration: 0.15,
-					ease: "power1.out",
-					yoyo: true,
-					repeat: 1,
-				});
+				timeline.to({}, { duration: 0.2 });
 			}
 		}
 

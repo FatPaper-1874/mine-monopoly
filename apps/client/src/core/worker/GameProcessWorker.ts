@@ -1110,8 +1110,8 @@ export class GameProcess implements IGameProcess {
 						}
 					});
 
-					// 等待客户端动画完成（3秒超时）
-					await this.waitForAnimationComplete(animationId, 3000);
+					// 等待客户端动画完成（6秒超时，适配客户端动画时长）
+					await this.waitForAnimationComplete(animationId, 6000);
 
 					this.msgNotifyBroadcast("info", `${sourcePlayer.name} 对自己使用了机会卡: "${cardName}"`);
 					this.gameLogBroadcast(`${sourceLink} 对自己使用了机会卡: ${cardLink}`);
@@ -1145,8 +1145,8 @@ export class GameProcess implements IGameProcess {
 						}
 					});
 
-					// 等待客户端动画完成（3秒超时）
-					await this.waitForAnimationComplete(animationId, 3000);
+					// 等待客户端动画完成（6秒超时，适配客户端动画时长）
+					await this.waitForAnimationComplete(animationId, 6000);
 
 					const targetLink = this.createGameLinkItem(GameLinkItem.Player, targetPlayer.id);
 					this.msgNotifyBroadcast(
@@ -1183,8 +1183,8 @@ export class GameProcess implements IGameProcess {
 						}
 					});
 
-					// 等待客户端动画完成（3秒超时）
-					await this.waitForAnimationComplete(animationId, 3000);
+					// 等待客户端动画完成（6秒超时，适配客户端动画时长）
+					await this.waitForAnimationComplete(animationId, 6000);
 
 					const targetLink = this.createGameLinkItem(GameLinkItem.Property, targetProperty.id);
 					this.msgNotifyBroadcast(
@@ -1226,8 +1226,8 @@ export class GameProcess implements IGameProcess {
 						}
 					});
 
-					// 等待客户端动画完成（3秒超时）
-					await this.waitForAnimationComplete(animationId, 3000);
+					// 等待客户端动画完成（6秒超时，适配客户端动画时长）
+					await this.waitForAnimationComplete(animationId, 6000);
 
 					// MapItem 类型通常可能涉及群体效果，日志可以在 use 内部处理，或者这里补充通用日志
 					break;
