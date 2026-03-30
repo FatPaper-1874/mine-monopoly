@@ -9,6 +9,7 @@ import { ChanceCardInfo, TargetSelectType } from "@mine-monopoly/types";
 import { Rule } from "ant-design-vue/es/form";
 import { ChanceCard } from "@mine-monopoly/ui";
 import { ResourcePicker } from "@src/components/resource-picker";
+import { mapContentService } from "@src/services";
 
 const props = defineProps<{ chanceCard: ChanceCardInfo | undefined }>();
 const emits = defineEmits(["close"]);
@@ -63,13 +64,12 @@ watch(
 
 async function handleAddChanceCard() {
 	try {
-		const mapDataStore = useMapDataStore();
 		if (props.chanceCard) {
-			mapDataStore.editChanceCard(chanceCardForm);
-			message.success(`修改 "${chanceCardForm.name}" 成功`);
+			// 编辑模式
+			await mapContentService.updateChanceCard(chanceCardForm);
 		} else {
-			mapDataStore.addChanceCard(chanceCardForm);
-			message.success(`添加 "${chanceCardForm.name}" 成功`);
+			// 新增模式
+			await mapContentService.addChanceCard(chanceCardForm);
 		}
 		emits("close");
 	} catch (e: any) {
