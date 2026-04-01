@@ -9,6 +9,7 @@ import { ChanceCardInfo, TargetSelectType } from "@mine-monopoly/types";
 import { Rule } from "ant-design-vue/es/form";
 import { ChanceCard } from "@mine-monopoly/ui";
 import { ResourcePicker } from "@src/components/resource-picker";
+import { addNewImage, convertToFpUrl } from "@src/utils/file";
 import { mapContentService } from "@src/services";
 
 const props = defineProps<{ chanceCard: ChanceCardInfo | undefined }>();
@@ -44,11 +45,14 @@ function getInitForm() {
 		type: TargetSelectType.ToSelf,
 		effectCode: "",
 		iconId: "",
+		tempFilePath: undefined as string | undefined,
 	};
 	return initForm;
 }
 
-const chanceCardForm = reactive<ChanceCardInfo>(props.chanceCard || getInitForm());
+const chanceCardForm = reactive<ChanceCardInfo & { tempFilePath?: string }>(
+	props.chanceCard ? JSON.parse(JSON.stringify(props.chanceCard)) : getInitForm(),
+);
 
 watch(
 	() => chanceCardForm.type,
@@ -62,13 +66,27 @@ watch(
 	{ immediate: true },
 );
 
+function handleResourceChange(resource: any) {
+	if (resource && resource.url) {
+		chanceCardForm.tempFilePath = resource.url;
+	}
+}
+
 async function handleAddChanceCard() {
 	try {
 		if (props.chanceCard) {
-			// 编辑模式
+			// 编辑模式：如果用户更换了图标，先保存新图片
+			if (chanceCardForm.tempFilePath) {
+				const newIconId = await addNewImage(chanceCardForm.tempFilePath, chanceCardForm.name);
+				chanceCardForm.iconId = newIconId;
+			}
 			await mapContentService.updateChanceCard(chanceCardForm);
 		} else {
 			// 新增模式
+			if (chanceCardForm.tempFilePath) {
+				const newIconId = await addNewImage(chanceCardForm.tempFilePath, chanceCardForm.name);
+				chanceCardForm.iconId = newIconId;
+			}
 			await mapContentService.addChanceCard(chanceCardForm);
 		}
 		emits("close");
@@ -78,6 +96,9 @@ async function handleAddChanceCard() {
 }
 
 const chanceCardIconPreview = computed(() => {
+	if (chanceCardForm.tempFilePath) {
+		return convertToFpUrl(chanceCardForm.tempFilePath);
+	}
 	const imageResource = useResourceStore().findImageById(chanceCardForm.iconId);
 	return imageResource?.url || "";
 });
@@ -125,6 +146,8 @@ const iconRule = async (_rule: Rule, value: string) => {
 						<ResourcePicker
 							type="image"
 							v-model="chanceCardForm.iconId"
+							:auto-save="!props.chanceCard"
+							@change="handleResourceChange"
 						/>
 					</a-form-item>
 				</a-form>

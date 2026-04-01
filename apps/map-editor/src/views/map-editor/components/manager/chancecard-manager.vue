@@ -105,7 +105,7 @@ function handleDelete(id: string) {
 	.ant-modal-content {
 		display: flex;
 		flex-direction: column;
-		height: 85vh;
+		height: 90vh;
 	}
 	.ant-modal-body {
 		flex: 1;
