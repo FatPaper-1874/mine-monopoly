@@ -280,4 +280,7 @@ export interface UISchema {
 
 	/** 子组件列表（可选） */
 	children?: UISchema[];
+
+	/** 变量作用域：为当前节点及其子节点的所有绑定提供额外变量 */
+	variable?: Record<string, any>;
 }

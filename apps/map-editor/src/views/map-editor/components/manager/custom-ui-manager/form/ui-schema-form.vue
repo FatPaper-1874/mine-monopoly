@@ -9,7 +9,7 @@ const emit = defineEmits(["update:modelValue"]);
 const KeyValueEditor = defineAsyncComponent(() => import("./key-value-editor.vue"));
 
 // --- State ---
-const activePanelKeys = ref<string[]>(["1", "2", "3", "4"]);
+const activePanelKeys = ref<string[]>(["1", "2", "3", "4", "5"]);
 const selectedKeys = ref<string[]>([]);
 
 // JSON 导入弹窗的状态
@@ -378,6 +378,10 @@ const removeNode = () => {
 								<a-collapse-panel key="4" header="动态属性 (Props Binding)">
 									<p class="panel-desc">动态属性绑定</p>
 									<KeyValueEditor v-model:value="selectedNode.propsBinding" />
+								</a-collapse-panel>
+								<a-collapse-panel key="5" header="变量作用域 (Variable)">
+									<p class="panel-desc">为当前节点及子节点的绑定提供额外变量</p>
+									<KeyValueEditor v-model:value="selectedNode.variable" />
 								</a-collapse-panel>
 							</a-collapse>
 						</div>

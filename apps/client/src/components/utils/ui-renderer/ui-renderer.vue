@@ -12,6 +12,12 @@ const props = defineProps<{
 	context: Record<string, any>;
 }>();
 
+// 将 schema.variable 合并到 context 中，variable 优先级更高
+const mergedContext = computed(() => ({
+	...props.context,
+	...props.schema.variable,
+}));
+
 // 如果是 text 类型且包含 x/y 坐标，必须渲染为 <text> 而非 <span>
 const isSvgText = computed(() => {
 	if (props.schema.type !== "text") return false;
@@ -23,13 +29,13 @@ const isSvgText = computed(() => {
 const shouldShow = computed(() => {
 	if (!props.schema.vShow) return true;
 	// evalExpression 内部处理了 boolean 转换，但为了保险再转一次
-	return !!evalExpression(props.context, props.schema.vShow);
+	return !!evalExpression(mergedContext.value, props.schema.vShow);
 });
 
 // 2. 处理文本内容 (优先使用 textBinding)
 const textContent = computed(() => {
 	if (props.schema.textBinding) {
-		const val = evalExpression(props.context, props.schema.textBinding);
+		const val = evalExpression(mergedContext.value, props.schema.textBinding);
 		return val !== null && val !== undefined ? String(val) : "";
 	}
 	return props.schema.content || "";
@@ -41,7 +47,7 @@ const computedStyle = computed(() => {
 
 	if (props.schema.styleBinding) {
 		Object.entries(props.schema.styleBinding).forEach(([cssProp, expr]) => {
-			const val = evalExpression(props.context, expr);
+			const val = evalExpression(mergedContext.value, expr);
 			if (val !== undefined && val !== null) {
 				styles[cssProp] = val;
 			}
@@ -63,7 +69,7 @@ const computedProps = computed(() => {
 
 	if (props.schema.propsBinding) {
 		Object.entries(props.schema.propsBinding).forEach(([key, expr]) => {
-			const val = evalExpression(props.context, expr);
+			const val = evalExpression(mergedContext.value, expr);
 			if (val !== undefined && val !== null) {
 				finalProps[key] = val;
 			}
@@ -84,7 +90,7 @@ const computedProps = computed(() => {
 const getList = (vForExpr: string) => {
 	const { listExpr } = parseVFor(vForExpr);
 	if (!listExpr) return [];
-	const list = evalExpression(props.context, listExpr);
+	const list = evalExpression(mergedContext.value, listExpr);
 	return Array.isArray(list) ? list : [];
 };
 
@@ -92,7 +98,7 @@ const getList = (vForExpr: string) => {
 const getItemContext = (vForExpr: string, itemValue: any, index: number) => {
 	const { itemKey, indexKey } = parseVFor(vForExpr);
 	return {
-		...props.context,
+		...mergedContext.value,
 		[itemKey]: itemValue,
 		[indexKey]: index,
 	};
@@ -123,7 +129,7 @@ const getItemContext = (vForExpr: string, itemValue: any, index: number) => {
 					/>
 				</template>
 
-				<UiRenderer v-else :schema="child" :context="context" />
+				<UiRenderer v-else :schema="child" :context="mergedContext" />
 			</template>
 		</template>
 	</component>
