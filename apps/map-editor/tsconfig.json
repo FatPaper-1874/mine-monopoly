@@ -8,9 +8,8 @@
 		"isolatedModules": true,
 		"lib": ["ESNext", "DOM"],
 		"noEmit": true,
-		"baseUrl": "./",
 		"paths": {
-			"@src/*": ["src/*"]
+			"@src/*": ["./src/*"]
 		}
 	},
 	"include": ["src/**/*", "electron/**/*", "types/**/*", "env/*.d.ts"],

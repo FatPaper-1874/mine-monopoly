@@ -2,19 +2,18 @@
 	"compilerOptions": {
 		"target": "ESNext",
 		"module": "ESNext",
-		"moduleResolution": "Node",
+		"moduleResolution": "Bundler",
 		"strict": true,
 		"jsx": "preserve",
 		"esModuleInterop": true,
 		"skipLibCheck": true,
 		"forceConsistentCasingInFileNames": true,
-		"baseUrl": ".",
 		"paths": {
 			"@G/*": ["./*"],
-			"@mine-monopoly/types": ["packages/types/index.ts"],
-			"@mine-monopoly/types/*": ["packages/types/*"],
-			"@mine-monopoly/env": ["packages/env/src/browser.ts"],
-			"@mine-monopoly/utils": ["packages/utils/src/index.ts"]
+			"@mine-monopoly/types": ["./packages/types/index.ts"],
+			"@mine-monopoly/types/*": ["./packages/types/*"],
+			"@mine-monopoly/env": ["./packages/env/src/browser.ts"],
+			"@mine-monopoly/utils": ["./packages/utils/src/index.ts"]
 		},
 		"resolveJsonModule": true,
 
