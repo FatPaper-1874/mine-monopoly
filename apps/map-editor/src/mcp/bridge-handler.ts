@@ -43,6 +43,13 @@ type MCPToolName =
 	| "get_resource_by_id"
 	| "add_temp_model"
 	| "add_temp_image"
+	// Map item tools
+	| "list_map_items"
+	| "get_map_item"
+	// Property tools
+	| "add_property"
+	| "update_property"
+	| "remove_property"
 	// System tools
 	| "check_mcp_connection";
 
@@ -251,6 +258,36 @@ export async function handleToolInvocation(toolName: MCPToolName, args: any): Pr
 			case "add_temp_image": {
 				const tempImage = await resourceStore.addTempImage();
 				result = toPlain(tempImage);
+				break;
+			}
+
+			// Map Item Tools
+			case "list_map_items": {
+				result = toPlain(mapContentService.listMapItems());
+				break;
+			}
+
+			case "get_map_item": {
+				result = toPlain(mapContentService.getMapItem(args.mapItemId));
+				break;
+			}
+
+			// Property Tools
+			case "add_property": {
+				const serviceResult = await mapContentService.addProperty(args);
+				result = toPlain(serviceResult);
+				break;
+			}
+
+			case "update_property": {
+				const serviceResult = await mapContentService.updateProperty(args);
+				result = toPlain(serviceResult);
+				break;
+			}
+
+			case "remove_property": {
+				await mapContentService.removeProperty(args.mapItemId);
+				result = { success: true };
 				break;
 			}
 

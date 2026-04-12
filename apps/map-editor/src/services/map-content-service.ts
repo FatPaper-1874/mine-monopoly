@@ -14,7 +14,7 @@ import { AddRoleSchema, UpdateRoleSchema, RemoveRoleSchema } from "./validators/
 import { AddMapEventSchema, UpdateMapEventSchema, RemoveMapEventSchema } from "./validators/map-event-validators";
 import { AddPhaseSchema, RemovePhaseSchema, UpdatePhaseSchema, type PhaseType } from "./validators/game-phase-validators";
 import { UpdateExtraLibsSchema } from "./validators/extra-libs-validators";
-import { AddPropertySchema, UpdatePropertySchema, RemovePropertySchema, type PropertyData } from "./validators/property-validators";
+import { AddPropertySchema, UpdatePropertySchema, RemovePropertySchema, type PropertyData, type UpdatePropertyInput } from "./validators/property-validators";
 import type { ChanceCard } from "./validators/chance-card-validators";
 import type { Role } from "./validators/role-validators";
 import type { MapEvent } from "./validators/map-event-validators";
@@ -524,6 +524,44 @@ export class MapContentService {
 	}
 
 	/**
+	 * MapItem Query Operations
+	 */
+
+	/**
+	 * List all map items with summary info
+	 * @returns MapItem summary list
+	 */
+	listMapItems(): any[] {
+		const mapDataStore = useMapDataStore();
+		return mapDataStore.mapItems.map((item) => ({
+			id: item.id,
+			typeName: item.type.name,
+			typeId: item.type.id,
+			x: item.x,
+			y: item.y,
+			rotation: item.rotation,
+			hasProperty: !!item.property,
+			mapEventId: item.mapEventId,
+			linkto: item.linkto,
+			beLinked: item.beLinked,
+		}));
+	}
+
+	/**
+	 * Get a single map item with full details
+	 * @param mapItemId - The map item ID
+	 * @returns Full map item info including property
+	 */
+	getMapItem(mapItemId: string): any {
+		const mapDataStore = useMapDataStore();
+		const item = mapDataStore.findMapItemById(mapItemId);
+		if (!item) {
+			throw new Error(`MapItem 不存在: ${mapItemId}`);
+		}
+		return item;
+	}
+
+	/**
 	 * Extra Libraries Operations
 	 */
 
@@ -598,46 +636,103 @@ export class MapContentService {
 
 	/**
 	 * Add property to a map item
-	 * @param mapItemId - The map item ID
-	 * @param property - The property data
+	 * @param data - { mapItemId, property fields }
+	 * @returns The created PropertyInfo
 	 */
-	async addProperty(mapItemId: string, property: PropertyData): Promise<void> {
+	async addProperty(data: { mapItemId: string } & PropertyData): Promise<any> {
 		// 1. Validate input
-		const validated = AddPropertySchema.parse({ mapItemId, property });
+		const validated = AddPropertySchema.parse(data);
 
-		// 2. Get Store and add property
+		// 2. Get Store, check mapItem exists and has no property
 		const mapDataStore = useMapDataStore();
-		mapDataStore.addProperty(validated.mapItemId, validated.property as any);
+		const mapItem = mapDataStore.findMapItemById(validated.mapItemId);
+		if (!mapItem) {
+			throw new Error(`MapItem 不存在: ${validated.mapItemId}`);
+		}
+		if (mapItem.property) {
+			throw new Error(`MapItem 已有地皮属性: ${validated.mapItemId}`);
+		}
 
-		// 3. Send event notification
+		// 3. Construct PropertyInfo object
+		const property = {
+			id: generateShortId('prop'),
+			name: validated.property.name,
+			sellCost: validated.property.sellCost,
+			buildCost: validated.property.buildCost,
+			level: 0,
+			maxLevel: validated.property.maxLevel,
+			costList: validated.property.costList,
+			buildingModelIdList: validated.property.buildingModelIdList,
+			customUI: validated.property.customUI,
+			custom: validated.property.effectCode
+				? { effectCode: validated.property.effectCode, description: `${validated.property.name} 自定义效果` }
+				: undefined,
+			exportData: validated.property.exportData || {},
+		};
+
+		// 4. Call Store
+		mapDataStore.addProperty(validated.mapItemId, property as any);
+
+		// 5. Send event notification
 		eventBus.emit("mcp-operation", {
 			operation: "add_property",
 			success: true,
-			message: `添加地产属性成功`,
-			details: { mapItemId: validated.mapItemId }
+			message: `添加地产成功: ${property.name}`,
+			details: { mapItemId: validated.mapItemId, propertyId: property.id, name: property.name }
 		});
+
+		return property;
 	}
 
 	/**
-	 * Update property on a map item
-	 * @param mapItemId - The map item ID
-	 * @param property - The updated property data
+	 * Update property on a map item (partial update)
+	 * @param data - { mapItemId, optional property fields }
+	 * @returns The updated PropertyInfo
 	 */
-	async updateProperty(mapItemId: string, property: PropertyData): Promise<void> {
+	async updateProperty(data: UpdatePropertyInput): Promise<any> {
 		// 1. Validate input
-		const validated = UpdatePropertySchema.parse({ mapItemId, property });
+		const validated = UpdatePropertySchema.parse(data);
 
-		// 2. Get Store and update property
+		// 2. Get Store, check mapItem and property exist
 		const mapDataStore = useMapDataStore();
-		mapDataStore.editProperty(validated.mapItemId, validated.property as any);
+		const mapItem = mapDataStore.findMapItemById(validated.mapItemId);
+		if (!mapItem) {
+			throw new Error(`MapItem 不存在: ${validated.mapItemId}`);
+		}
+		if (!mapItem.property) {
+			throw new Error(`MapItem 没有地皮属性: ${validated.mapItemId}`);
+		}
 
-		// 3. Send event notification
+		// 3. Merge updated fields
+		const existing = mapItem.property;
+		if (validated.property.name !== undefined) existing.name = validated.property.name;
+		if (validated.property.sellCost !== undefined) existing.sellCost = validated.property.sellCost;
+		if (validated.property.buildCost !== undefined) existing.buildCost = validated.property.buildCost;
+		if (validated.property.maxLevel !== undefined) existing.maxLevel = validated.property.maxLevel;
+		if (validated.property.costList !== undefined) existing.costList = validated.property.costList;
+		if (validated.property.buildingModelIdList !== undefined) existing.buildingModelIdList = validated.property.buildingModelIdList;
+		if (validated.property.customUI !== undefined) existing.customUI = validated.property.customUI;
+		if (validated.property.exportData !== undefined) existing.exportData = validated.property.exportData;
+		if (validated.property.effectCode !== undefined) {
+			if (validated.property.effectCode) {
+				existing.custom = { effectCode: validated.property.effectCode, description: `${existing.name} 自定义效果` };
+			} else {
+				existing.custom = undefined;
+			}
+		}
+
+		// 4. Call Store
+		mapDataStore.editProperty(validated.mapItemId, existing as any);
+
+		// 5. Send event notification
 		eventBus.emit("mcp-operation", {
 			operation: "update_property",
 			success: true,
-			message: `更新地产属性成功`,
-			details: { mapItemId: validated.mapItemId }
+			message: `更新地产成功: ${existing.name}`,
+			details: { mapItemId: validated.mapItemId, propertyId: existing.id }
 		});
+
+		return existing;
 	}
 
 	/**
@@ -648,15 +743,24 @@ export class MapContentService {
 		// 1. Validate input
 		const validated = RemovePropertySchema.parse({ mapItemId });
 
-		// 2. Get Store and remove property
+		// 2. Check mapItem and property exist
 		const mapDataStore = useMapDataStore();
+		const mapItem = mapDataStore.findMapItemById(validated.mapItemId);
+		if (!mapItem) {
+			throw new Error(`MapItem 不存在: ${validated.mapItemId}`);
+		}
+		if (!mapItem.property) {
+			throw new Error(`MapItem 没有地皮属性: ${validated.mapItemId}`);
+		}
+
+		// 3. Call Store
 		mapDataStore.removeProperty(validated.mapItemId);
 
-		// 3. Send event notification
+		// 4. Send event notification
 		eventBus.emit("mcp-operation", {
 			operation: "remove_property",
 			success: true,
-			message: `删除地产属性成功`,
+			message: `删除地产成功`,
 			details: { mapItemId: validated.mapItemId }
 		});
 	}

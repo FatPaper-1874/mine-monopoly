@@ -17,6 +17,8 @@ import { gamePhaseTools } from "./tools/game-phases.js";
 import { extraLibsTools } from "./tools/extra-libs.js";
 import { typeLibsTools } from "./tools/type-libs.js";
 import { resourceTools } from "./tools/resources.js";
+import { mapItemTools } from "./tools/map-items.js";
+import { propertyTools } from "./tools/properties.js";
 import { systemTools } from "./tools/system.js";
 
 /**
@@ -88,6 +90,7 @@ function getJsonSchemaType(zodField: any): string {
 		case "ZodArray":
 			return "array";
 		case "ZodObject":
+		case "ZodRecord":
 			return "object";
 		case "ZodEnum":
 			return "string";
@@ -110,6 +113,8 @@ const allTools = [
 	...extraLibsTools,
 	...typeLibsTools,
 	...resourceTools,
+	...mapItemTools,
+	...propertyTools,
 	...systemTools,
 ];
 

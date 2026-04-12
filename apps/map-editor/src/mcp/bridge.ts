@@ -38,6 +38,13 @@ export type MCPToolName =
 	| "get_resource_by_id"
 	| "add_temp_model"
 	| "add_temp_image"
+	// Map item tools
+	| "list_map_items"
+	| "get_map_item"
+	// Property tools
+	| "add_property"
+	| "update_property"
+	| "remove_property"
 	// System tools
 	| "check_mcp_connection";
 

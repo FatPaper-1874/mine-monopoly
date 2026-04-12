@@ -20,3 +20,5 @@ export { gamePhaseTools } from "./game-phases.js";
 export { extraLibsTools } from "./extra-libs.js";
 export { typeLibsTools } from "./type-libs.js";
 export { resourceTools } from "./resources.js";
+export { mapItemTools } from "./map-items.js";
+export { propertyTools } from "./properties.js";
