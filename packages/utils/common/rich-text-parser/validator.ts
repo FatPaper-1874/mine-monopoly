@@ -10,7 +10,7 @@ export const GAME_THEME_COLORS: Record<string, string> = {
 /**
  * 颜色名称白名单正则
  */
-const COLOR_NAME_REGEX = /^(red|blue|green|yellow|orange|purple|gray|black|white|pink|cyan|lime|amber|teal|indigo|primary|second|third)$/;
+const COLOR_NAME_REGEX = /^(red|blue|green|yellow|orange|purple|gray|black|white|pink|cyan|lime|amber|teal|indigo|gold|primary|second|third)$/;
 
 /**
  * 十六进制颜色正则
