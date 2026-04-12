@@ -358,8 +358,8 @@ ipcMain.handle("copy-empty-resource", async (event, resourceType: "model" | "ima
 
 	// 确定 empty 资源的源路径
 	// 开发环境：public/mock/
-	// 生产环境：dist/mock/ (RENDERER_DIST)
-	const sourceDir = isProduction ? RENDERER_DIST : path.join(process.env.APP_ROOT, "public");
+	// 生产环境：dist/frontend/mock/ (RENDERER_DIST + "frontend")
+	const sourceDir = isProduction ? path.join(RENDERER_DIST, "frontend") : path.join(process.env.APP_ROOT, "public");
 	const sourcePath = path.join(sourceDir, "mock", fileName);
 
 	// 生成唯一的文件名

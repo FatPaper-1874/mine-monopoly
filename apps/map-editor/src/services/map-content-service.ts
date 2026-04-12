@@ -91,13 +91,8 @@ export class MapContentService {
 			throw new Error(`机会卡不存在: ${validated.id}`);
 		}
 
-		// 3. Auto-generate iconId if not provided
-		let iconId = validated.iconId;
-		if (!iconId) {
-			const resourceStore = useResourceStore();
-			const tempImage = await resourceStore.addTempImage();
-			iconId = tempImage.id;
-		}
+		// 3. Use provided iconId or keep existing
+		const iconId = validated.iconId || existing.iconId;
 
 		// 4. Construct updated data
 		const updatedCard: ChanceCard = {
@@ -334,13 +329,8 @@ export class MapContentService {
 			throw new Error(`地图事件不存在: ${validated.id}`);
 		}
 
-		// 3. Auto-generate iconId if not provided
-		let iconId = validated.iconId;
-		if (!iconId) {
-			const resourceStore = useResourceStore();
-			const tempImage = await resourceStore.addTempImage();
-			iconId = tempImage.id;
-		}
+		// 3. Use provided iconId or keep existing
+		const iconId = validated.iconId || existing.iconId;
 
 		// 4. Construct updated data
 		const updatedEvent: MapEvent = {
