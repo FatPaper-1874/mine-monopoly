@@ -1108,35 +1108,10 @@ export class GameProcess implements IGameProcess {
 			const sourceLink = this.createGameLinkItem(GameLinkItem.Player, sourcePlayer.id);
 			const cardLink = this.createGameLinkItem(GameLinkItem.ChanceCard, chanceCard.getSourceId());
 
-			// 4. 根据类型执行逻辑 & 组装日志
-			// 这里执行核心逻辑，如果有问题直接 throw new Error("原因")
+			// 4. 根据类型解析目标，然后统一执行：动画 → 等待 → effectCode
 			switch (chanceCard.getType()) {
 				case TargetSelectType.ToSelf: {
-					// 执行机会卡效果
-					await chanceCard.use(sourcePlayer, sourcePlayer, this);
-
-					// 生成动画ID
-					const animationId = randomString(16);
-
-					// 获取机会卡客户端信息
-					const chanceCardInfo = chanceCard.getChanceCardInfo();
-
-					// 发送消息给所有客户端（包含动画信息）
-					this.gameBroadcast({
-						type: SocketMsgType.UseChanceCard,
-						source: SocketMsgSource.Server,
-						data: {
-							error: false,
-							animationId,
-							chanceCard: chanceCardInfo,
-							sourcePlayerId: sourcePlayer.id,
-							targetIdList: [sourcePlayer.id]
-						}
-					});
-
-					// 等待客户端动画完成（6秒超时，适配客户端动画时长）
-					await this.waitForAnimationComplete(animationId, 6000);
-
+					await this.executeChanceCardWithAnimation(sourcePlayer, chanceCard, sourcePlayer, [sourcePlayer.id]);
 					this.msgNotifyBroadcast("info", `${sourcePlayer.name} 对自己使用了机会卡: "${cardName}"`);
 					this.gameLogBroadcast(`${sourceLink} 对自己使用了机会卡: ${cardLink}`);
 					break;
@@ -1146,32 +1121,7 @@ export class GameProcess implements IGameProcess {
 				case TargetSelectType.ToPlayer: {
 					const targetPlayer = this.players.get(targetIdList[0]);
 					if (!targetPlayer) throw new Error("目标玩家不存在");
-
-					// 执行机会卡效果
-					await chanceCard.use(sourcePlayer, targetPlayer, this);
-
-					// 生成动画ID
-					const animationId = randomString(16);
-
-					// 获取机会卡客户端信息
-					const chanceCardInfo = chanceCard.getChanceCardInfo();
-
-					// 发送消息给所有客户端（包含动画信息）
-					this.gameBroadcast({
-						type: SocketMsgType.UseChanceCard,
-						source: SocketMsgSource.Server,
-						data: {
-							error: false,
-							animationId,
-							chanceCard: chanceCardInfo,
-							sourcePlayerId: sourcePlayer.id,
-							targetIdList: [targetPlayer.id]
-						}
-					});
-
-					// 等待客户端动画完成（6秒超时，适配客户端动画时长）
-					await this.waitForAnimationComplete(animationId, 6000);
-
+					await this.executeChanceCardWithAnimation(sourcePlayer, chanceCard, targetPlayer, [targetPlayer.id]);
 					const targetLink = this.createGameLinkItem(GameLinkItem.Player, targetPlayer.id);
 					this.msgNotifyBroadcast(
 						"info",
@@ -1184,32 +1134,7 @@ export class GameProcess implements IGameProcess {
 				case TargetSelectType.ToProperty: {
 					const targetProperty = this.properties.get(targetIdList[0]);
 					if (!targetProperty) throw new Error("目标建筑/地皮不存在");
-
-					// 执行机会卡效果
-					await chanceCard.use(sourcePlayer, targetProperty, this);
-
-					// 生成动画ID
-					const animationId = randomString(16);
-
-					// 获取机会卡客户端信息
-					const chanceCardInfo = chanceCard.getChanceCardInfo();
-
-					// 发送消息给所有客户端（包含动画信息）
-					this.gameBroadcast({
-						type: SocketMsgType.UseChanceCard,
-						source: SocketMsgSource.Server,
-						data: {
-							error: false,
-							animationId,
-							chanceCard: chanceCardInfo,
-							sourcePlayerId: sourcePlayer.id,
-							targetIdList: [targetProperty.id]
-						}
-					});
-
-					// 等待客户端动画完成（6秒超时，适配客户端动画时长）
-					await this.waitForAnimationComplete(animationId, 6000);
-
+					await this.executeChanceCardWithAnimation(sourcePlayer, chanceCard, targetProperty, [targetProperty.id]);
 					const targetLink = this.createGameLinkItem(GameLinkItem.Property, targetProperty.id);
 					this.msgNotifyBroadcast(
 						"info",
@@ -1220,40 +1145,9 @@ export class GameProcess implements IGameProcess {
 				}
 
 				case TargetSelectType.ToMapItem: {
-					// 优化：使用 filter + map 简洁获取有效玩家列表
-					const targetPlayers = targetIdList.map((id) => this.players.get(id)).filter((p): p is Player => !!p); // 利用类型谓词过滤 undefined
-
+					const targetPlayers = targetIdList.map((id) => this.players.get(id)).filter((p): p is Player => !!p);
 					if (targetPlayers.length === 0) throw new Error("选中的玩家不存在");
-
-					// 执行机会卡效果
-					await chanceCard.use(sourcePlayer, targetPlayers, this);
-
-					// 生成动画ID
-					const animationId = randomString(16);
-
-					// 获取机会卡客户端信息
-					const chanceCardInfo = chanceCard.getChanceCardInfo();
-
-					// 获取目标ID列表
-					const targetIdListForAnim = targetPlayers.map(t => t.id);
-
-					// 发送消息给所有客户端（包含动画信息）
-					this.gameBroadcast({
-						type: SocketMsgType.UseChanceCard,
-						source: SocketMsgSource.Server,
-						data: {
-							error: false,
-							animationId,
-							chanceCard: chanceCardInfo,
-							sourcePlayerId: sourcePlayer.id,
-							targetIdList: targetIdListForAnim
-						}
-					});
-
-					// 等待客户端动画完成（6秒超时，适配客户端动画时长）
-					await this.waitForAnimationComplete(animationId, 6000);
-
-					// MapItem 类型通常可能涉及群体效果，日志可以在 use 内部处理，或者这里补充通用日志
+					await this.executeChanceCardWithAnimation(sourcePlayer, chanceCard, targetPlayers, targetPlayers.map(t => t.id));
 					break;
 				}
 
@@ -1549,6 +1443,36 @@ export class GameProcess implements IGameProcess {
 
 	public nextTick(fn: (ctx: GameContext, gameProcess: IGameProcess) => Promise<void> | void): void {
 		this.gameRuntimeStack.push({ fn });
+	}
+
+	/**
+	 * 统一执行机会卡流程：广播动画 → 等待动画完成 → 执行 effectCode
+	 */
+	private async executeChanceCardWithAnimation(
+		sourcePlayer: IPlayer,
+		chanceCard: IChanceCard,
+		target: IPlayer | IProperty | IPlayer[] | IProperty[],
+		targetIdListForAnim: string[]
+	) {
+		const animationId = randomString(16);
+		const chanceCardInfo = chanceCard.getChanceCardInfo();
+
+		this.gameBroadcast({
+			type: SocketMsgType.UseChanceCard,
+			source: SocketMsgSource.Server,
+			data: {
+				error: false,
+				animationId,
+				chanceCard: chanceCardInfo,
+				sourcePlayerId: sourcePlayer.id,
+				targetIdList: targetIdListForAnim
+			}
+		});
+
+		this.setCurrentEventName(`${sourcePlayer.name} 使用机会卡中`);
+		await this.waitForAnimationComplete(animationId, 6000);
+
+		await chanceCard.use(sourcePlayer, target, this);
 	}
 
 	public pushEventToStack(...gameEvents: GameEvent<GameContext>[]) {
