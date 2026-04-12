@@ -8,6 +8,7 @@
 		"isolatedModules": true,
 		"lib": ["ESNext", "DOM"],
 		"noEmit": true,
+		"typeRoots": ["./node_modules/@types", "../../node_modules/@types"],
 		"paths": {
 			"@src/*": ["./src/*"]
 		}

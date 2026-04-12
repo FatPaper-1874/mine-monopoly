@@ -8,6 +8,7 @@
 		"isolatedModules": true,
 		"lib": ["ESNext", "DOM", "DOM.Iterable"],
 		"noEmit": true,
+		"typeRoots": ["./node_modules/@types", "../../node_modules/@types"],
 		"paths": {
 			"@src/*": ["./src/*"],
 			"@mine-monopoly/types": ["../../packages/types/index.ts"],
