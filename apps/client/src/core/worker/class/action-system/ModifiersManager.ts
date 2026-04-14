@@ -112,7 +112,7 @@ export class ModifierManager<C extends ICommandMap, K extends keyof C = keyof C>
 					name: meta.name,
 					description: meta.description,
 					source: meta.source,
-					triggerTiming: meta.timingName,
+					triggerTiming: meta.triggerTiming,
 					triggerTimes: desc.remainingTriggers,
 					tags: meta.tags,
 				});

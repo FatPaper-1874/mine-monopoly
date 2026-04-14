@@ -19,7 +19,7 @@ const formattedDescription = computed(() => {
 			<div class="header">
 				<div class="title-row">
 					<span class="name">{{ buff.name }}</span>
-					<span class="badge timing-badge">
+					<span v-if="buff.triggerTiming" class="badge timing-badge">
 						{{ buff.triggerTiming }}
 					</span>
 				</div>
@@ -30,7 +30,7 @@ const formattedDescription = computed(() => {
 			</div>
 
 			<div class="footer">
-				<div class="meta-tag times" :class="{ 'is-infinite': buff.triggerTimes === Infinity }">
+				<div v-if="buff.triggerTimes != null" class="meta-tag times" :class="{ 'is-infinite': buff.triggerTimes === Infinity }">
 					<font-awesome-icon icon="hourglass-half" class="icon" />
 					<span>{{ buff.triggerTimes === Infinity ? "永久生效" : `剩余: ${buff.triggerTimes}` }}</span>
 				</div>

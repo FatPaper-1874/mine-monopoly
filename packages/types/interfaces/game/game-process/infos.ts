@@ -172,28 +172,28 @@ export interface ChanceCardInfo {
 }
 
 /**
+ * Buff 展示信息（统一类型，修饰器 meta 和独立 buff 共用）
+ */
+export interface BuffDisplay {
+	/** 名称 */
+	name: string;
+	/** 描述 */
+	description: string;
+	/** 来源 */
+	source: string;
+	/** 触发时机名称（可选，独立 buff 不一定有） */
+	triggerTiming?: string;
+	/** 标签（用于分组、查找等） */
+	tags?: string[];
+}
+
+/**
  * Buff 接口
  * 表示玩家身上的临时效果
  */
-export interface Buff {
+export interface Buff extends BuffDisplay {
 	/** Buff 唯一标识 */
 	id: string;
-
-	/** Buff 名称 */
-	name: string;
-
-	/** Buff 描述 */
-	description: string;
-
-	/** Buff 来源 */
-	source: string;
-
-	/** 触发时机名称 */
-	triggerTiming: string;
-
-	/** 剩余触发次数 */
-	triggerTimes: number;
-
-	/** 标签（用于分组、查找等） */
-	tags?: string[];
+	/** 剩余触发次数（可选，不设则不显示） */
+	triggerTimes?: number;
 }

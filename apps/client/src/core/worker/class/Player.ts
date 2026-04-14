@@ -8,6 +8,7 @@ import {
 	IDice,
 	IGamePhase,
 	IGameProcess,
+	IBuffManager,
 	IModifier,
 	IModifierManager,
 	IPlayer,
@@ -23,6 +24,7 @@ import { GamePhase } from "./GamePhase";
 import { compileTsToJs, randomString } from "@src/utils";
 import GameProcessTypes from "../editor-lib.d.ts?raw";
 import { CommandBus } from "./action-system/CommandBus";
+import { BuffManager } from "./action-system/BuffManager";
 import { ModifierManager } from "./action-system/ModifiersManager";
 import Dice from "./Dice";
 import { clone } from "lodash";
@@ -44,6 +46,7 @@ export class Player implements IPlayer {
 
 	public roundPhases: IGamePhase<GameContext>[] = [];
 	public modifierManager: IModifierManager<PlayerCommandMap>;
+	public buffManager: IBuffManager;
 	public commandBus: ICommandBus<PlayerCommandMap>;
 	public dices: IDice[];
 
@@ -109,6 +112,7 @@ export class Player implements IPlayer {
 		};
 
 		this.modifierManager = new ModifierManager();
+		this.buffManager = new BuffManager();
 		this.commandBus = new CommandBus<PlayerCommandMap>(this.modifierManager);
 		this.initCommandBus();
 
@@ -229,8 +233,11 @@ export class Player implements IPlayer {
 		this.isBankrupted = isBankrupted;
 	}
 
-	public getBuff() {
-		return this.modifierManager.getBuffs();
+	public getBuff(): Buff[] {
+		return [
+			...this.modifierManager.getBuffs(),
+			...this.buffManager.getBuffs(),
+		];
 	}
 
 	public getCardById(id: string) {

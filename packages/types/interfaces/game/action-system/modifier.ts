@@ -1,5 +1,7 @@
-import { Buff } from "../game-process";
+import { Buff, BuffDisplay } from "../game-process";
 import { ICommandMap, ICommand, ICommandContext } from "./command";
+
+export type { BuffDisplay } from "../game-process";
 
 /**
  * 修饰器触发时机
@@ -7,23 +9,6 @@ import { ICommandMap, ICommand, ICommandContext } from "./command";
  * - "after": 在命令执行后触发
  */
 export type ModifierTiming = "before" | "after";
-
-/**
- * 修饰器元数据
- * 用于向 UI 展示修饰器信息
- */
-export type ModifierMeta = {
-	/** 修饰器名称 */
-	name: string;
-	/** 触发时机名称 */
-	timingName: string;
-	/** 修饰器描述 */
-	description: string;
-	/** 修饰器来源 */
-	source: string;
-	/** 标签（用于分组、查找等） */
-	tags?: string[];
-};
 
 /**
  * 修饰器描述符
@@ -45,7 +30,7 @@ export interface ModifierDescriptor<C extends ICommandMap, K extends keyof C = k
 	/** 是否自动消耗次数（默认 true，设为 false 则需要手动调用 consume） */
 	autoConsume?: boolean;
 	/** 可序列化的元数据（用于 UI 展示） */
-	meta?: ModifierMeta;
+	meta?: BuffDisplay;
 }
 
 /**

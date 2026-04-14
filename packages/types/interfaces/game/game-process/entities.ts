@@ -1,5 +1,5 @@
 import { TargetSelectType } from "../../../../types/enums/game/game";
-import { ICommandBus, IModifier, IModifierManager, PlayerCommandMap, PropertyCommandMap } from "../action-system";
+import { ICommandBus, IModifier, IModifierManager, IBuffManager, PlayerCommandMap, PropertyCommandMap } from "../action-system";
 import { UserInRoomInfo } from "../item";
 import { DiceResult, IDice } from "../util";
 import { GameContext, IGamePhase } from "./events"; // 引用 events
@@ -198,6 +198,9 @@ export interface IPlayer {
 
 	/** 玩家修饰器管理器 */
 	modifierManager: IModifierManager<PlayerCommandMap>;
+
+	/** 玩家 Buff 管理器（独立于修饰器系统） */
+	buffManager: IBuffManager;
 
 	// ===== 信息获取 =====
 
