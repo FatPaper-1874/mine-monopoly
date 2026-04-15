@@ -104,6 +104,7 @@ const formattedDescription = computed(() => {
 			height: $img-size;
 			pointer-events: none;
 			user-select: none;
+			filter: drop-shadow(0.1em 0.2em 0em color-mix(in srgb, var(--card-color) 25%, transparent));
 		}
 	}
 

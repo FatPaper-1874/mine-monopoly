@@ -457,11 +457,9 @@ export const useResourceStore = defineStore("Resources", {
 			this.models.splice(deleteIndex, 1);
 		},
 		removeImage(id: string) {
-			console.trace("🚀 ~ removeImage ~ id:", id);
-			console.log(cloneDeep(this.images));
+			if (!id) return;
 			const deleteIndex = this.images.findIndex((i) => i.id === id);
-			console.log("🚀 ~ removeImage ~ deleteIndex:", deleteIndex);
-			if (deleteIndex < 0) throw Error("找不到目标图片资源");
+			if (deleteIndex < 0) return;
 			this.images.splice(deleteIndex, 1);
 		},
 		findModelById(id: string) {

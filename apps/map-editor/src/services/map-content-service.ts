@@ -92,8 +92,12 @@ export class MapContentService {
 			throw new Error(`机会卡不存在: ${validated.id}`);
 		}
 
-		// 3. Use provided iconId or keep existing
-		const iconId = validated.iconId || existing.iconId;
+		// 3. Use provided iconId only if it exists in resource store, otherwise keep existing
+		const resourceStore = useResourceStore();
+		let iconId = existing.iconId;
+		if (validated.iconId && resourceStore.findImageById(validated.iconId)) {
+			iconId = validated.iconId;
+		}
 
 		// 4. Construct updated data
 		const updatedCard: ChanceCard = {
@@ -220,7 +224,12 @@ export class MapContentService {
 		if (validated.description !== undefined) updated.description = validated.description;
 		if (validated.color !== undefined) updated.color = validated.color;
 		if (validated.initCode !== undefined) updated.initCode = validated.initCode;
-		if (validated.imageId !== undefined) updated.imageId = validated.imageId;
+		if (validated.imageId !== undefined) {
+			const resourceStore = useResourceStore();
+			if (resourceStore.findImageById(validated.imageId)) {
+				updated.imageId = validated.imageId;
+			}
+		}
 
 		// 4. Call Store
 		mapDataStore.editRole(updated as any);
@@ -330,8 +339,12 @@ export class MapContentService {
 			throw new Error(`地图事件不存在: ${validated.id}`);
 		}
 
-		// 3. Use provided iconId or keep existing
-		const iconId = validated.iconId || existing.iconId;
+		// 3. Use provided iconId only if it exists in resource store, otherwise keep existing
+		const resourceStore = useResourceStore();
+		let iconId = existing.iconId;
+		if (validated.iconId && resourceStore.findImageById(validated.iconId)) {
+			iconId = validated.iconId;
+		}
 
 		// 4. Construct updated data
 		const updatedEvent: MapEvent = {
