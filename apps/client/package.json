@@ -18,6 +18,7 @@
 		"@mine-monopoly/ui": "workspace:*",
 		"@mine-monopoly/utils": "workspace:*",
 		"cannon-es": "^0.20.0",
+		"electron-updater": "^6.6.2",
 		"eventemitter3": "^5.0.0",
 		"howler": "^2.2.4",
 		"jsencrypt": "^3.3.2",

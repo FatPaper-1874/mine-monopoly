@@ -1,3 +1,33 @@
-*/node_modules
-./monopoly-server/public/*/*
-*/output
+# Dependencies (pnpm install handles this)
+**/node_modules
+
+# Client apps (not needed for server build)
+apps/client
+apps/admin
+apps/map-editor
+
+# Packages not needed by server
+packages/components
+packages/utils
+
+# Build artifacts
+**/dist
+**/output
+
+# IDE & Editor
+.idea
+.vscode
+
+# Version control
+.git
+.gitignore
+
+# Docker files
+docker/
+
+# Worktrees
+.worktrees
+
+# Misc
+*.md
+*.log

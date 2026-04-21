@@ -1,0 +1,33 @@
+services:
+  server:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: monopoly-server
+    container_name: monopoly-server
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "${SERVER_PORT:-8803}:${SERVER_PORT:-8803}"
+      - "${ICE_SERVER_PORT:-82}:${ICE_SERVER_PORT:-82}"
+    volumes:
+      # Persist user-uploaded files (avatars, game maps, logs)
+      - server-public:/app/apps/server/public
+    # 如果独立 MySQL 和 server 在同一 Docker 网络，用 links/container_name 连接
+    # 如果 MySQL 在宿主机或其他网络，在 .env 中配置 MYSQL_HOST 指向实际地址
+    external_links:
+      - ${MYSQL_CONTAINER:-mysql}
+
+  coturn:
+    image: coturn/coturn:latest
+    container_name: monopoly-coturn
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./coturn/turnserver.conf:/etc/coturn/turnserver.conf:ro
+    env_file:
+      - .env
+
+volumes:
+  server-public:

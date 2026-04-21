@@ -135,6 +135,9 @@ pnpm-lock.yaml
 temp
 map-cache
 
+# docker export
+docker/dist/
+
 # claude code
 CLAUDE.md
 docs/plans/

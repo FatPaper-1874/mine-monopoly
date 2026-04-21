@@ -26,9 +26,6 @@ importers:
       axios:
         specifier: 1.11.0
         version: 1.11.0
-      electron-updater:
-        specifier: ^6.6.2
-        version: 6.8.3
       express:
         specifier: 4.18.2
         version: 4.18.2
@@ -96,15 +93,6 @@ importers:
       dts-bundle-generator:
         specifier: 9.5.1
         version: 9.5.1
-      electron:
-        specifier: 37.2.6
-        version: 37.2.6
-      electron-builder:
-        specifier: 26.0.12
-        version: 26.0.12(electron-builder-squirrel-windows@26.0.12)
-      electron-log:
-        specifier: ^5.4.3
-        version: 5.4.3
       rollup-plugin-external-globals:
         specifier: 0.10.0
         version: 0.10.0(rollup@4.60.0)
@@ -196,6 +184,9 @@ importers:
       cannon-es:
         specifier: ^0.20.0
         version: 0.20.0
+      electron-updater:
+        specifier: ^6.6.2
+        version: 6.8.3
       eventemitter3:
         specifier: ^5.0.0
         version: 5.0.4
@@ -239,6 +230,9 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.0.4
         version: 1.28.0(zod@3.25.76)
+      electron-updater:
+        specifier: ^6.6.2
+        version: 6.8.3
       express:
         specifier: ^4.18.2
         version: 4.18.2
@@ -246,6 +240,15 @@ importers:
         specifier: ^3.24.2
         version: 3.25.76
     devDependencies:
+      electron:
+        specifier: 37.2.6
+        version: 37.2.6
+      electron-builder:
+        specifier: 26.0.12
+        version: 26.0.12(electron-builder-squirrel-windows@26.0.12)
+      electron-log:
+        specifier: ^5.4.3
+        version: 5.4.3
       ts-morph:
         specifier: 26.0.0
         version: 26.0.0
@@ -527,8 +530,8 @@ packages:
     resolution: {integrity: sha512-Qkzpg2s9GnVV2I2BjRksUi43U5e6+zaQMcjoJy0C+C5oxaKl+fmckGDQFtRpZpZV0NQekuZZ+tGz7EA9TVnQtQ==}
     engines: {node: '>=12'}
 
-  '@electron/node-gyp@git+https://github.com/electron/node-gyp.git#06b29aafb7708acef8b3669835c8a7857ebc92d2':
-    resolution: {commit: 06b29aafb7708acef8b3669835c8a7857ebc92d2, repo: https://github.com/electron/node-gyp.git, type: git}
+  '@electron/node-gyp@https://codeload.github.com/electron/node-gyp/tar.gz/06b29aafb7708acef8b3669835c8a7857ebc92d2':
+    resolution: {tarball: https://codeload.github.com/electron/node-gyp/tar.gz/06b29aafb7708acef8b3669835c8a7857ebc92d2}
     version: 10.2.0-electron.1
     engines: {node: '>=12.13.0'}
     hasBin: true
@@ -2413,10 +2416,6 @@ packages:
   glob-parent@5.1.2:
     resolution: {integrity: sha512-AOIgSQCepiJYwP3ARnGx+5VnTu2HBYdzbGP45eLw1vr3zB3vZLeyed1sC9hnbcOc9/SrMyM5RPQrkGz4aS9Zow==}
     engines: {node: '>= 6'}
-
-  glob@10.4.5:
-    resolution: {integrity: sha512-7Bv8RF0k6xjo7d4A/PxYLbUCfb6c+Vpd2/mB2yRDlew7Jb5hEXiCD9ibfO7wpk8i4sevK6DFny9h7EYbM3/sHg==}
-    hasBin: true
 
   glob@10.5.0:
     resolution: {integrity: sha512-DfXN8DfhJ7NH3Oe7cFmu3NCu1wKbkReJ8TorzSAFbSKrlNaQSKfIzqYqVY8zlbs2NLBbWpRiU52GX2PbaBVNkg==}
@@ -4748,7 +4747,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@electron/node-gyp@git+https://github.com/electron/node-gyp.git#06b29aafb7708acef8b3669835c8a7857ebc92d2':
+  '@electron/node-gyp@https://codeload.github.com/electron/node-gyp/tar.gz/06b29aafb7708acef8b3669835c8a7857ebc92d2':
     dependencies:
       env-paths: 2.2.1
       exponential-backoff: 3.1.3
@@ -4785,7 +4784,7 @@ snapshots:
 
   '@electron/rebuild@3.7.0':
     dependencies:
-      '@electron/node-gyp': git+https://github.com/electron/node-gyp.git#06b29aafb7708acef8b3669835c8a7857ebc92d2
+      '@electron/node-gyp': https://codeload.github.com/electron/node-gyp/tar.gz/06b29aafb7708acef8b3669835c8a7857ebc92d2
       '@malept/cross-spawn-promise': 2.0.0
       chalk: 4.1.2
       debug: 4.4.3
@@ -4805,7 +4804,7 @@ snapshots:
 
   '@electron/universal@2.0.1':
     dependencies:
-      '@electron/asar': 3.2.18
+      '@electron/asar': 3.4.1
       '@malept/cross-spawn-promise': 2.0.0
       debug: 4.4.3
       dir-compare: 4.2.0
@@ -5311,7 +5310,7 @@ snapshots:
     dependencies:
       '@types/http-cache-semantics': 4.2.0
       '@types/keyv': 3.1.4
-      '@types/node': 20.6.4
+      '@types/node': 18.19.130
       '@types/responselike': 1.0.3
 
   '@types/connect@3.4.38':
@@ -5352,7 +5351,7 @@ snapshots:
 
   '@types/fs-extra@9.0.13':
     dependencies:
-      '@types/node': 20.6.4
+      '@types/node': 18.19.130
 
   '@types/howler@2.2.12': {}
 
@@ -5371,7 +5370,7 @@ snapshots:
 
   '@types/keyv@3.1.4':
     dependencies:
-      '@types/node': 20.6.4
+      '@types/node': 18.19.130
 
   '@types/lodash@4.17.21': {}
 
@@ -5399,7 +5398,7 @@ snapshots:
 
   '@types/plist@3.0.5':
     dependencies:
-      '@types/node': 20.6.4
+      '@types/node': 18.19.130
       xmlbuilder: 15.1.1
     optional: true
 
@@ -5409,7 +5408,7 @@ snapshots:
 
   '@types/responselike@1.0.3':
     dependencies:
-      '@types/node': 20.6.4
+      '@types/node': 18.19.130
 
   '@types/send@1.2.1':
     dependencies:
@@ -5449,7 +5448,7 @@ snapshots:
 
   '@types/yauzl@2.10.3':
     dependencies:
-      '@types/node': 20.6.4
+      '@types/node': 18.19.130
     optional: true
 
   '@vibrant/color@3.2.1-alpha.1': {}
@@ -6200,7 +6199,7 @@ snapshots:
 
   config-file-ts@0.2.8-rc1:
     dependencies:
-      glob: 10.4.5
+      glob: 10.5.0
       typescript: 5.9.2
 
   content-disposition@0.5.4:
@@ -6708,8 +6707,7 @@ snapshots:
 
   extsprintf@1.3.0: {}
 
-  extsprintf@1.4.1:
-    optional: true
+  extsprintf@1.4.1: {}
 
   fast-deep-equal@3.1.3: {}
 
@@ -6929,15 +6927,6 @@ snapshots:
   glob-parent@5.1.2:
     dependencies:
       is-glob: 4.0.3
-
-  glob@10.4.5:
-    dependencies:
-      foreground-child: 3.3.1
-      jackspeak: 3.4.3
-      minimatch: 9.0.9
-      minipass: 7.1.3
-      package-json-from-dist: 1.0.1
-      path-scurry: 1.11.1
 
   glob@10.5.0:
     dependencies:
@@ -8824,7 +8813,7 @@ snapshots:
     dependencies:
       assert-plus: 1.0.0
       core-util-is: 1.0.2
-      extsprintf: 1.3.0
+      extsprintf: 1.4.1
 
   verror@1.10.1:
     dependencies:
