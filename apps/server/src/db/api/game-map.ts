@@ -1,7 +1,7 @@
-import { GameMapInDb } from "@mine-monopoly/types";
-import { AppDataSource } from "../dbConnecter";
-import { GameMap } from "../entities/GameMap";
-import { deleteFiles } from "src/utils/file-uploader";
+import type { GameMapInDb } from "@mine-monopoly/types";
+import { AppDataSource } from "#src/db/dbConnecter";
+import { GameMap } from "#src/db/entities/GameMap";
+import { deleteFiles } from "#src/utils/file-uploader";
 
 const gameMapRepository = AppDataSource.getRepository(GameMap);
 

@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import {privateKey, publicKey} from "./rsakey";
+import {privateKey, publicKey} from "#src/utils/rsakey";
 
 
 export function setToken(userId: string, isAdmin: boolean, expire: number): Promise<string> {

@@ -1,7 +1,7 @@
 import { RequestHandler } from "express";
 import { match } from "path-to-regexp";
-import { ResInterface } from "src/interfaces/res";
-import { verToken } from "./token";
+import { ResInterface } from "#src/interfaces/res";
+import { verToken } from "#src/utils/token";
 
 const AllowPath = {
 	Admin: [],

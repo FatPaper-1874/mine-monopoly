@@ -1,8 +1,7 @@
-import { MapItem } from "../interfaces/bace";
+import { MapItem } from "#src/interfaces/bace";
 import Vibrant from "node-vibrant";
 import crypto from "crypto";
-import { privateKey } from "./rsakey";
-import JSEncrypt from "JSEncrypt";
+import { privateKey } from "#src/utils/rsakey";
 
 export function getItemTypesFromMapItems(mapItems: MapItem[]) {
 	const itemTypesIdSet = new Set<string>();
@@ -104,25 +103,14 @@ export async function getImageMainColor(filename: string) {
 	}
 }
 
-//解密
-//FIXME
-// export function decryptPassword(enc: string): string {
-// 	const buffer = Buffer.from(enc, "base64");
-// 	console.log("🚀 ~ decryptPassword ~ privateKey:", privateKey);
-// 	const decrypted = crypto.privateDecrypt(
-// 		{
-// 			key: privateKey,
-// 			padding: crypto.constants.RSA_PKCS1_OAEP_PADDING,
-// 		},
-// 		buffer
-// 	);
-// 	return decrypted.toString("utf8");
-// }
-
 export function decryptPassword(enc: string): string {
-	const decrypt = new JSEncrypt();
-	decrypt.setPrivateKey(privateKey);
-	const decryptedPassword = decrypt.decrypt(enc);
-	if (decryptedPassword === false) throw Error("解密失败");
-	return decryptedPassword;
+	const buffer = Buffer.from(enc, "base64");
+	const decrypted = crypto.privateDecrypt(
+		{
+			key: privateKey,
+			padding: crypto.constants.RSA_PKCS1_OAEP_PADDING,
+		},
+		buffer
+	);
+	return decrypted.toString("utf8");
 }

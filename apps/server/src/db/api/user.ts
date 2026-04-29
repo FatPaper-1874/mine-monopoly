@@ -1,6 +1,6 @@
-import { User } from "../entities/User";
-import { AppDataSource } from "../dbConnecter";
-import { decryptPassword, generatePasswordHash, getRandomString, randomColor } from "../../utils/index";
+import { User } from "#src/db/entities/User";
+import { AppDataSource } from "#src/db/dbConnecter";
+import { decryptPassword, generatePasswordHash, getRandomString, randomColor } from "#src/utils";
 
 const userRepository = AppDataSource.getRepository(User);
 

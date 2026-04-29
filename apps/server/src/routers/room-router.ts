@@ -1,9 +1,9 @@
 import { Router } from "express";
-import { createRecord } from "../db/api/game-record";
-import { ResInterface } from "../interfaces/res";
-import { User } from "../interfaces/bace";
-import { verToken } from "../utils/token";
-import { generateIceServers } from "../utils/turn-credentials";
+import { createRecord } from "#src/db/api/game-record";
+import { ResInterface } from "#src/interfaces/res";
+import { User } from "#src/interfaces/bace";
+import { verToken } from "#src/utils/token";
+import { generateIceServers } from "#src/utils/turn-credentials";
 
 type RoomMapItem = {
 	roomId: string;

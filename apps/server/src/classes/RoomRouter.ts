@@ -1,9 +1,9 @@
 import WebSocket, { WebSocketServer } from "ws";
 import fs from "fs";
-import { MonopolyWebSocketMsgType } from "../enums/bace";
-import { asyncMissionQueue, MissionQueueItem } from "../utils/async-mission-queue";
-import { MonopolyWebSocketMsg } from "../interfaces/bace";
-import { serverLog } from "../utils/logger";
+import { MonopolyWebSocketMsgType } from "#src/enums/bace";
+import { asyncMissionQueue, MissionQueueItem } from "#src/utils/async-mission-queue";
+import { MonopolyWebSocketMsg } from "#src/interfaces/bace";
+import { serverLog } from "#src/utils/logger";
 import chalk from "chalk";
 
 export class RoomRouter {

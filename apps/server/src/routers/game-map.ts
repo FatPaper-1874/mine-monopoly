@@ -7,11 +7,11 @@ import {
 	getGameMapList,
 	setMapUse,
 	updateGameMap,
-} from "src/db/api/game-map";
-import { ResInterface } from "src/interfaces/res";
-import { deleteFiles, uploadFile } from "src/utils/file-uploader";
-import { getFileNameInPath, randomString } from "src/utils";
-import { renameFile } from "src/utils/file";
+} from "#src/db/api/game-map";
+import { ResInterface } from "#src/interfaces/res";
+import { deleteFiles, uploadFile } from "#src/utils/file-uploader";
+import { getFileNameInPath, randomString } from "#src/utils";
+import { renameFile } from "#src/utils/file";
 
 export const gameMapRouter = Router();
 const gameMapMulter = multer({ dest: "public/gameMap" });

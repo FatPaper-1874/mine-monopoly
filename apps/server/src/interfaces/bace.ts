@@ -1,4 +1,4 @@
-import {ChatMessageType, MonopolyWebSocketMsgType, SocketMsgType, WorkerCommType} from "../enums/bace";
+import {ChatMessageType, MonopolyWebSocketMsgType, SocketMsgType, WorkerCommType} from "#src/enums/bace";
 
 export interface MonopolyWebSocketMsg {
     type: MonopolyWebSocketMsgType;

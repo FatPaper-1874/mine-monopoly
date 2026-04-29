@@ -1,5 +1,5 @@
 import { Entity, Column, PrimaryGeneratedColumn, PrimaryColumn, BeforeInsert } from "typeorm";
-import { GameMapInDb } from "@mine-monopoly/types";
+import type { GameMapInDb } from "@mine-monopoly/types";
 
 @Entity()
 export class GameMap implements GameMapInDb {

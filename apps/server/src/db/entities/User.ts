@@ -1,5 +1,5 @@
 import { Entity, Column, PrimaryGeneratedColumn, PrimaryColumn, BeforeInsert } from "typeorm";
-import { AppDataSource } from "../dbConnecter";
+import { AppDataSource } from "#src/db/dbConnecter";
 
 let hasAdmin = false;
 

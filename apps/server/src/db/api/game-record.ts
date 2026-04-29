@@ -1,5 +1,5 @@
-import { AppDataSource } from "../dbConnecter";
-import { GameRecord } from "../entities/GameRecord";
+import { AppDataSource } from "#src/db/dbConnecter";
+import { GameRecord } from "#src/db/entities/GameRecord";
 
 const gameRecordRepository = AppDataSource.getRepository(GameRecord);
 

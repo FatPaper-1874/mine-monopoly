@@ -1,18 +1,16 @@
 import "reflect-metadata";
-import { AppDataSource } from "./src/db/dbConnecter";
+import { AppDataSource } from "#src/db/dbConnecter";
 import express, { ErrorRequestHandler, RequestHandler } from "express";
 import cors from "cors";
 import bodyParser from "body-parser";
-import { routerUser } from "./src/routers/user";
-import { roomRouter } from "./src/routers/room-router";
-import { serverLog } from "./src/utils/logger";
+import { routerUser } from "#src/routers/user";
+import { roomRouter } from "#src/routers/room-router";
+import { serverLog } from "#src/utils/logger";
 import chalk from "chalk";
-import { roleValidation } from "./src/utils/role-validation";
+import { roleValidation } from "#src/utils/role-validation";
 import { PeerServer } from "peer";
-import { gameMapRouter } from "src/routers/game-map";
+import { gameMapRouter } from "#src/routers/game-map";
 import { env } from "@mine-monopoly/env";
-
-// import { roleValidation } from "./src/utils/role-validation";
 
 async function bootstrap() {
 	try {

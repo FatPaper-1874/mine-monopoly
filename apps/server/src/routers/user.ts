@@ -1,14 +1,14 @@
 import { Router } from "express";
-import { roleValidation } from "../utils/role-validation";
-import { ResInterface } from "../interfaces/res";
-import { verToken } from "../utils/token";
+import { roleValidation } from "#src/utils/role-validation";
+import { ResInterface } from "#src/interfaces/res";
+import { verToken } from "#src/utils/token";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
-import { privateKey, publicKey } from "../utils/rsakey";
-import { createUser, deleteUser, getUserById, getUserList, userLogin } from "src/db/api/user";
-import { uploadFile } from "src/utils/file-uploader";
-import { setToken } from "../utils/token";
+import { privateKey, publicKey } from "#src/utils/rsakey";
+import { createUser, deleteUser, getUserById, getUserList, userLogin } from "#src/db/api/user";
+import { uploadFile } from "#src/utils/file-uploader";
+import { setToken } from "#src/utils/token";
 
 export const routerUser = Router();
 
