@@ -101,7 +101,7 @@ $text-base: #303030;
   --stitch-color-dark: rgba(0, 0, 0, 0.25); // 暗色缝线
 
   --shadow-depth: 0 0.25rem 0 rgba(0, 0, 0, 0.15); // 布料厚度 (外凸)
-  --shadow-inset: inset 0 0.15rem 0.25rem rgba(0, 0, 0, 0.15); // 剪裁凹陷 (内凹)
+  --shadow-inset: inset 0 0.15rem 0.1rem rgba(0, 0, 0, 0.15); // 剪裁凹陷 (内凹)
 
   --text-shadow-embroider: 0 1px 1px rgba(255, 255, 255, 0.4); // 刺绣高光
   --text-shadow-pressed: 0 -1px 0 rgba(0, 0, 0, 0.2); // 压印凹陷

@@ -202,16 +202,19 @@ function handleColorClick() {
 			</div>
 			<div class="form-item">
 				<span class="lable">用户名</span>
-				<input autocomplete="off" class="fp-input" type="text" id="username" v-model="registerForm.username" />
+				<input autocomplete="off" class="fp-input" type="text" id="username" v-model="registerForm.username" maxlength="20" />
+				<span class="input-tip">最多8个字符</span>
 			</div>
 		</div>
 		<div class="form-item">
 			<span class="lable">账号(用于登录)</span>
-			<input autocomplete="off" class="fp-input" type="text" id="useraccount" v-model="registerForm.useraccount" />
+			<input autocomplete="off" class="fp-input" type="text" id="useraccount" v-model="registerForm.useraccount" maxlength="20" />
+			<span class="input-tip">3-20位字母、数字或下划线</span>
 		</div>
 		<div class="form-item">
 			<span class="lable">密码</span>
 			<input autocomplete="off" class="fp-input" type="password" id="password" v-model="registerForm.password" />
+			<span class="input-tip">密码至少6位</span>
 		</div>
 		<div class="form-item">
 			<span class="lable">确认密码</span>
@@ -272,6 +275,13 @@ function handleColorClick() {
 
 	#color {
 		padding: 0.3rem 0.7rem;
+	}
+
+	.input-tip {
+		font-size: 0.7rem;
+		color: var(--color-text-second);
+		margin-top: -0.1rem;
+		margin-left: .5rem;
 	}
 
 	.color-input-wrapper {
