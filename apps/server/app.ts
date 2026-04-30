@@ -3,6 +3,7 @@ import { AppDataSource } from "#src/db/dbConnecter";
 import express, { ErrorRequestHandler, RequestHandler } from "express";
 import cors from "cors";
 import bodyParser from "body-parser";
+import rateLimit from "express-rate-limit";
 import { routerUser } from "#src/routers/user";
 import { roomRouter } from "#src/routers/room-router";
 import { serverLog } from "#src/utils/logger";
@@ -27,6 +28,21 @@ async function bootstrap() {
 		app.use(roleValidation); //身份验证
 
 		app.use(bodyParser.json());
+
+		app.use("/user/register", rateLimit({
+			windowMs: 60 * 60 * 1000,
+			max: 5,
+			message: { status: 429, msg: "注册请求过于频繁，请稍后再试" },
+			standardHeaders: true,
+			legacyHeaders: false,
+		}));
+		app.use("/user/login", rateLimit({
+			windowMs: 60 * 1000,
+			max: 10,
+			message: { status: 429, msg: "登录请求过于频繁，请稍后再试" },
+			standardHeaders: true,
+			legacyHeaders: false,
+		}));
 
 		app.use("/user", routerUser);
 		app.use("/room-router", roomRouter);

@@ -11,9 +11,19 @@ export const createUser = async (
 	avatar: string,
 	color?: string
 ) => {
+	const accountRegex = /^[a-zA-Z0-9_]{3,20}$/;
+	if (!accountRegex.test(useraccount)) {
+		throw new Error("账号需为3-20位的字母、数字或下划线");
+	}
+	if (username.length < 1 || username.length > 20) {
+		throw new Error("用户名长度需在1-20位之间");
+	}
 	const user = await AppDataSource.manager.findOneBy(User, { useraccount });
 	if (user) throw new Error("已经存在的账号名");
 	const decryptedPassword = decryptPassword(password);
+	if (decryptedPassword.length < 6) {
+		throw new Error("密码长度不能少于6位");
+	}
 	const { salt, passwordHash } = generatePasswordHash(decryptedPassword, getRandomString(16));
 
 	const userToCreate = new User();

@@ -89,6 +89,22 @@ const handleRegister = async () => {
 		isLoading.value = false;
 		return;
 	}
+	const accountRegex = /^[a-zA-Z0-9_]{3,20}$/;
+	if (!accountRegex.test(registerForm.useraccount)) {
+		FPMessage({ type: "warning", message: "账号需为3-20位的字母、数字或下划线" });
+		isLoading.value = false;
+		return;
+	}
+	if (registerForm.username.length > 8) {
+		FPMessage({ type: "warning", message: "用户名最多8个字符" });
+		isLoading.value = false;
+		return;
+	}
+	if (registerForm.password.length < 6) {
+		FPMessage({ type: "warning", message: "密码长度不能少于6位" });
+		isLoading.value = false;
+		return;
+	}
 	if (registerForm.password === registerForm.confirmPassword) {
 		const formData = new FormData();
 		const epassword = await getEncryption(registerForm.password);
