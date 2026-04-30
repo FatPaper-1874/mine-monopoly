@@ -2,17 +2,13 @@ import { Router } from "express";
 import { roleValidation } from "#src/utils/role-validation";
 import { ResInterface } from "#src/interfaces/res";
 import { verToken } from "#src/utils/token";
-import multer from "multer";
-import path from "path";
-import fs from "fs";
 import { privateKey, publicKey } from "#src/utils/rsakey";
 import { createUser, deleteUser, getUserById, getUserList, userLogin } from "#src/db/api/user";
-import { uploadFile } from "#src/utils/file-uploader";
 import { setToken } from "#src/utils/token";
+import { getStorage, avatarMulter, validateAndRename } from "#src/utils/storage";
+import { randomString } from "#src/utils";
 
 export const routerUser = Router();
-
-const avatarMulter = multer({ dest: "public/avatars" });
 
 routerUser.get("/is-admin", async (req, res, next) => {
 	const token = req.headers.authorization;
@@ -173,53 +169,41 @@ routerUser.post("/register", avatarMulter.single("avatar"), async (req, res) => 
 		return;
 	}
 
-	const { originalname, filename, path: _path } = req.file;
-
-	const fileType = path.parse(originalname).ext;
-	if (!fileType || ![".png", ".jpg", ".jpeg"].includes(fileType)) {
-		const resMsg: ResInterface = {
-			status: 500,
-			msg: "文件后缀名不合法",
-		};
-		res.status(500).json(resMsg);
-		return;
-	}
-
-	const oldName = _path;
-	const avatarFilePath = oldName + fileType;
-
-	fs.renameSync(oldName, avatarFilePath);
-
 	const { useraccount, username, password, color } = req.body;
 
-	if (useraccount && username && password && color) {
-		const avatarFileName = filename + fileType;
-		try {
-			const avatarFileUrl = await uploadFile({
-				filePath: avatarFilePath,
-				name: avatarFileName,
-				targetPath: `fatpaper/user/avatar/`,
-			});
-			const user = await createUser(useraccount, username, password, avatarFileUrl, color || undefined);
-			const resContent: ResInterface = {
-				status: 200,
-				msg: "注册成功",
-				data: user,
-			};
-			res.status(200).json(resContent);
-		} catch (e: any) {
-			const resContent: ResInterface = {
-				status: 500,
-				msg: e.message || "数据库处理错误",
-			};
-			res.status(500).json(resContent);
-		}
-	} else {
+	if (!(useraccount && username && password && color)) {
 		const resContent: ResInterface = {
 			status: 400,
 			msg: "请求参数错误",
 		};
 		res.status(400).json(resContent);
+		return;
+	}
+
+	try {
+		const { fileName, filePath } = await validateAndRename(
+			randomString(16),
+			req.file,
+			[".png", ".jpg", ".jpeg"],
+		);
+		const avatarUrl = await getStorage().upload({
+			filePath,
+			name: fileName,
+			targetPath: "user/avatars",
+		});
+		const user = await createUser(useraccount, username, password, avatarUrl, color || undefined);
+		const resContent: ResInterface = {
+			status: 200,
+			msg: "注册成功",
+			data: user,
+		};
+		res.status(200).json(resContent);
+	} catch (e: any) {
+		const resContent: ResInterface = {
+			status: 500,
+			msg: e.message || "服务器处理错误",
+		};
+		res.status(500).json(resContent);
 	}
 });
 
