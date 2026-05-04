@@ -162,7 +162,7 @@ function handleColorClick() {
 </script>
 
 <template>
-	<div v-if="loginMode" class="login-form">
+	<form v-if="loginMode" class="login-form" @submit.prevent="handleLogin">
 		<div class="form-item">
 			<span class="lable">账号</span>
 			<input autocomplete="off" class="fp-input" type="text" id="useraccount" v-model="loginForm.useraccount" />
@@ -176,13 +176,13 @@ function handleColorClick() {
 			<span>没有账号？点击<span @click="loginMode = false">注册</span></span>
 		</div>
 
-		<button :disabled="isLoading" @click="handleLogin" class="submit-button">
+		<button :disabled="isLoading" type="submit" class="submit-button">
 			<FontAwesomeIcon v-if="isLoading" icon="spinner" spin />
 			<span v-else>登录</span>
 		</button>
-	</div>
+	</form>
 
-	<div v-else class="register-form">
+	<form v-else class="register-form" @submit.prevent="handleRegister">
 		<div class="avatar_user-container">
 			<div class="form-item">
 				<span class="lable">头像</span>
@@ -246,11 +246,11 @@ function handleColorClick() {
 			<span>已有账号？点击<span @click="loginMode = true">登录</span></span>
 		</div>
 
-		<button :disabled="isLoading" @click="handleRegister" class="submit-button">
+		<button :disabled="isLoading" type="submit" class="submit-button">
 			<FontAwesomeIcon v-if="isLoading" icon="spinner" spin />
 			<span v-else>注册</span>
 		</button>
-	</div>
+	</form>
 
 	<AvatarCropper
 		v-model:visible="showCropper"
