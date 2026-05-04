@@ -30,4 +30,11 @@ export const menus: menuItem[] = [
 		component: () => import("@/views/manage/user-manage/user-manage.vue"),
 		icon: "person",
 	},
+	{
+		path: "/turn-monitor",
+		menuName: "TURN 监控",
+		name: "turn-monitor",
+		component: () => import("@/views/manage/turn-monitor/turn-monitor.vue"),
+		icon: "tower-broadcast",
+	},
 ];

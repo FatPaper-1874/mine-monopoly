@@ -108,6 +108,33 @@ export interface ArrivedEvent {
 	mapItem: MapItem[];
 }
 
+export interface CoturnMetrics {
+	allocations: {
+		udp: number;
+		tcp: number;
+		tls: number;
+		dtls: number;
+		total: number;
+	};
+	traffic: {
+		receivedBytes: number;
+		sentBytes: number;
+		receivedPackets: number;
+		sentPackets: number;
+		peerReceivedBytes: number;
+		peerSentBytes: number;
+	};
+	packets: {
+		processed: number;
+		dropped: number;
+	};
+	stun: {
+		bindingRequests: number;
+		bindingResponses: number;
+		bindingErrors: number;
+	};
+}
+
 export type RoomMapItem = {
 	roomId: string;
 	hostName: string;

@@ -11,6 +11,7 @@ import chalk from "chalk";
 import { roleValidation } from "#src/utils/role-validation";
 import { PeerServer } from "peer";
 import { gameMapRouter } from "#src/routers/game-map";
+import { coturnRouter } from "#src/routers/coturn-router";
 import { env } from "@mine-monopoly/env";
 
 async function bootstrap() {
@@ -48,6 +49,7 @@ async function bootstrap() {
 		app.use("/user", routerUser);
 		app.use("/room-router", roomRouter);
 		app.use("/game-map", gameMapRouter);
+		app.use("/coturn", coturnRouter);
 
 		app.get("/health", (req, res) => {
 			// 在这里进行服务的健康检查，返回适当的响应
