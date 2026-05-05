@@ -1,42 +1,55 @@
 import { _axios } from "@/utils/axios";
 import type { ApiResponse } from "@mine-monopoly/types";
+import type { AdminUserListItem } from "@/interfaces/interfaces";
 
-export const updateUser = async (id: string, username: string, password: string, avatar: string, color: string) => {
-	const res = await _axios.post<ApiResponse<string>>("/user/update", { id, username, password, avatar, color });
-	return res.data;
+export const getUserList = async (page: number, size: number, search?: string) => {
+	const res = await _axios.get<ApiResponse<{ total: number; userList: AdminUserListItem[]; current: number }>>(
+		"/user/list",
+		{ params: { page, size, search } }
+	);
+	return res.data.data;
 };
 
-export const createUser = async (username: string, password: string, avatar: string, color: string) => {
-	const res = await _axios.post<ApiResponse<string>>("/user/create", { username, password, avatar, color });
-	return res.data;
+export const createUser = async (params: {
+	useraccount: string;
+	username: string;
+	password: string;
+	color: string;
+	isAdmin: boolean;
+}) => {
+	const res = await _axios.post<ApiResponse<string>>("/user/create", params);
+	return res.data.data;
+};
+
+export const updateUser = async (params: {
+	id: string;
+	username: string;
+	password: string;
+	color: string;
+	isAdmin: boolean;
+}) => {
+	const res = await _axios.post<ApiResponse<string>>("/user/update", params);
+	return res.data.data;
 };
 
 export const deleteUser = async (id: string) => {
 	const res = await _axios.delete<ApiResponse<string>>("/user/delete", { params: { id } });
-	return res.data;
-};
-
-export const getUserList = async (page: number, size: number) => {
-	const res = await _axios.get<ApiResponse<{ total: number; userList: any[]; current: number }>>(
-		"/user/list",
-		{ params: { page, size } }
-	);
-	return res.data;
+	return res.data.data;
 };
 
 export const getLoginCode = async () => {
 	const res = await _axios.get<ApiResponse<{ img: { type: string; data: number[] }; uuid: string }>>("/user/get-login-code");
-	return res.data;
+	return res.data.data;
 };
 
 export const getLoginCodeState = async (uuid: string) => {
 	const res = await _axios.get<ApiResponse<{ codeState: number; token?: string }>>(`/user/get-code-state?uuid=${uuid}`);
-	return res.data;
+	return res.data.data;
 };
 
 export const isAdmin = async () => {
 	const res = await _axios.get<ApiResponse<{ isAdmin: boolean }>>("/user/is-admin");
-	return res.data;
+	return res.data.data;
 };
 
 export const checkAdminIdentity = () =>

@@ -36,7 +36,7 @@ _axios.interceptors.response.use(
 				message.error(msg, 1);
 			}
 		}
-		return response.data;
+		return response;
 	},
 	function (error) {
 		const res = error.response;

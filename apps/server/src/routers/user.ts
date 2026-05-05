@@ -4,7 +4,7 @@ import { roleValidation } from "#src/utils/role-validation";
 import { ResInterface } from "#src/interfaces/res";
 import { verToken } from "#src/utils/token";
 import { privateKey, publicKey, encryptionKey } from "#src/utils/rsakey";
-import { createUser, deleteUser, getUserById, getUserList, userLogin } from "#src/db/api/user";
+import { createUser, deleteUser, getUserById, getUserList, updateUser, userLogin } from "#src/db/api/user";
 import { setToken } from "#src/utils/token";
 import { getStorage, avatarMulter, validateAndRename } from "#src/utils/storage";
 import { randomString } from "#src/utils";
@@ -47,9 +47,13 @@ routerUser.get("/is-admin", async (req, res, next) => {
 });
 
 routerUser.get("/list", async (req, res, next) => {
-	const { page = 1, size = 8 } = req.query;
+	const { page = 1, size = 8, search } = req.query;
 	try {
-		const { userList, total } = await getUserList(parseInt(page.toString()), parseInt(size.toString()));
+		const { userList, total } = await getUserList(
+			parseInt(page.toString()),
+			parseInt(size.toString()),
+			search?.toString()
+		);
 		const resMsg: ResInterface = {
 			status: 200,
 			data: { total, current: parseInt(page.toString()), userList },
@@ -107,6 +111,50 @@ routerUser.get("/encryption-key", async (req, res, next) => {
 		data: encryptionKey,
 	};
 	res.status(200).json(resMsg);
+});
+
+routerUser.post("/create", async (req, res) => {
+	const { useraccount, username, password, color, isAdmin } = req.body;
+	if (!(useraccount && username && password)) {
+		const resContent: ResInterface = { status: 400, msg: "请求参数错误" };
+		res.status(400).json(resContent);
+		return;
+	}
+	if (isAdmin !== undefined && typeof isAdmin !== "boolean") {
+		const resContent: ResInterface = { status: 400, msg: "isAdmin 参数类型错误" };
+		res.status(400).json(resContent);
+		return;
+	}
+	try {
+		const user = await createUser(useraccount, username, password, "", color || undefined, isAdmin);
+		const resContent: ResInterface = { status: 200, msg: "创建成功", data: user };
+		res.status(200).json(resContent);
+	} catch (e: any) {
+		const resContent: ResInterface = { status: 500, msg: e.message || "服务器处理错误" };
+		res.status(500).json(resContent);
+	}
+});
+
+routerUser.post("/update", async (req, res) => {
+	const { id, username, password, color, isAdmin } = req.body;
+	if (!id) {
+		const resContent: ResInterface = { status: 400, msg: "缺少用户ID" };
+		res.status(400).json(resContent);
+		return;
+	}
+	if (isAdmin !== undefined && typeof isAdmin !== "boolean") {
+		const resContent: ResInterface = { status: 400, msg: "isAdmin 参数类型错误" };
+		res.status(400).json(resContent);
+		return;
+	}
+	try {
+		const user = await updateUser(id, { username, password, color, isAdmin });
+		const resContent: ResInterface = { status: 200, msg: "更新成功", data: user };
+		res.status(200).json(resContent);
+	} catch (e: any) {
+		const resContent: ResInterface = { status: 500, msg: e.message || "服务器处理错误" };
+		res.status(500).json(resContent);
+	}
 });
 
 routerUser.delete("/delete", async (req, res, next) => {

@@ -91,6 +91,16 @@ export interface User {
 	color: string;
 }
 
+export interface AdminUserListItem {
+	id: string;
+	useraccount: string;
+	username: string;
+	avatar: string;
+	color: string;
+	online: boolean;
+	isAdmin: boolean;
+}
+
 export interface Role {
 	id: string;
 	baseUrl: string;

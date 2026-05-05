@@ -1,4 +1,5 @@
 import { _axios } from "./axios";
+import type { ApiResponse } from "@mine-monopoly/types";
 
 async function encryptWithKey(password: string, key: string): Promise<string> {
 	const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -17,8 +18,8 @@ async function encryptWithKey(password: string, key: string): Promise<string> {
 }
 
 export async function getEncryptionKey() {
-	const res = await _axios.get("/user/encryption-key");
-	const key = (res.data as string) || "";
+	const res = await _axios.get<ApiResponse<string>>("/user/encryption-key");
+	const key = res.data.data || "";
 	localStorage.setItem("encryption-key", key);
 	return key;
 }
