@@ -1,14 +1,43 @@
 import { GameMap } from "@mine-monopoly/types";
-import { loadFromProto } from "@mine-monopoly/utils";
+import { loadFromProto, decodeProductMap } from "@mine-monopoly/utils";
+import { isProductFile, decrypt } from "@mine-monopoly/utils/crypto";
+import { env } from "@mine-monopoly/env";
 
 export async function readMapFile(file: File) {
 	const fileArrayBuffer = await file.arrayBuffer();
-	const res = await loadFromProto(new Uint8Array(fileArrayBuffer));
+	const bytes = new Uint8Array(fileArrayBuffer);
+
+	if (isProductFile(bytes)) {
+		return readMmmapFile(bytes);
+	}
+	const res = await loadFromProto(bytes);
 	return {
 		id: res.id,
 		mapData: JSON.parse(res.jsonData) as GameMap,
 		models: res.modelFiles,
 		images: res.imageFiles,
+	};
+}
+
+async function readMmmapFile(bytes: Uint8Array) {
+	const key = env("MAP_ENCRYPT_KEY", "");
+	const decrypted = await decrypt(bytes, key);
+	const productMap = decodeProductMap(decrypted);
+	const mapData = JSON.parse(productMap.payload) as GameMap;
+
+	const modelFiles = productMap.resources
+		.filter((r) => r.ext === "glb" || r.ext === "gltf")
+		.map((r) => ({ id: r.rid, name: r.label, filetype: r.ext, buffer: new Uint8Array(r.blob) }));
+
+	const imageFiles = productMap.resources
+		.filter((r) => r.ext !== "glb" && r.ext !== "gltf")
+		.map((r) => ({ id: r.rid, name: r.label, filetype: r.ext, buffer: new Uint8Array(r.blob) }));
+
+	return {
+		id: productMap.mapId,
+		mapData,
+		models: modelFiles,
+		images: imageFiles,
 	};
 }
 
