@@ -2,6 +2,7 @@
 import { ref, reactive, onBeforeMount } from "vue";
 import router from "@/router";
 import { apiLogin } from "@/utils/api/auth";
+import { startTokenRefreshTimer } from "@/utils/axios";
 import { isAdmin } from "@/utils/api/user";
 import { getEncryptionKey } from "@/utils/auth";
 import { message } from "ant-design-vue";
@@ -27,13 +28,14 @@ async function handleLogin() {
 	try {
 		const token = await apiLogin(loginForm.useraccount, loginForm.password);
 		if (token) {
-			localStorage.setItem("token", token);
 			const { isAdmin: _isAdmin } = await isAdmin();
 			if (!_isAdmin) {
 				localStorage.removeItem("token");
+				localStorage.removeItem("refreshToken");
 				message.error("该账号不是管理员账号");
 				return;
 			}
+			startTokenRefreshTimer();
 			router.push({ name: "main" });
 		}
 	} finally {

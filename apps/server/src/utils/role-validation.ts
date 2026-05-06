@@ -2,6 +2,8 @@ import { RequestHandler } from "express";
 import { match } from "path-to-regexp";
 import { ResInterface } from "#src/interfaces/res";
 import { verToken } from "#src/utils/token";
+import { AppDataSource } from "#src/db/dbConnecter";
+import { User } from "#src/db/entities/User";
 
 const AllowPath = {
 	Admin: [],
@@ -12,6 +14,7 @@ const AllowPath = {
 		"/user/encryption-key",
 		"/user/register",
 		"/user/login",
+		"/user/refresh-token",
 		"/user/get-code-state",
 		"/user/get-login-code",
 		"/static/(.*)",
@@ -26,6 +29,27 @@ const AllowPath = {
 		"/room-router/set-started",
 	],
 };
+
+const activeThrottle = new Map<string, number>();
+const THROTTLE_MS = 30_000;
+
+async function markUserOnline(userId: string) {
+	const now = Date.now();
+	const last = activeThrottle.get(userId);
+	if (last && now - last < THROTTLE_MS) return;
+
+	activeThrottle.set(userId, now);
+	try {
+		await AppDataSource.getRepository(User)
+			.createQueryBuilder()
+			.update(User)
+			.set({ online: true, lastActiveTime: new Date() })
+			.where("id = :userId", { userId })
+			.execute();
+	} catch {
+		// 静默，不影响请求
+	}
+}
 
 function isIgnore(path: string): boolean {
 	return AllowPath.Ignore.some((allowPath) => {
@@ -63,8 +87,9 @@ export const roleValidation: RequestHandler = async (req, res, next) => {
 		} else {
 			const { userId, isAdmin } = tokenInfo;
 
+			markUserOnline(userId);
+
 			if (!isAdmin && !isAllowPath(path)) {
-				//当不是管理员又不是访问用户允许的路径时
 				const resContent: ResInterface = {
 					status: 403,
 					msg: "无权访问该接口",

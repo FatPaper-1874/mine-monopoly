@@ -5,7 +5,9 @@ import { ResInterface } from "#src/interfaces/res";
 import { verToken } from "#src/utils/token";
 import { privateKey, publicKey, encryptionKey } from "#src/utils/rsakey";
 import { createUser, deleteUser, getUserById, getUserList, updateUser, userLogin } from "#src/db/api/user";
-import { setToken } from "#src/utils/token";
+import { AppDataSource } from "#src/db/dbConnecter";
+import { User } from "#src/db/entities/User";
+import { setToken, setRefreshToken, verToken as verifyToken } from "#src/utils/token";
 import { getStorage, avatarMulter, validateAndRename } from "#src/utils/storage";
 import { randomString } from "#src/utils";
 
@@ -182,14 +184,17 @@ routerUser.post("/login", async (req, res) => {
 	if (useraccount && password) {
 		try {
 			const user = await userLogin(useraccount, password, privateKey);
-			const tokenExpireTimeMs = 60 * 1000;
+			const tokenExpireTimeMs = 30 * 60 * 1000;
 			const token = await setToken(user.id, user.isAdmin, tokenExpireTimeMs);
-			// setRedis(user.id, token, tokenExpireTimeMs);
+			const refreshToken = await setRefreshToken(user.id, user.isAdmin);
+
+			await AppDataSource.getRepository(User)
+				.update({ id: user.id }, { online: true, lastActiveTime: new Date() });
 
 			const resContent: ResInterface = {
 				status: 200,
 				msg: "登录成功",
-				data: token,
+				data: { token, refreshToken },
 			};
 			res.status(200).json(resContent);
 		} catch (e: any) {
@@ -205,6 +210,40 @@ routerUser.post("/login", async (req, res) => {
 			msg: "请求参数错误",
 		};
 		res.status(400).json(resContent);
+	}
+});
+
+routerUser.post("/refresh-token", async (req, res) => {
+	const { refreshToken } = req.body;
+	if (!refreshToken) {
+		const resContent: ResInterface = { status: 400, msg: "缺少 refreshToken" };
+		res.status(400).json(resContent);
+		return;
+	}
+	try {
+		const tokenInfo = verifyToken(refreshToken, "refresh");
+		if (!tokenInfo) {
+			const resContent: ResInterface = { status: 401, msg: "refreshToken无效" };
+			res.status(401).json(resContent);
+			return;
+		}
+		const { userId, isAdmin } = tokenInfo;
+		const tokenExpireTimeMs = 30 * 60 * 1000;
+		const newToken = await setToken(userId, isAdmin, tokenExpireTimeMs);
+		const newRefreshToken = await setRefreshToken(userId, isAdmin);
+
+		await AppDataSource.getRepository(User)
+			.update({ id: userId }, { online: true, lastActiveTime: new Date() });
+
+		const resContent: ResInterface = {
+			status: 200,
+			msg: "刷新成功",
+			data: { token: newToken, refreshToken: newRefreshToken },
+		};
+		res.status(200).json(resContent);
+	} catch (e: any) {
+		const resContent: ResInterface = { status: 401, msg: "refreshToken过期或无效" };
+		res.status(401).json(resContent);
 	}
 });
 

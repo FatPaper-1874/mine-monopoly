@@ -36,6 +36,9 @@ export class User {
 	@CreateDateColumn({ name: "create_time", nullable: true })
 	createTime: Date;
 
+	@Column({ type: "datetime", nullable: true, name: "last_active_time" })
+	lastActiveTime: Date | null;
+
 	@BeforeInsert()
 	async setAdminStatus() {
 		if (hasAdmin) return;

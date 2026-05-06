@@ -8,6 +8,7 @@ import { destoryMonopolyClient } from "@src/core/monopoly-client/MonopolyClient"
 export function clearAuthAndRedirect() {
   // 清除 localStorage
   localStorage.removeItem("token");
+  localStorage.removeItem("refreshToken");
   localStorage.removeItem("user");
 
   // 清除 Pinia store 状态
@@ -25,4 +26,12 @@ export function clearAuthAndRedirect() {
 
 export function setToken(token: string): void {
   localStorage.setItem("token", token);
+}
+
+export function setRefreshToken(token: string): void {
+  localStorage.setItem("refreshToken", token);
+}
+
+export function getRefreshToken(): string | null {
+  return localStorage.getItem("refreshToken");
 }

@@ -14,6 +14,7 @@ import { gameMapRouter } from "#src/routers/game-map";
 import { coturnRouter } from "#src/routers/coturn-router";
 import { statisticsRouter } from "#src/routers/statistics-router";
 import { env } from "@mine-monopoly/env";
+import { User } from "#src/db/entities/User";
 
 async function bootstrap() {
 	try {
@@ -29,6 +30,19 @@ async function bootstrap() {
 		app.use("/static", express.static("public"));
 
 		app.use(roleValidation); //身份验证
+
+		// 定时清理超时在线用户
+		setInterval(async () => {
+			try {
+				const twoMinAgo = new Date(Date.now() - 2 * 60 * 1000);
+				await AppDataSource.getRepository(User)
+					.createQueryBuilder()
+					.update(User)
+					.set({ online: false })
+					.where("online = true AND lastActiveTime < :twoMinAgo", { twoMinAgo })
+					.execute();
+			} catch {}
+		}, 2 * 60 * 1000);
 
 		app.use(bodyParser.json());
 

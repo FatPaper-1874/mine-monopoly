@@ -1,7 +1,7 @@
 import apiClient from "./index";
 import { FPMessage } from "@mine-monopoly/ui";
 import { getEncryption } from "@src/utils/encryption";
-import { setToken } from "@src/utils/auth";
+import { setToken, setRefreshToken } from "@src/utils/auth";
 import type { ApiResponse } from "@mine-monopoly/types";
 
 export const getUserInfo = async () => {
@@ -29,12 +29,15 @@ export const apiLogin = async (useraccount: string, password: string) => {
 	}
 
 	try {
-		const response = await apiClient.post<ApiResponse<string>>("/user/login", {
+		const response = await apiClient.post<ApiResponse<{ token: string; refreshToken: string }>>("/user/login", {
 			useraccount,
 			password: encryptionPassword,
 		});
-		const token = response.data;
-		if (token) setToken(token);
+		const { token, refreshToken } = response.data;
+		if (token) {
+			setToken(token);
+			setRefreshToken(refreshToken);
+		}
 		return token;
 	} catch (error) {
 		return null;

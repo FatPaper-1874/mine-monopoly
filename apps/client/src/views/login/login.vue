@@ -5,6 +5,7 @@ import { __PROTOCOL__ } from "@src/../global.config";
 import { getUserByToken } from "@src/utils/api/user";
 import { exitFullScreen, randomString, setTimeOutAsync } from "@src/utils";
 import { clearAuthAndRedirect } from "@src/utils/auth";
+import { startTokenRefreshTimer, stopTokenRefreshTimer } from "@src/utils/api/index";
 import { FPMessage } from "@mine-monopoly/ui";
 import { useUserInfo } from "@src/store";
 import { LoginDiceRenderer } from "@src/core/three/LoginDiceRenderer";
@@ -51,6 +52,7 @@ function doLogin() {
 function handleLoginSuccess(token: string) {
 	showUserLogin.value = false;
 	localStorage.setItem("token", token);
+	startTokenRefreshTimer();
 	getUserInfoToRoomList();
 }
 
@@ -74,6 +76,7 @@ async function getUserInfoToRoomList() {
 					const { id: userId, useraccount, username, avatar, color } = await getUserByToken(token);
 					const userInfoStore = useUserInfo();
 					userInfoStore.$patch({ userId, useraccount, username, avatar, color });
+					startTokenRefreshTimer();
 					await setTimeOutAsync(1500);
 					if (loginCodeRenderer) await loginCodeRenderer.showImage(avatar);
 					await setTimeOutAsync(2000, toRoomList);
