@@ -26,7 +26,8 @@ const formattedDescription = computed(() => {
 
 <style lang="scss" scoped>
 .role-preview {
-	width: 100%;
+	width: 20rem;
+	height: 30rem;
 	aspect-ratio: 0.75;
 	border: 0.4rem solid #ffffff;
 	border-radius: 1rem;
@@ -64,7 +65,7 @@ const formattedDescription = computed(() => {
 		max-height: 30%;
 		color: #ffffff;
 		background-color: rgba(196, 196, 196, 0.65);
-		font-size: 0.85em;
+		font-size: 0.95em;
 		line-height: 1.3;
 		text-shadow: 0 0.1rem 0.2rem rgba(0, 0, 0, 0.5);
 		word-wrap: break-word;

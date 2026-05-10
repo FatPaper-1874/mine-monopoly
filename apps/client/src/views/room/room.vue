@@ -398,6 +398,10 @@ async function handleUploadMap() {
 		font-size: 1rem;
 		border-radius: 0.4rem;
 		cursor: pointer;
+		width: 100%;
+		display: flex;
+		justify-content: center;
+		align-items: center;
 
 		& > span {
 			font-size: 1.1rem;

@@ -176,8 +176,8 @@ async function handleGetRandomPublicRoom(e: Event) {
 
 		& > .side-bar {
 			position: absolute;
-			right: .3rem;
-			top: .3rem;
+			right: 0.3rem;
+			top: 0.3rem;
 			display: flex;
 			flex-direction: column;
 			align-items: center;
