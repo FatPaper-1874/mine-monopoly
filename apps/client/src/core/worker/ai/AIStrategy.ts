@@ -226,6 +226,13 @@ export class AIManager {
 	 * 处理物品选择对话框
 	 */
 	private handleItemSelect(player: IPlayer, dialogOption?: any): ItemSelectDialogResult {
+		// SimpleAIStrategy 哲学：拒绝一切可选操作
+		// 如果对话框可取消（有 cancelText），AI 选择取消
+		if (dialogOption?.cancelText) {
+			console.log(`[AI] ${player.name} 取消物品选择: ${dialogOption.title || ""}`);
+			return { selected: [] };
+		}
+
 		const items = dialogOption?.itemList || [];
 
 		// 规范化 multiple 参数
