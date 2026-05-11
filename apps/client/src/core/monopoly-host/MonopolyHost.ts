@@ -15,6 +15,14 @@ export class MonopolyHost {
 
 	private heartbeatTimeoutMap: Map<string, NodeJS.Timeout> = new Map();
 
+	private clientHeartCheckFns: Map<
+		string,
+		{
+			clear: () => void;
+			reset: () => void;
+		}
+	> = new Map();
+
 	private connectionVersionMap: Map<string, number> = new Map();
 
 	private destoryHandler: Function | undefined;
@@ -101,6 +109,10 @@ export class MonopolyHost {
 						isOnline = true;
 						// 重连后立即启动心跳检测
 						resetHeartbeatTimeout();
+						_this.clientHeartCheckFns.set(clientUserId, {
+							clear: clearHeartbeatTimeout,
+							reset: resetHeartbeatTimeout,
+						});
 					} else {
 						conn.send(
 							JSON.stringify(<SocketMessage>{
@@ -143,6 +155,10 @@ export class MonopolyHost {
 							isOnline = true;
 							// 首次连接后启动心跳检测
 							resetHeartbeatTimeout();
+							_this.clientHeartCheckFns.set(clientUserId, {
+								clear: clearHeartbeatTimeout,
+								reset: resetHeartbeatTimeout,
+							});
 						}
 					}
 				}
@@ -168,6 +184,7 @@ export class MonopolyHost {
 			conn.on("close", () => {
 				// 清除心跳超时计时器
 				clearHeartbeatTimeout();
+				_this.clientHeartCheckFns.delete(clientUserId);
 
 				// 只有当前版本号的连接才能触发断线
 				const currentVersion = _this.connectionVersionMap.get(clientUserId);
@@ -181,6 +198,7 @@ export class MonopolyHost {
 			conn.on("error", (err) => {
 				// 清除心跳超时计时器
 				clearHeartbeatTimeout();
+				_this.clientHeartCheckFns.delete(clientUserId);
 
 				// 只有当前版本号的连接才能触发断线
 				const currentVersion = _this.connectionVersionMap.get(clientUserId);
@@ -246,10 +264,19 @@ export class MonopolyHost {
 		this.destoryHandler = fn;
 	}
 
+	public pauseClientHeartCheck(clientId: string) {
+		this.clientHeartCheckFns.get(clientId)?.clear();
+	}
+
+	public resumeClientHeartCheck(clientId: string) {
+		this.clientHeartCheckFns.get(clientId)?.reset();
+	}
+
 	public destory() {
 		deleteRoom(this.room.getRoomId());
 		this.room.destory();
 		this.peer.destroy();
+		this.clientHeartCheckFns.clear();
 		this.intervalList.forEach((i) => {
 			clearInterval(i);
 		});

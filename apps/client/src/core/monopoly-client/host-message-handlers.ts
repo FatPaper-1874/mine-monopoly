@@ -286,6 +286,8 @@ const handleChangeMap: ServerMessageHandler<SocketMsgType.ChangeMap> = async (ms
 	} catch (e: any) {
 		FPMessage({ type: "error", message: e.message });
 		useLoading().hideLoading();
+	} finally {
+		client.resumeHeartBeat();
 	}
 };
 
@@ -645,7 +647,10 @@ const handleLoadingControl: ServerMessageHandler<SocketMsgType.LoadingControl> =
 	const { show, text } = msg.data;
 	if (show) {
 		useLoading().showLoading(text || "加载中...");
+		client.sendLoadingStarted();
+		client.pauseHeartBeat();
 	} else {
+		client.resumeHeartBeat();
 		useLoading().hideLoading();
 	}
 };

@@ -47,6 +47,7 @@ export class MonopolyClient {
 	private sendHeartTime = 0;
 	private intervalList: any[] = [];
 	private handleNoHeartTimer: ReturnType<typeof debounce> | null = null;
+	private heartBeatPaused = false;
 
 	public static getInstance(): MonopolyClient;
 	public static getInstance(options: MonopolyClientOptions): Promise<MonopolyClient>;
@@ -154,6 +155,7 @@ export class MonopolyClient {
 			// 启动心跳发送定时器
 			this.intervalList.push(
 				setInterval(() => {
+					if (this.heartBeatPaused) return;
 					this.sendHeartTime = Date.now();
 					this.sendMsg({ type: SocketMsgType.Heart, source: SocketMsgSource.Client, data: undefined });
 				}, 3000),
@@ -241,6 +243,24 @@ export class MonopolyClient {
 	public initHeartBeat() {
 		// 在首次发送心跳时初始化心跳超时定时器
 		this.handleNoHeartTimer = this.handleNoHeart;
+	}
+
+	public pauseHeartBeat() {
+		this.heartBeatPaused = true;
+		this.handleNoHeartTimer?.cancel();
+	}
+
+	public resumeHeartBeat() {
+		this.heartBeatPaused = false;
+		this.handleNoHeartTimer?.fn();
+	}
+
+	public sendLoadingStarted() {
+		this.sendMsg({
+			type: SocketMsgType.Operation,
+			source: SocketMsgSource.Client,
+			data: { operateType: OperateType.LoadingStarted, data: undefined },
+		});
 	}
 
 	private handleDisconnect() {

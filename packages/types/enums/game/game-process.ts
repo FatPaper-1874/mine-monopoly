@@ -18,6 +18,7 @@ export enum OperateType {
 	Animation = "AnimationComplete", //前端动画完成回馈
 
 	MapResourceLoaded = "MapResourceLoaded", //地图资源加载完毕
+	LoadingStarted = "LoadingStarted", //客机开始加载地图资源
 
 	PauseGame = "PauseGame", //房主暂停游戏
 	ResumeGame = "ResumeGame", //房主恢复游戏

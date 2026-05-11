@@ -832,6 +832,9 @@ export interface PlayerOperationResult {
 	/** 地图资源加载完成 */
 	[OperateType.MapResourceLoaded]: undefined;
 
+	/** 客机开始加载地图资源 */
+	[OperateType.LoadingStarted]: undefined;
+
 	/** 暂停游戏 */
 	[OperateType.PauseGame]: undefined;
 

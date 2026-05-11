@@ -104,6 +104,11 @@ const handleGameStart: ClientMessageHandler<SocketMsgType.GameStart> = (conn, ms
 };
 const handleOperation: ClientMessageHandler<SocketMsgType.Operation> = (conn, msg, host, clientId) => {
 	const { operateType, data } = msg.data;
+	if (operateType === OperateType.LoadingStarted) {
+		host.pauseClientHeartCheck(clientId);
+	} else if (operateType === OperateType.GameInitFinished || operateType === OperateType.MapResourceLoaded) {
+		host.resumeClientHeartCheck(clientId);
+	}
 	host.getRoom().emitOperation(clientId, operateType, data);
 };
 const handleLeaveRoom: ClientMessageHandler<SocketMsgType.LeaveRoom> = (conn, msg, host, clientId) => {

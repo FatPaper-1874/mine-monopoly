@@ -59,6 +59,10 @@ onMounted(async () => {
 		socketClient = useMonopolyClient();
 		useLoading().showLoading("加载数据中...");
 
+		// 暂停心跳检测，避免加载期间误判断连
+		socketClient.sendLoadingStarted();
+		socketClient.pauseHeartBeat();
+
 		const canvas = document.getElementById("game-canvas") as HTMLCanvasElement;
 		const container = document.getElementsByClassName("game-page")[0] as HTMLDivElement;
 		if (!canvas || !container) {
@@ -68,9 +72,15 @@ onMounted(async () => {
 		console.log("🚀 ~ mapData:", mapData);
 		gameRenderer = new GameRenderer(canvas, container, mapData);
 		await gameRenderer.init();
+
+		// 恢复心跳检测
+		socketClient.resumeHeartBeat();
+
 		useLoading().showLoading("数据加载完成，等待其他玩家加载...");
 		socketClient.gameInitFinished();
 	} catch (e: any) {
+		// 异常时也要恢复心跳，防止永久暂停
+		socketClient?.resumeHeartBeat();
 		console.error(e);
 		useLoading().hideLoading();
 		router.replace({ name: "room-router" });
