@@ -22,6 +22,7 @@
 		"electron-updater": "^6.6.2",
 		"eventemitter3": "^5.0.0",
 		"howler": "^2.2.4",
+		"marked": "^18.0.3",
 		"peerjs": "^1.5.4",
 		"vue-advanced-cropper": "^2.8.9"
 	},
