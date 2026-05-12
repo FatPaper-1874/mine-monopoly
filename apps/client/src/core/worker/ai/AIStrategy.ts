@@ -1,4 +1,4 @@
-import { IPlayer, IProperty, OperateType, PlayerOperationResult } from "@mine-monopoly/types";
+import { IPlayer, IProperty, OperateType, PlayerOperationResult, ConfirmDialogResult, TargetSelectDialogResult, ItemSelectDialogResult, FormDialogResult } from "@mine-monopoly/types";
 
 /**
  * AI决策结果
@@ -146,7 +146,7 @@ export class AIManager {
 			case OperateType.RollDice:
 				// AI总是掷骰子（保证游戏进行）
 				console.log(`[AI] ${player.name} 决定掷骰子`);
-				return { rollDice: true } as PlayerOperationResult[T];
+				return { rollDice: true } as unknown as PlayerOperationResult[T];
 
 			case OperateType.ConfirmDialogResult:
 				// 处理确认对话框（购买/升级等）
@@ -168,7 +168,7 @@ export class AIManager {
 				// 处理使用机会卡
 				const shouldUse = this.strategy.shouldUseChanceCard(player);
 				console.log(`[AI] ${player.name} ${shouldUse ? "使用" : "不使用"} 机会卡`);
-				return { useCard: shouldUse } as PlayerOperationResult[T];
+				return { useCard: shouldUse } as unknown as PlayerOperationResult[T];
 
 			default:
 				console.warn(`[AI] 未处理的操作类型: ${operationType}`);
@@ -209,13 +209,11 @@ export class AIManager {
 		const targets = dialogOption?.targets || [];
 		const selected = this.strategy.selectTarget(player, targets);
 
-		// TargetSelectDialogResult 的 target 字段应该是 string[] 类型
-		// 根据不同的 TargetSelectType 返回对应的 ID 数组
 		let selectedIds: string[] = [];
 		if (Array.isArray(selected)) {
-			selectedIds = selected;
-		} else if (selected?.id) {
-			selectedIds = [selected.id];
+			selectedIds = selected.map((item: any) => item?.id || item);
+		} else if ((selected as any)?.id) {
+			selectedIds = [(selected as any).id];
 		}
 
 		console.log(`[AI] ${player.name} 选择目标: ${selectedIds.join(", ") || "空"}`);
@@ -283,7 +281,7 @@ export class AIManager {
 	private shouldSubmitForm(title: string, dialogOption?: any): boolean {
 		// 简化实现：根据标题关键词决策
 		if (title.includes("购买")) {
-			return this.strategy.shouldBuyProperty?.(dialogOption?.property) ?? false;
+			return this.strategy.shouldBuyProperty(dialogOption?.player, dialogOption?.property);
 		}
 		// 默认不提交
 		return false;

@@ -17,7 +17,6 @@ interface LogErrorData {
 	info?: string;
 	filename?: string;
 	lineno?: number;
-	lineno?: number;
 	colno?: number;
 	url?: string;
 	method?: string;

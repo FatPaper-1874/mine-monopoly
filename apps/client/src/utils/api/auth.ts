@@ -16,7 +16,7 @@ export const getUserInfo = async () => {
 
 export const getEncryptionKey = async () => {
 	const response = await apiClient.get<ApiResponse<string>>("/user/encryption-key");
-	const key = response.data;
+	const key = (response as any).data;
 	localStorage.setItem("encryption-key", key);
 	return key;
 };
@@ -33,7 +33,7 @@ export const apiLogin = async (useraccount: string, password: string) => {
 			useraccount,
 			password: encryptionPassword,
 		});
-		const { token, refreshToken } = response.data;
+		const { token, refreshToken } = (response as any).data;
 		if (token) {
 			setToken(token);
 			setRefreshToken(refreshToken);

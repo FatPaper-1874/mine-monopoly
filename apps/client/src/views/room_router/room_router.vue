@@ -103,9 +103,9 @@ async function handleGetRandomPublicRoom(e: Event) {
 	}, 1000);
 	try {
 		const res = await getRandomPublicRoom();
-		if (res.roomId) {
+		if ((res as any).roomId) {
 			FPMessage({ type: "success", message: "遇到等待的小伙伴了呢!" });
-			await joinRoom(res.roomId);
+			await joinRoom((res as any).roomId);
 		} else {
 			FPMessage({ type: "error", message: "现在没有公开的房间喔" });
 		}

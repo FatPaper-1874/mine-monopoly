@@ -19,5 +19,5 @@
 		}
 	},
 	"include": ["src/**/*", "electron/**/*", "types/**/*", "env/*.d.ts"],
-	"exclude": ["node_modules"]
+	"exclude": ["node_modules", "**/*.test.ts"]
 }

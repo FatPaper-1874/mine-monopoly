@@ -9,7 +9,7 @@ function getKeyBytes(key: string): Uint8Array {
 }
 
 async function importKey(key: string): Promise<CryptoKey> {
-  return crypto.subtle.importKey("raw", getKeyBytes(key), { name: "AES-CBC" }, false, [
+  return crypto.subtle.importKey("raw", getKeyBytes(key) as BufferSource, { name: "AES-CBC" }, false, [
     "encrypt",
     "decrypt",
   ]);
@@ -18,7 +18,7 @@ async function importKey(key: string): Promise<CryptoKey> {
 export async function encrypt(data: Uint8Array, key: string): Promise<Uint8Array> {
   const iv = crypto.getRandomValues(new Uint8Array(IV_LENGTH));
   const cryptoKey = await importKey(key);
-  const encrypted = await crypto.subtle.encrypt({ name: "AES-CBC", iv }, cryptoKey, data);
+  const encrypted = await crypto.subtle.encrypt({ name: "AES-CBC", iv }, cryptoKey, data as BufferSource);
   const result = new Uint8Array(4 + IV_LENGTH + encrypted.byteLength);
   result.set(MAGIC, 0);
   result.set(iv, 4);
@@ -36,7 +36,7 @@ export async function decrypt(data: Uint8Array, key: string): Promise<Uint8Array
   const encrypted = data.slice(4 + IV_LENGTH);
   const cryptoKey = await importKey(key);
   try {
-    const decrypted = await crypto.subtle.decrypt({ name: "AES-CBC", iv }, cryptoKey, encrypted);
+    const decrypted = await crypto.subtle.decrypt({ name: "AES-CBC", iv }, cryptoKey, encrypted as BufferSource);
     return new Uint8Array(decrypted);
   } catch {
     throw new Error("地图文件解密失败，可能是加密密钥不匹配");

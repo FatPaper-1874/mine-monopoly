@@ -9,7 +9,7 @@
 	"scripts": {
 		"dev": "vite",
 		"build": "node ./scripts/extract-changelog.js && vite build && electron-builder",
-		"check": "vite build --mode check",
+		"check": "vue-tsc --noEmit",
 		"electron": "electron .",
 		"preview": "vite preview"
 	},

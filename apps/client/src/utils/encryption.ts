@@ -23,5 +23,6 @@ async function encryptWithKey(password: string, key: string): Promise<string> {
 export async function getEncryption(str: string) {
 	let key = localStorage.getItem("encryption-key");
 	if (!key) key = await getEncryptionKey();
+	if (!key) return null;
 	return encryptWithKey(str, key);
 }

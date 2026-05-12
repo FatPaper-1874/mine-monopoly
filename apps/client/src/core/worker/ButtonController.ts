@@ -1,4 +1,4 @@
-import type GameProcess from './GameProcessWorker';
+import type { GameProcess } from './GameProcessWorker';
 
 /**
  * 按钮控制器类

@@ -150,7 +150,7 @@ export class ChanceCardTextureGenerator {
 					// 4. 使用 html-to-image 转换为Canvas
 					const tToCanvas = performance.now();
 					const canvas = await toCanvas(wrapper, {
-						backgroundColor: null,
+						backgroundColor: undefined,
 						skipFonts: true,
 						pixelRatio: 2,
 						canvasWidth: wrapper.clientWidth,

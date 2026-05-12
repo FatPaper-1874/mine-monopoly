@@ -43,7 +43,7 @@ const textContent = computed(() => {
 
 // 3. 处理样式绑定 (静态 style + 动态 styleBinding)
 const computedStyle = computed(() => {
-	const styles: Record<string, string | number> = { ...props.schema.style };
+	const styles: Record<string, string | number | undefined> = { ...props.schema.style };
 
 	if (props.schema.styleBinding) {
 		Object.entries(props.schema.styleBinding).forEach(([cssProp, expr]) => {

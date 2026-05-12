@@ -95,7 +95,7 @@ const handleDialogClose = () => {
 			<CustomForm
 				v-if="form"
 				:schema="form"
-				:submit-text="undefined"
+				submit-text=""
 				@update:model-value="handleFormChange"
 			/>
 		</div>

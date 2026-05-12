@@ -244,7 +244,7 @@ export interface UISchema {
 	 * 组件类型
 	 * 支持基础 HTML 元素和 SVG 元素
 	 */
-	type: "div" | "span" | "img" | "button" | "text" | "svg" | "path" | "circle" | "rect" | "line" | "g";
+	type: "div" | "span" | "img" | "button" | "text" | "svg" | "path" | "circle" | "rect" | "line" | "g" | "br";
 
 	// ===== Vue 指令 =====
 
@@ -257,7 +257,7 @@ export interface UISchema {
 	// ===== 样式 =====
 
 	/** 静态样式（可选） */
-	style?: Partial<CSSStyleDeclaration>;
+	style?: Record<string, string | undefined>;
 
 	/** 动态样式绑定（可选，支持 CSS） */
 	styleBinding?: Record<string, string>;
