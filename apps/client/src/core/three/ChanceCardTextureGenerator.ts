@@ -3,6 +3,7 @@ import { createApp } from "vue";
 import { ChanceCard } from "@mine-monopoly/ui";
 import { toCanvas } from "html-to-image";
 import { ChanceCardInfo } from "@mine-monopoly/types";
+import contentFontLiteUrl from "@src/assets/font/ContentFont.woff2?url";
 
 /**
  * 机会卡纹理生成器
@@ -13,6 +14,21 @@ export class ChanceCardTextureGenerator {
 	private static renderContainer: HTMLDivElement | null = null;
 	private static MAX_CACHE_SIZE = 50;
 	private static iconCache = new Map<string, HTMLImageElement>();
+	private static liteFontLoaded = false;
+
+	/**
+	 * 预加载子集字体 ContentFontLite，确保渲染时可用
+	 */
+	static async preloadLiteFont(): Promise<void> {
+		if (this.liteFontLoaded) return;
+		const fontFace = new FontFace("ContentFontLite", `url(${contentFontLiteUrl})`, {
+			style: "normal",
+			weight: "normal",
+		});
+		await fontFace.load();
+		document.fonts.add(fontFace);
+		this.liteFontLoaded = true;
+	}
 
 	/**
 	 * 生成机会卡纹理
@@ -111,10 +127,10 @@ export class ChanceCardTextureGenerator {
 			wrapper.style.overflow = "hidden";
 			wrapper.style.boxSizing = "border-box";
 
-			// 使用子集字体渲染，避免全量字体导致 html-to-image 过慢
-			const overrideStyle = document.createElement("style");
-			overrideStyle.textContent = "* { scrollbar-width: none !important; font-family: 'ContentFontLite' !important; } *::-webkit-scrollbar { display: none !important; }";
-			wrapper.appendChild(overrideStyle);
+			// 隐藏内部滚动条（html-to-image 会正确渲染滚动条）
+			const scrollbarStyle = document.createElement("style");
+			scrollbarStyle.textContent = "* { scrollbar-width: none !important; } *::-webkit-scrollbar { display: none !important; }";
+			wrapper.appendChild(scrollbarStyle);
 
 			container.appendChild(wrapper);
 
@@ -147,11 +163,16 @@ export class ChanceCardTextureGenerator {
 						(el as HTMLElement).style.overflow = "hidden";
 					});
 
+					// 强制所有子元素使用子集字体，避免全量字体导致 html-to-image 过慢
+					wrapper.querySelectorAll("*").forEach(el => {
+						(el as HTMLElement).style.setProperty("font-family", "ContentFontLite", "important");
+					});
+					wrapper.style.setProperty("font-family", "ContentFontLite", "important");
+
 					// 4. 使用 html-to-image 转换为Canvas
 					const tToCanvas = performance.now();
 					const canvas = await toCanvas(wrapper, {
-						backgroundColor: undefined,
-						skipFonts: true,
+						backgroundColor: null,
 						pixelRatio: 2,
 						canvasWidth: wrapper.clientWidth,
 						canvasHeight: wrapper.clientHeight,

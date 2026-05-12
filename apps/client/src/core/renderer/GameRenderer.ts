@@ -476,6 +476,7 @@ export class GameRenderer {
 			console.log(`[机会卡性能] preloadIcons (${allIconUrls.length}张): ${performance.now() - t1}ms`);
 
 			// 2. 并发生成纹理（4张同时处理）
+			await ChanceCardTextureGenerator.preloadLiteFont();
 			const t2 = performance.now();
 			await ChanceCardTextureGenerator.preloadTexturesConcurrent(
 				preloadData,
