@@ -16,7 +16,7 @@ const pingTextColor = computed(() => {
 </script>
 
 <template>
-	<div class="ping-container" :style="{ color: `var(--color-text-${pingTextColor})` }">
+	<div class="ping-container" :style="{ color: `var(--color-text-${pingTextColor})` }" title="网络延迟">
 		<FontAwesomeIcon icon="wifi" /> {{ utilStore.ping }}ms
 	</div>
 </template>

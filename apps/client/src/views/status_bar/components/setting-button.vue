@@ -156,7 +156,7 @@ const applySettings = () => {
 </script>
 
 <template>
-	<button @click="settingVisible = true" class="setting-button btn-small"><FontAwesomeIcon icon="gear" /></button>
+	<button @click="settingVisible = true" class="setting-button btn-small" title="设置"><FontAwesomeIcon icon="gear" /></button>
 	<FpDialog v-model:visible="settingVisible" hidden-footer>
 		<template #title>设置</template>
 		<div class="setting-container" style="user-select: none">

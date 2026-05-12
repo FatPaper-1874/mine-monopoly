@@ -11,7 +11,7 @@ const helpHtml = computed(() => marked.parse(helpContent) as string);
 </script>
 
 <template>
-	<button @click="helpVisible = true" class="help-button btn-small"><FontAwesomeIcon icon="question" /></button>
+	<button @click="helpVisible = true" class="help-button btn-small" title="帮助"><FontAwesomeIcon icon="question" /></button>
 	<FpDialog :style="'width: 70%; height: 70%;'" v-model:visible="helpVisible" :cancel-text="''">
 		<template #title>帮助 / Tips</template>
 		<div class="help-container" v-html="helpHtml"></div>
