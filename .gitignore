@@ -150,3 +150,5 @@ apps/map-editor/components.d.ts
 
 .gitnexus
 AGENTS.md
+/.codex
+/.agents
