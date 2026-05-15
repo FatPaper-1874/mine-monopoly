@@ -115,6 +115,12 @@ export function initAutoSound() {
 			);
 
 			if (button && shouldPlaySound(button)) {
+				// 如果鼠标从按钮内的子元素移入另一个子元素，不重复播放
+				const relatedTarget = (e as MouseEvent).relatedTarget as Element | null;
+				if (relatedTarget && button.contains(relatedTarget)) {
+					return;
+				}
+
 				const now = Date.now();
 				const lastHover = hoverTimers.get(button) || 0;
 
