@@ -1,6 +1,7 @@
 import { WorkerCommType } from "@src/enums/worker";
 import { GameMap, GameSetting, PlayerOperationResult, ServerSocketMessage, UserInRoomInfo } from "@mine-monopoly/types";
 import { OperateType } from "@mine-monopoly/types";
+import { SaveSnapshot } from "@src/core/save/types";
 
 export type WorkerCommMsg = {
 	[K in keyof WorkerCommDataTypeMap]: {
@@ -18,6 +19,7 @@ interface WorkerCommDataTypeMap {
 		mapInfo: GameMap;
 		userList: UserInRoomInfo[];
 		roomOwnerId: string;
+		saveData?: { snapshot: SaveSnapshot; aiPlayerIds: string[] };
 	};
 	[WorkerCommType.EmitOperation]: EmitOperationResult<OperateType>;
 	[WorkerCommType.UserOffLine]: { userId: string };
@@ -29,4 +31,9 @@ interface WorkerCommDataTypeMap {
 	[WorkerCommType.GameStart]: undefined;
 	[WorkerCommType.GameOver]: undefined;
 	[WorkerCommType.GameProcessReady]: undefined;
+
+	// 存档相关
+	[WorkerCommType.RequestSnapshot]: undefined;
+	[WorkerCommType.SaveSnapshot]: { snapshot: SaveSnapshot };
+	[WorkerCommType.LoadSaveData]: { snapshot: SaveSnapshot; aiPlayerIds: string[] };
 }

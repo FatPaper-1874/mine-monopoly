@@ -30,6 +30,7 @@ import { useMapData } from "@src/store/game";
 import { FPMessage } from "@mine-monopoly/ui";
 import { OperateListener } from "../worker/class/OperateListener";
 import { base64ToArrayBuffer } from "@mine-monopoly/utils";
+import { SaveManager, SaveRecord, SaveSnapshot } from "@src/core/save";
 
 interface UserInRoom extends UserInRoomInfo {
 	socketClient: DataConnection;
@@ -46,6 +47,8 @@ export class Room {
 	private gameProcess: any = null; // 存储从worker传递的gameProcess引用
 	public isStarted: boolean;
 	private operationListener: OperateListener;
+	private saveManager: SaveManager = new SaveManager();
+	private pendingSaveData: { snapshot: any; aiPlayerIds: string[] } | null = null;
 
 	constructor(roomId: string) {
 		this.roomId = roomId;
@@ -506,6 +509,21 @@ export class Room {
 				case WorkerCommType.GameProcessReady:
 					console.log("GameProcess已就绪");
 					break;
+				case WorkerCommType.SaveSnapshot:
+					{
+						const { snapshot } = msg.data;
+						const mapId = this.mapInfo?.from === "server" ? this.mapInfo.data : "";
+						const mapVersion = useMapData().info?.version ?? "0.0.0";
+						const mapName = useMapData().info?.name ?? "未知地图";
+						this.saveManager.save(snapshot, mapId, mapVersion, mapName)
+							.then(() => {
+								FPMessage({ type: "success", message: "存档成功！" });
+							})
+							.catch((e) => {
+								FPMessage({ type: "error", message: `存档失败: ${e.message}` });
+							});
+					}
+					break;
 			}
 		});
 
@@ -562,8 +580,10 @@ export class Room {
 						return userInfo;
 					}),
 					roomOwnerId: this.ownerId,
+					saveData: this.pendingSaveData ?? undefined,
 				},
 			});
+			this.pendingSaveData = null;
 			const deviceStatusStore = useDeviceStatus();
 			deviceStatusStore.$subscribe((mutation, state) => {
 				if (this.gameProcessWorker)
@@ -696,6 +716,34 @@ export class Room {
 					return value;
 				}),
 			);
+	}
+
+	public requestSave(): void {
+		if (!this.gameProcessWorker) return;
+		this.gameProcessWorker.postMessage(<WorkerCommMsg>{
+			type: WorkerCommType.RequestSnapshot,
+			data: undefined,
+		});
+	}
+
+	public async loadSave(record: SaveRecord, usePrevious: boolean = false): Promise<{ success: boolean; error?: string }> {
+		const snapshot = usePrevious ? record.previousSnapshot : record.snapshot;
+		if (!snapshot) return { success: false, error: "没有可用的存档数据" };
+
+		// 校验玩家
+		const roomUserIds = Array.from(this.userList.keys());
+		const { valid, aiPlayerIds, error } = this.saveManager.validatePlayers(record, roomUserIds);
+		if (!valid) return { success: false, error };
+
+		// 预存存档数据，将在 handleWorkerReady 发送 LoadGameInfo 时一并传递给 Worker
+		// Worker 在 waitInitFinished() 完成后自动注入存档
+		// JSON 序列化剥离 Vue 响应式 Proxy（postMessage 使用 structured clone，无法处理 Proxy）
+		this.pendingSaveData = JSON.parse(JSON.stringify({ snapshot, aiPlayerIds }));
+
+		// 正常启动游戏流程（Worker 内部会在适当时机注入存档）
+		await this.startGame();
+
+		return { success: true };
 	}
 
 	public destory() {

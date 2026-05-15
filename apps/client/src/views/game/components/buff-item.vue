@@ -5,6 +5,11 @@ import { computed } from "vue";
 
 const props = defineProps<{ buff: Buff }>();
 
+const isInfinite = computed(() => {
+	const times = props.buff.triggerTimes;
+	return times === -1 || times === Infinity;
+});
+
 // 转换 \n 为真实换行符
 const formattedDescription = computed(() => {
 	return props.buff.description.replace(/\\n/g, "\n");
@@ -30,9 +35,9 @@ const formattedDescription = computed(() => {
 			</div>
 
 			<div class="footer">
-				<div v-if="buff.triggerTimes != null" class="meta-tag times" :class="{ 'is-infinite': buff.triggerTimes === Infinity }">
+				<div v-if="buff.triggerTimes != null" class="meta-tag times" :class="{ 'is-infinite': isInfinite }">
 					<font-awesome-icon icon="hourglass-half" class="icon" />
-					<span>{{ buff.triggerTimes === Infinity ? "永久生效" : `剩余: ${buff.triggerTimes}` }}</span>
+					<span>{{ isInfinite ? "永久生效" : `剩余: ${buff.triggerTimes}` }}</span>
 				</div>
 				<div class="meta-tag source">
 					<span>{{ buff.source }}</span>

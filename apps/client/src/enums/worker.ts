@@ -11,4 +11,9 @@ export enum WorkerCommType {
 	GameStart,
 	GameOver,
 	GameProcessReady,
+
+	// 存档相关
+	RequestSnapshot,
+	SaveSnapshot,
+	LoadSaveData,
 }

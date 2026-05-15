@@ -1,28 +1,51 @@
-import { Buff, ICommand, ICommandMap, IModifier, IModifierManager, ModifierTiming, ConsumeResult } from "@mine-monopoly/types";
-import { clone, cloneDeep } from "lodash";
+import { Buff, ICommand, ICommandMap, IModifier, IModifierManager, ModifierTiming, ConsumeResult, ModifierSnapshot, ModifierTemplate } from "@mine-monopoly/types";
 
 export class ModifierManager<C extends ICommandMap, K extends keyof C = keyof C> implements IModifierManager<C> {
+	private owner: any;
 	private modifiers = new Map<string, IModifier<C, any>>();
 	private completionCallbacks = new Map<string, () => void>();
 
-	public add<KK extends keyof C>(mod: IModifier<C, KK>, onComplete?: () => void): string {
-		const modClone = cloneDeep(mod);
+	public setOwner(owner: any) {
+		this.owner = owner;
+	}
 
-		const id = modClone.descriptor.id;
+	public add(
+		template: ModifierTemplate,
+		onComplete?: () => void,
+	): string {
+		const id = template.id;
+
+		// Compile effectCode into executable function
+		// factory signature: (player, gameProcess, cmd, ctx) => { ... }
+		let factory: Function;
+		try {
+			factory = new Function("return " + template.effectCode)();
+		} catch (e) {
+			console.error(`Modifier 编译失败 (id: ${id}):`, e);
+			// 降级为幽灵修饰器（空函数），不影响其他 modifier 运行
+			factory = () => {};
+		}
+
+		const owner = this.owner;
+		const gameProcess = (globalThis as any).gameProcess;
+
+		// Bind owner/gameProcess, final fn signature: (cmd, ctx) => { ... }
+		const fn = (cmd: any, ctx: any) => factory(owner, gameProcess, cmd, ctx);
+
 		const existingMod = this.modifiers.get(id);
 
 		if (existingMod) {
-			const currentCount = existingMod.descriptor.remainingTriggers;
-			const addCount = modClone.descriptor.remainingTriggers; // 使用副本的数值
+			// Stack logic: accumulate remainingTriggers
+			const currentCount = (existingMod as any).descriptor.remainingTriggers;
+			const addCount = template.descriptor.remainingTriggers;
 			const isInfinite = (val: number) => val === -1 || val === Infinity;
 
 			if (isInfinite(currentCount) || isInfinite(addCount)) {
-				existingMod.descriptor.remainingTriggers = -1;
+				(existingMod as any).descriptor.remainingTriggers = -1;
 			} else {
-				existingMod.descriptor.remainingTriggers = currentCount + addCount;
+				(existingMod as any).descriptor.remainingTriggers = currentCount + addCount;
 			}
 
-			// 如果提供了新的回调函数，更新回调
 			if (onComplete) {
 				this.completionCallbacks.set(id, onComplete);
 			}
@@ -30,9 +53,15 @@ export class ModifierManager<C extends ICommandMap, K extends keyof C = keyof C>
 			return id;
 		}
 
-		this.modifiers.set(id, modClone);
+		const modifier: any = {
+			descriptor: template.descriptor,
+			fn,
+			effectCode: template.effectCode,
+			templateSlug: template.slug || "",
+		};
 
-		// 存储完成回调
+		this.modifiers.set(id, modifier as any);
+
 		if (onComplete) {
 			this.completionCallbacks.set(id, onComplete);
 		}
@@ -252,5 +281,36 @@ export class ModifierManager<C extends ICommandMap, K extends keyof C = keyof C>
 
 	public getModifiersList(): IModifier<C, K>[] {
 		return Array.from(this.modifiers.values()) as unknown as IModifier<C, K>[];
+	}
+
+	public getSerializableModifiers(): ModifierSnapshot[] {
+		const result: ModifierSnapshot[] = [];
+		for (const [id, stored] of this.modifiers) {
+			const mod = stored as any;
+			result.push({
+				templateSlug: mod.templateSlug || "",
+				remainingTriggers: mod.descriptor.remainingTriggers,
+			});
+		}
+		return result;
+	}
+
+	public restoreModifiers(snaps: ModifierSnapshot[], mapData: any): void {
+		this.clear();
+
+		for (const snap of snaps) {
+			const template = mapData?.modifierTemplates?.find((t: any) => t.slug === snap.templateSlug);
+			if (!template) {
+				console.warn(`Modifier template not found: ${snap.templateSlug}, skipping`);
+				continue;
+			}
+			this.add(template);
+
+			// Override runtime state
+			const mod = this.modifiers.get(template.id);
+			if (mod) {
+				(mod as any).descriptor.remainingTriggers = snap.remainingTriggers;
+			}
+		}
 	}
 }

@@ -1,15 +1,16 @@
 import {
 	ICommandBus,
 	IGameProcess,
-	IModifier,
 	IModifierManager,
 	IPlayer,
 	IProperty,
 	PropertyCommandMap,
 	PropertyCustom,
 	PropertyInfo,
+	ModifierTemplate,
 } from "@mine-monopoly/types";
 import { ModifierManager } from "./action-system/ModifiersManager";
+import type { PropertySnapshot } from "@src/core/save/types";
 import { CommandBus } from "./action-system/CommandBus";
 import GameProcessTypes from "../editor-lib.d.ts?raw";
 import { compileTsToJs } from "@src/utils";
@@ -50,6 +51,7 @@ export class Property implements IProperty {
 		this.exportData = property.exportData;
 
 		this.modifierManager = new ModifierManager();
+		(this.modifierManager as any).setOwner(this);
 		this.commandBus = new CommandBus<PropertyCommandMap>(this.modifierManager);
 
 		this.initCommandBus();
@@ -147,7 +149,34 @@ export class Property implements IProperty {
 		return propertyInfo;
 	}
 
-	public registerModifier(modifier: IModifier<PropertyCommandMap>) {
-		this.modifierManager.add(modifier);
+	public registerModifier(template: ModifierTemplate) {
+		(this.modifierManager as any).add(template);
+	}
+
+	public getSnapshot(): PropertySnapshot {
+		return {
+			level: this.level,
+			ownerId: this.owner?.id,
+			exportData: { ...this.exportData },
+			modifiers: this.modifierManager.getSerializableModifiers(),
+		};
+	}
+
+	public async restoreFromSnapshot(
+		snapshot: PropertySnapshot,
+		players: Map<string, any>,
+		gameProcess: any,
+	): Promise<void> {
+		await this.setLevel(snapshot.level);
+		if (snapshot.ownerId) {
+			const owner = players.get(snapshot.ownerId);
+			await this.setOwner(owner);
+		} else {
+			await this.setOwner(undefined);
+		}
+		this.exportData = { ...snapshot.exportData };
+
+		// 修饰器恢复 — 新签名: restoreModifiers(snaps, mapData)
+		(this.modifierManager as any).restoreModifiers(snapshot.modifiers, gameProcess?.mapData);
 	}
 }

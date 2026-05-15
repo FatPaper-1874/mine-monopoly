@@ -9,7 +9,6 @@ import {
 	IGamePhase,
 	IGameProcess,
 	IBuffManager,
-	IModifier,
 	IModifierManager,
 	IPlayer,
 	IProperty,
@@ -28,6 +27,9 @@ import { BuffManager } from "./action-system/BuffManager";
 import { ModifierManager } from "./action-system/ModifiersManager";
 import Dice from "./Dice";
 import { clone } from "lodash";
+
+import type { PlayerSnapshot } from "@src/core/save/types";
+import { ChanceCard } from "./ChanceCard";
 
 export class Player implements IPlayer {
 	public id: string;
@@ -112,6 +114,7 @@ export class Player implements IPlayer {
 		};
 
 		this.modifierManager = new ModifierManager();
+		(this.modifierManager as any).setOwner(this);
 		this.buffManager = new BuffManager();
 		this.commandBus = new CommandBus<PlayerCommandMap>(this.modifierManager);
 		this.initCommandBus();
@@ -327,5 +330,105 @@ export class Player implements IPlayer {
 
 	public async removeDice(id: string) {
 		return (await this.commandBus.execute({ type: "player.dice.remove", payload: { diceId: id } })).removeDice;
+	}
+
+	// 排除列表：这些字段不参与通用序列化（由专门逻辑处理或不可序列化）
+	private static readonly SNAPSHOT_EXCLUDE_KEYS = new Set([
+		// 不可序列化 / 由专门逻辑处理
+		"modifierManager", "buffManager", "commandBus", "roundPhases",
+		"infoDisplay", "user", "roleInitFunction",
+		// 由 Property 快照处理，不在此处保存
+		"properties", "chanceCards",
+		// 由专门字段处理
+		"dices", "stop",
+	]);
+
+	private collectSerializableFields(): Record<string, any> {
+		const result: Record<string, any> = {};
+		for (const key of Object.keys(this)) {
+			if (Player.SNAPSHOT_EXCLUDE_KEYS.has(key)) continue;
+			const value = (this as any)[key];
+			if (typeof value === "function") continue;
+			try {
+				result[key] = JSON.parse(JSON.stringify(value));
+			} catch {
+				// 无法序列化的值跳过
+			}
+		}
+		return result;
+	}
+
+	public getSnapshot(): PlayerSnapshot {
+		const snapshot: any = {
+			...this.collectSerializableFields(),
+			stop: this.isStop,
+			dices: this.dices.map(d => d.getInfo()),
+			chanceCards: this.chanceCards.map(card => ({
+				instanceId: card.getId(),
+				sourceId: card.getSourceId(),
+			})),
+			buffs: this.buffManager.getBuffs(),
+			modifiers: this.modifierManager.getSerializableModifiers(),
+		};
+		return snapshot as PlayerSnapshot;
+	}
+
+	private static readonly RESTORE_SPECIAL_KEYS = new Set([
+		// 已知由专门逻辑处理的字段
+		"dices", "chanceCards", "buffs", "modifiers", "stop",
+		// 排除列表中的不可序列化字段
+		"modifierManager", "buffManager", "commandBus", "roundPhases",
+		"infoDisplay", "user", "roleInitFunction", "properties",
+	]);
+
+	public restoreFromSnapshot(snapshot: PlayerSnapshot, gameProcess: any): void {
+		// 通用恢复：遍历快照中所有字段，跳过由专门逻辑处理的
+		for (const key of Object.keys(snapshot)) {
+			if (Player.RESTORE_SPECIAL_KEYS.has(key)) continue;
+			if (typeof (this as any)[key] === "function") continue;
+			try {
+				(this as any)[key] = (snapshot as any)[key];
+			} catch {
+				// 只读属性等跳过
+			}
+		}
+		// stop 字段映射到 isStop
+		this.isStop = snapshot.stop;
+
+		// 同步 roleId 到 user 对象（客户端通过 PlayerInfo.user.roleId 渲染角色模型）
+		if (this.roleId) {
+			(this.user as any).roleId = this.roleId;
+		}
+
+		// 清空旧属性列表（会在 Property.restoreFromSnapshot 的 setOwner 中重新填充）
+		this.properties = [];
+
+		// 骰子重建
+		this.dices = snapshot.dices.map(diceInfo => {
+			const dice = new Dice(diceInfo.diceValues);
+			(dice as any).id = diceInfo.id;
+			dice.setProphecy(diceInfo.prophecy);
+			return dice;
+		});
+
+		// 机会卡从地图模板重建
+		this.chanceCards = snapshot.chanceCards
+			.map(({ instanceId, sourceId }) => {
+				const template = gameProcess.chanceCardInfos?.get(sourceId);
+				if (!template) return null;
+				const card = new ChanceCard(template);
+				(card as any).id = instanceId;
+				return card;
+			})
+			.filter(Boolean) as IChanceCard[];
+
+		// BuffManager 纯数据恢复
+		this.buffManager.clear();
+		for (const buff of snapshot.buffs) {
+			this.buffManager.addBuff(buff);
+		}
+
+		// 修饰器恢复 — 新签名: restoreModifiers(snaps, mapData)
+		(this.modifierManager as any).restoreModifiers(snapshot.modifiers, gameProcess?.mapData);
 	}
 }

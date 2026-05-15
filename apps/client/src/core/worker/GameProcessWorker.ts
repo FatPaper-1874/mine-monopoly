@@ -57,6 +57,7 @@ import { generatePropertySchema } from "@src/utils/html";
 import mitt from "mitt";
 import { aiManager } from "./ai/AIStrategy";
 import type { Emitter } from "mitt";
+import { SaveSnapshot, PlayerSnapshot, PropertySnapshot } from "@src/core/save/types";
 
 const operationListener = new OperateListener();
 let gameProcess: GameProcess | null = null;
@@ -134,13 +135,16 @@ self.postMessage(<WorkerCommMsg>{
 	type: WorkerCommType.WorkerReady,
 });
 
-self.addEventListener("message", (ev) => {
+self.addEventListener("message", async (ev) => {
 	const data = ev.data as WorkerCommMsg;
 	switch (data.type) {
 		case WorkerCommType.LoadGameInfo:
 			{
-				const { mapInfo, setting, userList, roomOwnerId } = data.data;
+				const { mapInfo, setting, userList, roomOwnerId, saveData } = data.data;
 				gameProcess = new GameProcess(mapInfo, setting, userList, roomOwnerId);
+				if (saveData) {
+					gameProcess.setPendingSaveData(saveData);
+				}
 				gameProcess.start();
 
 				// 发送gameProcess就绪消息给主线程，包含gameProcess引用
@@ -174,6 +178,25 @@ self.addEventListener("message", (ev) => {
 				gameProcess && gameProcess.handlePlayerReconnect(userId);
 			}
 			break;
+		case WorkerCommType.RequestSnapshot:
+			{
+				if (gameProcess) {
+					const snapshot = gameProcess.createSnapshot();
+					self.postMessage(<WorkerCommMsg>{
+						type: WorkerCommType.SaveSnapshot,
+						data: { snapshot },
+					});
+				}
+			}
+			break;
+		case WorkerCommType.LoadSaveData:
+			{
+				if (gameProcess) {
+					const { snapshot, aiPlayerIds } = data.data;
+					await gameProcess.restoreFromSnapshot(snapshot, aiPlayerIds);
+				}
+			}
+			break;
 	}
 });
 
@@ -193,6 +216,8 @@ export class GameProcess implements IGameProcess {
 	public eventBus: Emitter<GameRuntimeEvent> = mitt<GameRuntimeEvent>();
 	public customData: Record<string, any> = {};
 	public exportData: Record<string, any> = {};
+
+	private pendingSaveData: { snapshot: SaveSnapshot; aiPlayerIds: string[] } | null = null;
 
 	public mapData: GameMap;
 	public gameSetting: GameSetting;
@@ -253,6 +278,8 @@ export class GameProcess implements IGameProcess {
 		this.mapData = mapData;
 		this.gameSetting = gameSetting;
 		this.userList = userList;
+		globalThis.gameProcess = this;
+
 
 		console.dir(gameSetting);
 		console.dir(gameSetting.initMoney.value);
@@ -592,13 +619,29 @@ export class GameProcess implements IGameProcess {
 	}
 
 	private preprocessingEffectCode() {
-		const { mapEvents, chanceCards, roles, mapItems, phases, uiTemplates } = this.mapData;
+		const { mapEvents, chanceCards, roles, mapItems, phases, uiTemplates, modifierTemplates } = this.mapData;
 
 		const uiReplacements = (uiTemplates || [])
 			.filter((t) => t.slug && t.template)
 			.map((t) => ({
 				token: `$ui__${t.slug}`,
 				json: JSON.stringify(t.template),
+			}))
+			.sort((a, b) => b.token.length - a.token.length);
+
+		// 预编译所有 modifier 模板的 effectCode：TypeScript → JavaScript
+		// 直接修改 mapData 中的模板，确保 initCode 和 restoreModifiers 都使用编译后的代码
+		if (modifierTemplates) {
+			for (const t of modifierTemplates) {
+				t.effectCode = compileTsToJs(t.effectCode, "").replace(/^"use strict";\n?/, "");
+			}
+		}
+
+		const modReplacements = (modifierTemplates || [])
+			.filter((t) => t.slug)
+			.map((t) => ({
+				token: `$mod__${t.slug}`,
+				json: JSON.stringify(t),
 			}))
 			.sort((a, b) => b.token.length - a.token.length);
 
@@ -614,6 +657,10 @@ export class GameProcess implements IGameProcess {
 
 			// 执行全局替换
 			for (const { token, json } of uiReplacements) {
+				processedCode = processedCode.split(token).join(json);
+			}
+
+			for (const { token, json } of modReplacements) {
 				processedCode = processedCode.split(token).join(json);
 			}
 
@@ -1724,6 +1771,10 @@ export class GameProcess implements IGameProcess {
 		return new Promise((resolve) => setTimeout(resolve, ms));
 	}
 
+	public setPendingSaveData(data: { snapshot: SaveSnapshot; aiPlayerIds: string[] }) {
+		this.pendingSaveData = data;
+	}
+
 	public async start() {
 		// 步骤1: 初始化玩家和地皮（包含预初始化阶段）
 		await this.initPlayers();
@@ -1732,7 +1783,14 @@ export class GameProcess implements IGameProcess {
 		// 步骤2: 运行游戏初始化后阶段
 		await this.runInitedPhase();
 
-		// 步骤3: 发送游戏初始化消息给客户端
+		// 步骤2.5: 如果有待注入的存档数据，在发送给客户端之前恢复
+		// 这样客户端首次收到的 GameInit 就是存档后的正确状态
+		if (this.pendingSaveData) {
+			await this.restoreFromSnapshot(this.pendingSaveData.snapshot, this.pendingSaveData.aiPlayerIds);
+			this.pendingSaveData = null;
+		}
+
+		// 步骤3: 发送游戏初始化消息给客户端（已包含存档恢复后的状态）
 		this.gameBroadcast({
 			type: SocketMsgType.GameInit,
 			source: SocketMsgSource.Server,
@@ -1925,6 +1983,62 @@ export class GameProcess implements IGameProcess {
 		} else {
 			console.log("奇怪的玩家 in game");
 		}
+	}
+
+	public createSnapshot(): SaveSnapshot {
+		const playerSnapshots: Record<string, PlayerSnapshot> = {};
+		for (const [id, player] of this.players) {
+			playerSnapshots[id] = player.getSnapshot();
+		}
+
+		const propertySnapshots: Record<string, PropertySnapshot> = {};
+		for (const [id, property] of this.properties) {
+			propertySnapshots[id] = property.getSnapshot();
+		}
+
+		return {
+			playerSnapshots,
+			propertySnapshots,
+			currentRound: this.currentRound,
+			currentMultiplier: this.currentMultiplier,
+			exportData: { ...this.exportData },
+			customData: { ...this.customData },
+			gameLogList: [...this.gameLogList],
+		};
+	}
+
+	public async restoreFromSnapshot(snapshot: SaveSnapshot, aiPlayerIds: string[]): Promise<void> {
+		// 将缺失的存档玩家标记为 AI
+		for (const playerId of aiPlayerIds) {
+			const player = this.players.get(playerId);
+			if (player) player.isAI = true;
+		}
+
+		// 各 Player 自行恢复
+		for (const [id, playerSnapshot] of Object.entries(snapshot.playerSnapshots)) {
+			const player = this.players.get(id);
+			if (player) {
+				player.restoreFromSnapshot(playerSnapshot, this);
+			}
+		}
+
+		// 各 Property 自行恢复
+		for (const [id, propSnapshot] of Object.entries(snapshot.propertySnapshots)) {
+			const property = this.properties.get(id);
+			if (property) {
+				await property.restoreFromSnapshot(propSnapshot, this.players, this);
+			}
+		}
+
+		// 恢复 GameProcess 级别数据
+		this.currentRound = snapshot.currentRound;
+		this.currentMultiplier = snapshot.currentMultiplier;
+		this.exportData = { ...snapshot.exportData };
+		this.customData = { ...snapshot.customData };
+		this.gameLogList = [...snapshot.gameLogList];
+
+		// 广播最新状态
+		this.gameDataBroadcast();
 	}
 
 	public destroy() {

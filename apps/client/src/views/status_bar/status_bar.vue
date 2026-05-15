@@ -9,6 +9,7 @@ import Help from "./components/help.vue";
 import CameraFocusButton from "./components/camera-focus-button.vue";
 import MapInfoButton from "./components/map-info-button.vue";
 import ExitButton from "./components/exit-button.vue";
+import SaveButton from "./components/save-button.vue";
 
 const router = useRoute();
 const canChat = computed(() => router.name === "room" || router.name === "game");
@@ -23,6 +24,7 @@ const canChat = computed(() => router.name === "room" || router.name === "game")
 		<MapInfoButton />
 		<Help />
 		<SettingButton />
+		<SaveButton />
 		<ExitButton />
 	</div>
 </template>

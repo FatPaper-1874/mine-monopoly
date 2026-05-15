@@ -321,6 +321,19 @@ export class MonopolyClient {
 		this.sendMsg({ type: SocketMsgType.GameStart, source: SocketMsgSource.Client, data: undefined });
 	}
 
+	public requestSave(): void {
+		if (this.gameHost) {
+			this.gameHost.getRoom().requestSave();
+		}
+	}
+
+	public async loadSave(record: any, usePrevious: boolean = false): Promise<{ success: boolean; error?: string }> {
+		if (this.gameHost) {
+			return this.gameHost.getRoom().loadSave(record, usePrevious);
+		}
+		return { success: false, error: "未连接到主机" };
+	}
+
 	public gameInitFinished() {
 		this.sendMsg({
 			type: SocketMsgType.Operation,

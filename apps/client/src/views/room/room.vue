@@ -16,7 +16,8 @@ import { setRoomPrivate } from "@src/utils/api/room-router";
 import { FormSchema, GameMapInDb, GameSetting, RoleInRoom } from "@mine-monopoly/types";
 import { loadGameMapFromServer } from "@src/utils/file/game-map";
 import RolePreviewer from "./components/role-previewer.vue";
-import { useResourceStore } from "@src/store/game";
+import { useResourceStore, useMapData } from "@src/store/game";
+import { SaveManager, SaveRecord } from "@src/core/save";
 import FpPopover from "@src/components/utils/fp-popover/fp-popover.vue";
 import { arrayBufferToBase64 } from "@mine-monopoly/utils";
 import CustomForm from "@src/components/utils/custom-form/index.vue";
@@ -39,11 +40,29 @@ const isPrivate = ref(true);
 const isOwner = computed(() => userInfoStore.userId === roomInfoStore.ownerId);
 const isReady = computed(() => roomInfoStore.userList.find((user) => user.userId === userInfoStore.userId)?.isReady);
 
+const saveManager = new SaveManager();
+const saveRecords = ref<SaveRecord[]>([]);
+const saveDialogVisible = ref(false);
+
 // 地图相关
 const mapList = ref<GameMapInDb[]>([]);
 const mapSelectorVisible = ref(false);
 const currentMap = computed(() => roomInfoStore.mapInfo);
 const tempMapSelectedId = ref<string[]>(roomInfoStore.mapId ? [roomInfoStore.mapId] : []);
+
+async function checkSaves() {
+	if (!currentMap.value) {
+		saveRecords.value = [];
+		return;
+	}
+	const mapId = roomInfoStore.mapId;
+	const mapVersion = useMapData().info?.version ?? "0.0.0";
+	saveRecords.value = await saveManager.listByMap(mapId, mapVersion);
+}
+
+watch(currentMap, () => {
+	checkSaves();
+});
 
 function handleChangeMap() {
 	if (socketClient && tempMapSelectedId.value.length > 0 && tempMapSelectedId.value[0] !== currentMap.value?.id) {
@@ -128,6 +147,34 @@ function handleReadyToggle() {
 function handleGameStart() {
 	if (socketClient) {
 		socketClient.startGame();
+	}
+}
+
+async function handleLoadSave(record: SaveRecord, usePrevious: boolean = false) {
+	saveDialogVisible.value = false;
+	useLoading().showLoading("正在加载存档...");
+
+	try {
+		if (socketClient) {
+			const result = await socketClient.loadSave(record, usePrevious);
+			if (!result.success) {
+				FPMessage({ type: "error", message: result.error! });
+			}
+		}
+	} catch (e: any) {
+		FPMessage({ type: "error", message: `加载存档失败: ${e.message}` });
+	} finally {
+		useLoading().hideLoading();
+	}
+}
+
+async function handleDeleteSave(record: SaveRecord) {
+	try {
+		await saveManager.delete(record.id);
+		saveRecords.value = saveRecords.value.filter(r => r.id !== record.id);
+		FPMessage({ type: "success", message: "存档已删除" });
+	} catch (e: any) {
+		FPMessage({ type: "error", message: `删除失败: ${e.message}` });
 	}
 }
 
@@ -223,9 +270,20 @@ async function handleUploadMap() {
 			</div>
 
 			<div class="room-footbar">
-				<button v-if="isOwner" :disabled="canStart" class="ready-button" @click="handleGameStart">
-					{{ currentMap ? "开始游戏" : "先选择地图吧" }}
-				</button>
+				<template v-if="isOwner">
+					<div v-if="saveRecords.length > 0" class="footbar-row">
+						<button :disabled="canStart" class="ready-button footbar-btn-start" @click="handleGameStart">
+							{{ currentMap ? "开始游戏" : "先选择地图吧" }}
+						</button>
+						<button class="load-save-button btn-small footbar-btn-load" @click="saveDialogVisible = true">
+							<FontAwesomeIcon style="font-size: 0.9rem; margin-right: 0.3rem" icon="clock-rotate-left" />
+							读取存档
+						</button>
+					</div>
+					<button v-else :disabled="canStart" class="ready-button" @click="handleGameStart">
+						{{ currentMap ? "开始游戏" : "先选择地图吧" }}
+					</button>
+				</template>
 				<button v-else class="ready-button" @click="handleReadyToggle">
 					{{ isReady ? "取消准备" : "准备" }}
 				</button>
@@ -287,6 +345,45 @@ async function handleUploadMap() {
 				</template>
 			</ItemSelector>
 		</template>
+	</FpDialog>
+	<FpDialog v-model:visible="saveDialogVisible" title="读取存档" @submit="saveDialogVisible = false" @cancel="saveDialogVisible = false">
+		<div class="save-list">
+			<div v-for="record in saveRecords" :key="record.id" class="save-item">
+				<div class="save-item-header">
+					<div class="save-map-name">{{ record.mapName }}</div>
+					<div class="save-round-badge">回合 {{ record.round }}</div>
+				</div>
+				<div class="save-item-body">
+					<div class="save-meta">
+						<span class="save-players">
+							<FontAwesomeIcon style="font-size: 0.8rem; margin-right: 0.25rem" icon="users" />
+							{{ record.playerNames.join(", ") }}
+						</span>
+						<span class="save-time">
+							<FontAwesomeIcon style="font-size: 0.8rem; margin-right: 0.25rem" icon="clock" />
+							{{ new Date(record.saveTime).toLocaleString() }}
+						</span>
+					</div>
+					<div class="save-actions">
+						<button class="btn-small save-load-btn" @click="handleLoadSave(record, false)">
+							<FontAwesomeIcon style="font-size: 0.8rem; margin-right: 0.25rem" icon="play" />
+							读取
+						</button>
+						<button
+							class="btn-small save-delete-btn"
+							@click="handleDeleteSave(record)"
+						>
+							<FontAwesomeIcon style="font-size: 0.8rem; margin-right: 0.25rem" icon="trash-can" />
+							删除
+						</button>
+					</div>
+				</div>
+			</div>
+			<div v-if="saveRecords.length === 0" class="save-empty">
+				<FontAwesomeIcon style="font-size: 1.5rem; margin-bottom: 0.5rem" icon="box-open" />
+				<span>没有找到存档</span>
+			</div>
+		</div>
 	</FpDialog>
 </template>
 
@@ -538,6 +635,9 @@ async function handleUploadMap() {
 
 .room-footbar {
 	width: 100%;
+	display: flex;
+	flex-direction: column;
+	gap: 0.4rem;
 
 	& > .ready-button {
 		width: 100%;
@@ -548,6 +648,136 @@ async function handleUploadMap() {
 		text-shadow: var(--text-shadow);
 		margin-bottom: 0;
 		border-radius: 0.5rem;
+	}
+
+	.footbar-row {
+		display: flex;
+		gap: 0.4rem;
+		width: 100%;
+
+		.footbar-btn-start {
+			flex: 2;
+			height: 2.7rem;
+			padding: 0 0.7rem;
+			border: 0;
+			font-size: 1.2rem;
+			text-shadow: var(--text-shadow);
+			border-radius: 0.5rem;
+		}
+
+		.footbar-btn-load {
+			flex: 1;
+			height: 2.7rem;
+			font-size: 1rem;
+			background-color: var(--color-third);
+			display: flex;
+			justify-content: center;
+			align-items: center;
+		}
+	}
+
+	.load-save-button {
+		display: flex;
+		justify-content: center;
+		align-items: center;
+	}
+}
+
+.save-list {
+	display: flex;
+	flex-direction: column;
+	gap: 0.6rem;
+	max-height: 24rem;
+	overflow-y: auto;
+	padding: 0.2rem;
+
+	.save-item {
+		background-color: rgba(255, 255, 255, 0.8);
+		border-radius: 0.6rem;
+		box-shadow: var(--box-shadow);
+		overflow: hidden;
+
+		.save-item-header {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			padding: 0.6rem 0.8rem;
+			border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+
+			.save-map-name {
+				font-weight: bold;
+				font-size: 1rem;
+				color: var(--color-primary);
+			}
+
+			.save-round-badge {
+				font-size: 0.85rem;
+				padding: 0.15rem 0.5rem;
+				border-radius: 1rem;
+				background-color: var(--color-primary);
+				color: white;
+				font-weight: 500;
+			}
+		}
+
+		.save-item-body {
+			padding: 0.6rem 0.8rem;
+			display: flex;
+			flex-direction: column;
+			gap: 0.5rem;
+
+			.save-meta {
+				display: flex;
+				justify-content: space-between;
+				font-size: 0.85rem;
+				color: #666;
+
+				.save-players, .save-time {
+					display: flex;
+					align-items: center;
+				}
+			}
+
+			.save-actions {
+				display: flex;
+				gap: 0.4rem;
+
+				.save-load-btn {
+					flex: 1;
+					background-color: var(--color-primary);
+					color: white;
+					display: flex;
+					justify-content: center;
+					align-items: center;
+				}
+
+				.save-delete-btn {
+					background-color: #e74c3c;
+					color: white;
+					display: flex;
+					justify-content: center;
+					align-items: center;
+					box-shadow: 0 0.15rem 0 darken(#c0392b, 12%),
+						0 0.2rem 0.3rem rgba(0, 0, 0, 0.15);
+
+					&:hover {
+						box-shadow: 0 0.2rem 0 darken(#e74c3c, 12%),
+							0 0.3rem 0.4rem rgba(0, 0, 0, 0.2);
+					}
+				}
+			}
+		}
+	}
+
+	.save-empty {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		padding: 2rem;
+		color: #999;
+		font-size: 0.95rem;
+		gap: 0.3rem;
 	}
 }
 </style>
