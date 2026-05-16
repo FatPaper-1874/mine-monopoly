@@ -48,7 +48,7 @@ statisticsRouter.get("/games", async (req, res) => {
 	sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
 	sevenDaysAgo.setHours(0, 0, 0, 0);
 
-	const [totalGames, todayGames, avgResult, trendRows, topMaps] = await Promise.all([
+	const [totalGames, todayGames, avgResult, trendRows, topMaps, topRoomIds] = await Promise.all([
 		gameRecordRepository.count(),
 		gameRecordRepository.createQueryBuilder("record").where("record.create_time >= :today", { today }).getCount(),
 		gameRecordRepository.createQueryBuilder("record").select("AVG(record.duration)", "avgDuration").getRawOne(),
@@ -71,6 +71,14 @@ statisticsRouter.get("/games", async (req, res) => {
 			.orderBy("count", "DESC")
 			.limit(5)
 			.getRawMany(),
+		gameRecordRepository
+			.createQueryBuilder("record")
+			.select("record.name", "roomId")
+			.addSelect("COUNT(*)", "count")
+			.groupBy("record.name")
+			.orderBy("count", "DESC")
+			.limit(5)
+			.getRawMany(),
 	]);
 
 	const avgDuration = Math.round(Number(avgResult?.avgDuration || 0));
@@ -78,7 +86,7 @@ statisticsRouter.get("/games", async (req, res) => {
 
 	res.json(<ResInterface>{
 		status: 200,
-		data: { totalGames, todayGames, avgDuration, trend, topMaps },
+		data: { totalGames, todayGames, avgDuration, trend, topMaps, topRoomIds },
 	});
 });
 

@@ -15,6 +15,7 @@ export interface GameStatistics {
 	avgDuration: number;
 	trend: { date: string; count: number }[];
 	topMaps: { mapId: string; mapName: string; count: number }[];
+	topRoomIds: { roomId: string; count: number }[];
 }
 
 export const getUserStatistics = async () => {

@@ -106,7 +106,7 @@ onBeforeUnmount(() => {
 			</a-col>
 		</a-row>
 		<a-row :gutter="[12, 12]" class="chart-section" v-if="stats">
-			<a-col :xs="24" :sm="14">
+			<a-col :xs="24" :sm="8">
 				<a-card :bordered="false" class="chart-card">
 					<h4>7天对局趋势</h4>
 					<div :id="chartContainerId" class="chart-container"></div>
@@ -115,7 +115,7 @@ onBeforeUnmount(() => {
 					</div>
 				</a-card>
 			</a-col>
-			<a-col :xs="24" :sm="10">
+			<a-col :xs="24" :sm="8">
 				<a-card :bordered="false" class="top-maps-card">
 					<h4>热门地图 Top 5</h4>
 					<div class="top-maps-list" v-if="stats.topMaps.length > 0">
@@ -123,6 +123,19 @@ onBeforeUnmount(() => {
 							<span class="rank">{{ index + 1 }}</span>
 							<span class="map-name">{{ map.mapName }}</span>
 							<span class="map-count">{{ map.count }}局</span>
+						</div>
+					</div>
+					<a-empty v-else description="暂无数据" />
+				</a-card>
+			</a-col>
+			<a-col :xs="24" :sm="8">
+				<a-card :bordered="false" class="top-maps-card">
+					<h4>热门房间ID Top 5</h4>
+					<div class="top-maps-list" v-if="stats.topRoomIds.length > 0">
+						<div class="top-map-item" v-for="(room, index) in stats.topRoomIds" :key="room.roomId">
+							<span class="rank">{{ index + 1 }}</span>
+							<span class="map-name">{{ room.roomId }}</span>
+							<span class="map-count">{{ room.count }}局</span>
 						</div>
 					</div>
 					<a-empty v-else description="暂无数据" />
