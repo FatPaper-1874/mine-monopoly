@@ -20,6 +20,7 @@ import type { ChanceCard } from "./validators/chance-card-validators";
 import type { Role } from "./validators/role-validators";
 import type { MapEvent } from "./validators/map-event-validators";
 import type { FormSchema } from "@mine-monopoly/types";
+import { useMonacoValidator } from "@src/components/code-editor/composables/useMonacoValidator";
 
 /**
  * Map Content Service class
@@ -1210,6 +1211,16 @@ export class MapContentService {
 		const mapDataStore = useMapDataStore();
 		return [...mapDataStore.modifierTemplates];
 	}
+	/**
+	 * Validate Effect Code
+	 *
+	 * Uses Monaco TS language service to type-check effectCode.
+	 */
+	async validateEffectCode(data: { code: string; codeType: string }) {
+		const { validate } = useMonacoValidator();
+		return await validate(data.code, data.codeType);
+	}
+
 }
 
 /**

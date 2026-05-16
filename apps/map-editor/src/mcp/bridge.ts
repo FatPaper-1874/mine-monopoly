@@ -64,7 +64,9 @@ export type MCPToolName =
 	| "get_modifier_template"
 	| "list_modifier_templates"
 	// System tools
-	| "check_mcp_connection";
+	| "check_mcp_connection"
+	// Validate tools
+	| "validate_effect_code";
 
 /**
  * MCP tool handler type

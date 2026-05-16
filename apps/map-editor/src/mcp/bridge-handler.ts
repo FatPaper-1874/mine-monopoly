@@ -74,7 +74,9 @@ type MCPToolName =
 	| "get_modifier_template"
 	| "list_modifier_templates"
 	// System tools
-	| "check_mcp_connection";
+	| "check_mcp_connection"
+	// Validate tools
+	| "validate_effect_code";
 
 /**
  * Send MCP operation feedback event
@@ -441,6 +443,13 @@ export async function handleToolInvocation(toolName: MCPToolName, args: any): Pr
 					server: "minemonopoly-map-editor",
 					version: "1.0.0"
 				};
+				break;
+			}
+
+			// Validate Tools
+			case "validate_effect_code": {
+				const serviceResult = await mapContentService.validateEffectCode(args);
+				result = toPlain(serviceResult);
 				break;
 			}
 
