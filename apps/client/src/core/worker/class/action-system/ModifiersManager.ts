@@ -1,4 +1,9 @@
-import { Buff, ICommand, ICommandMap, IModifier, IModifierManager, ModifierTiming, ConsumeResult, ModifierSnapshot, ModifierTemplate } from "@mine-monopoly/types";
+﻿import { Buff, ICommand, ICommandMap, IModifier, IModifierManager, ModifierTiming, ConsumeResult, ModifierSnapshot, ModifierTemplate, ModifierDescriptor } from "@mine-monopoly/types";
+
+let _instanceCounter = 0;
+function generateInstanceId(templateId: string): string {
+	return `${templateId}__inst_${++_instanceCounter}_${Date.now().toString(36)}`;
+}
 
 export class ModifierManager<C extends ICommandMap, K extends keyof C = keyof C> implements IModifierManager<C> {
 	private owner: any;
@@ -13,7 +18,7 @@ export class ModifierManager<C extends ICommandMap, K extends keyof C = keyof C>
 		template: ModifierTemplate,
 		onComplete?: () => void,
 	): string {
-		const id = template.id;
+		const instanceId = generateInstanceId(template.id);
 
 		// Compile effectCode into executable function
 		// factory signature: (player, gameProcess, cmd, ctx) => { ... }
@@ -21,8 +26,8 @@ export class ModifierManager<C extends ICommandMap, K extends keyof C = keyof C>
 		try {
 			factory = new Function("return " + template.effectCode)();
 		} catch (e) {
-			console.error(`Modifier 编译失败 (id: ${id}):`, e);
-			// 降级为幽灵修饰器（空函数），不影响其他 modifier 运行
+			console.error(`Modifier 编译失败 (templateId: ${template.id}, instanceId: ${instanceId}):`, e);
+			// 降级为空函数修饰器，不影响其他 modifier 运行
 			factory = () => {};
 		}
 
@@ -32,48 +37,32 @@ export class ModifierManager<C extends ICommandMap, K extends keyof C = keyof C>
 		// Bind owner/gameProcess, final fn signature: (cmd, ctx) => { ... }
 		const fn = (cmd: any, ctx: any) => factory(owner, gameProcess, cmd, ctx);
 
-		const existingMod = this.modifiers.get(id);
-
-		if (existingMod) {
-			// Stack logic: accumulate remainingTriggers
-			const currentCount = (existingMod as any).descriptor.remainingTriggers;
-			const addCount = template.descriptor.remainingTriggers;
-			const isInfinite = (val: number) => val === -1 || val === Infinity;
-
-			if (isInfinite(currentCount) || isInfinite(addCount)) {
-				(existingMod as any).descriptor.remainingTriggers = -1;
-			} else {
-				(existingMod as any).descriptor.remainingTriggers = currentCount + addCount;
-			}
-
-			if (onComplete) {
-				this.completionCallbacks.set(id, onComplete);
-			}
-
-			return id;
-		}
+		const descriptor: ModifierDescriptor<C, K> = {
+			...template.descriptor,
+			id: instanceId,
+		} as any;
 
 		const modifier: any = {
-			descriptor: template.descriptor,
+			descriptor,
 			fn,
 			effectCode: template.effectCode,
 			templateSlug: template.slug || "",
+			templateId: template.id,
 		};
 
-		this.modifiers.set(id, modifier as any);
+		this.modifiers.set(instanceId, modifier as any);
 
 		if (onComplete) {
-			this.completionCallbacks.set(id, onComplete);
+			this.completionCallbacks.set(instanceId, onComplete);
 		}
 
-		return id;
+		return instanceId;
 	}
 
 	public removeById(id: string): boolean {
 		const removed = this.modifiers.delete(id);
 
 		if (removed) {
-			// 触发完成回调
 			const callback = this.completionCallbacks.get(id);
 			if (callback) {
 				try {
@@ -89,12 +78,10 @@ export class ModifierManager<C extends ICommandMap, K extends keyof C = keyof C>
 	}
 
 	public removeByTag(tag: string): void {
-		// 遍历 Map 进行删除
 		for (const [id, mod] of this.modifiers) {
 			if (mod.descriptor.meta?.tags?.includes(tag)) {
 				this.modifiers.delete(id);
 
-				// 触发完成回调
 				const callback = this.completionCallbacks.get(id);
 				if (callback) {
 					try {
@@ -118,9 +105,6 @@ export class ModifierManager<C extends ICommandMap, K extends keyof C = keyof C>
 	}
 
 	public getFor(cmd: ICommand<C, K>, timing: ModifierTiming): IModifier<C, K>[] {
-		// 1. Map 转 Array
-		// 2. 过滤 (Timing 和 CommandType)
-		// 3. 排序 (优先级 Priority 大 -> 小)
 		return Array.from(this.modifiers.values())
 			.filter((m) => {
 				if (m.descriptor.timing !== timing) return false;
@@ -154,44 +138,30 @@ export class ModifierManager<C extends ICommandMap, K extends keyof C = keyof C>
 		const idsToRemove: string[] = [];
 
 		for (const id of ids) {
-			// 1. 通过 ID 直接获取真实引用 (O(1))
 			const realMod = this.modifiers.get(id);
-
-			// 2. 如果找不到（可能在执行过程中已被移除），跳过
 			if (!realMod) continue;
-
-			// 3. 检查是否自动消耗，如果设置为 false 则跳过
 			if (realMod.descriptor.autoConsume === false) {
 				continue;
 			}
 
 			const currentTriggers = realMod.descriptor.remainingTriggers;
-
-			// 4. 如果是无限次（-1 或 Infinity），跳过
 			if (currentTriggers === -1 || currentTriggers === Infinity) continue;
 
-			// 4. 获取自定义消耗次数，默认为 1
 			const consumption = customConsumptions?.get(id) ?? 1;
 
-			// 5. 扣除次数逻辑
 			if (currentTriggers > 0) {
 				realMod.descriptor.remainingTriggers -= consumption;
-
-				// 立即检查是否归零，归零则标记移除
 				if (realMod.descriptor.remainingTriggers <= 0) {
 					idsToRemove.push(id);
 				}
 			} else {
-				// 已经是 <= 0 的异常情况，直接移除
 				idsToRemove.push(id);
 			}
 		}
 
-		// 6. 统一执行移除并触发回调
 		idsToRemove.forEach((id) => {
 			this.modifiers.delete(id);
 
-			// 触发完成回调
 			const callback = this.completionCallbacks.get(id);
 			if (callback) {
 				try {
@@ -205,7 +175,6 @@ export class ModifierManager<C extends ICommandMap, K extends keyof C = keyof C>
 	}
 
 	public consume(id: string, amount: number): ConsumeResult {
-		// 1. 参数验证
 		if (amount <= 0) {
 			return {
 				success: false,
@@ -215,7 +184,6 @@ export class ModifierManager<C extends ICommandMap, K extends keyof C = keyof C>
 			};
 		}
 
-		// 2. 查找修饰器
 		const modifier = this.modifiers.get(id);
 		if (!modifier) {
 			return {
@@ -226,7 +194,6 @@ export class ModifierManager<C extends ICommandMap, K extends keyof C = keyof C>
 			};
 		}
 
-		// 3. 检查是否是无限次修饰器
 		const currentTriggers = modifier.descriptor.remainingTriggers;
 		if (currentTriggers === -1 || currentTriggers === Infinity) {
 			return {
@@ -237,15 +204,12 @@ export class ModifierManager<C extends ICommandMap, K extends keyof C = keyof C>
 			};
 		}
 
-		// 4. 执行消耗
 		modifier.descriptor.remainingTriggers -= amount;
 		const removed = modifier.descriptor.remainingTriggers <= 0;
 
-		// 5. 如果归零则移除并触发回调
 		if (removed) {
 			this.modifiers.delete(id);
 
-			// 触发完成回调
 			const callback = this.completionCallbacks.get(id);
 			if (callback) {
 				try {
@@ -266,7 +230,6 @@ export class ModifierManager<C extends ICommandMap, K extends keyof C = keyof C>
 	}
 
 	public clear(): void {
-		// 触发所有回调
 		for (const [id, callback] of this.completionCallbacks) {
 			try {
 				callback();
@@ -304,10 +267,10 @@ export class ModifierManager<C extends ICommandMap, K extends keyof C = keyof C>
 				console.warn(`Modifier template not found: ${snap.templateSlug}, skipping`);
 				continue;
 			}
-			this.add(template);
+			const instanceId = this.add(template);
 
 			// Override runtime state
-			const mod = this.modifiers.get(template.id);
+			const mod = this.modifiers.get(instanceId);
 			if (mod) {
 				(mod as any).descriptor.remainingTriggers = snap.remainingTriggers;
 			}

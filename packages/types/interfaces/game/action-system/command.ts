@@ -17,6 +17,9 @@ export type ICommand<C extends ICommandMap, K extends keyof C> = {
  * @template K - 命令类型的键
  */
 export interface ICommandContext<C extends ICommandMap, K extends keyof C> {
+	/** 当前正在执行的修饰器实例 ID（仅在修饰器 effectCode 执行期间可用） */
+	modifierId?: string;
+
 	/**
 	 * 取消命令执行
 	 * @param result - 命令取消后的返回值（必须提供）
