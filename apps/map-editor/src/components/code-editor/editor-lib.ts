@@ -10,6 +10,9 @@ export type {
 	GameRoundEndContext,
 	GameEvent,
 	IGameProcess,
+} from "@mine-monopoly/types";
+
+export type {
 	ICommand,
 	ICommandContext,
 } from "@mine-monopoly/types";

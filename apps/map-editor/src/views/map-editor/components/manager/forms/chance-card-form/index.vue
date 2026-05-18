@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import CodeEditor from "@src/components/code-editor/index.vue";
 import libContent from "@src/components/code-editor/editor-lib.d.ts?raw";
-import staticTemplateText from "./template-text?raw";
+import { generateChanceCardTemplate, generateChanceCardParams, replaceEffectCodeParams } from "@src/components/code-editor/code-templates";
 import { computed, onMounted, reactive, ref, watch } from "vue";
 import { useMapDataStore, useResourceStore } from "@src/stores";
 import { message } from "ant-design-vue";
@@ -29,14 +29,6 @@ const targetNameMap: Record<TargetSelectType, string> = {
 	[TargetSelectType.ToMapItem]: "对格子生效",
 };
 
-const targetTypeMap: Record<TargetSelectType, string> = {
-	[TargetSelectType.ToSelf]: "IPlayer",
-	[TargetSelectType.ToOtherPlayer]: "IPlayer",
-	[TargetSelectType.ToPlayer]: "IPlayer",
-	[TargetSelectType.ToProperty]: "IProperty",
-	[TargetSelectType.ToMapItem]: "string",
-};
-
 function getInitForm() {
 	const initForm = {
 		id: generateShortId('card'),
@@ -56,33 +48,15 @@ const chanceCardForm = reactive<ChanceCardInfo & { tempFilePath?: string }>(
 );
 const chanceCardIdSuffix = ref(props.chanceCard ? chanceCardForm.id.replace(/^card-/, '') : '');
 
-// 生成完整模板（用于空代码初始化）
-function generateTemplate(targetType: TargetSelectType): string {
-	return `(async (sourcePlayer: IPlayer, target: ${targetTypeMap[targetType]}, gameProcess: IGameProcess) => {\n  \n});`;
-}
-
-// 仅生成参数声明部分
-function generateParams(targetType: TargetSelectType): string {
-	return `sourcePlayer: IPlayer, target: ${targetTypeMap[targetType]}, gameProcess: IGameProcess`;
-}
-
-const templateText = computed(() => generateTemplate(chanceCardForm.type));
+const templateText = computed(() => generateChanceCardTemplate(chanceCardForm.type));
 
 /** 只替换 effectCode 中的函数参数声明部分，保留函数体 */
 function updateEffectCodeTargetType(targetType: TargetSelectType) {
-	const current = chanceCardForm.effectCode?.trim();
-	if (!current) {
-		chanceCardForm.effectCode = generateTemplate(targetType);
-		return;
-	}
-	const paramPattern = /^(\(async\s*\()(\s*[\s\S]*?)(\s*\)\s*=>\s*\{)/;
-	const match = current.match(paramPattern);
-	if (match) {
-		const newParams = generateParams(targetType);
-		chanceCardForm.effectCode = match[1] + ' ' + newParams + match[3] + current.slice(match[0].length);
-	} else {
-		chanceCardForm.effectCode = generateTemplate(targetType);
-	}
+	chanceCardForm.effectCode = replaceEffectCodeParams(
+		chanceCardForm.effectCode,
+		() => generateChanceCardTemplate(targetType),
+		() => generateChanceCardParams(targetType),
+	);
 }
 
 // 初始化时根据当前类型更新参数声明

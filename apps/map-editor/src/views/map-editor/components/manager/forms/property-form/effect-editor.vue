@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useMapDataStore } from "@src/stores";
-import libContent from "./editor-lib.d.ts?raw";
-import templateText from "./template-text?raw";
+import libContent from "@src/components/code-editor/editor-lib.d.ts?raw";
+import { PROPERTY_TEMPLATE as templateText } from "@src/components/code-editor/code-templates";
 import CodeEditor from "@src/components/code-editor/index.vue";
 import { ref, watch, computed } from "vue";
 

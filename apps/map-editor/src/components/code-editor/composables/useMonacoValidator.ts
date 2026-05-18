@@ -1,5 +1,6 @@
-﻿import * as monaco from "monaco-editor";
-import { useMapDataStore } from "@src/stores";
+import * as monaco from "monaco-editor";
+import { mapContentService } from "@src/services";
+import staticEditorLib from "../editor-lib.d.ts?raw";
 
 /**
  * 验证结果
@@ -122,6 +123,42 @@ export function useMonacoValidator() {
 		const fullCode = template.header + code + "\n" + template.footer;
 		const headerLines = getHeaderLineCount(codeType);
 
+		// 注入完整类型库到 Monaco TS 语言服务
+		const tsDefaults = monacoInstance.languages.typescript.typescriptDefaults;
+		const libs: { content: string; filePath: string }[] = [];
+
+		// 静态类型（enum、interface 等）
+		if (staticEditorLib) {
+			libs.push({ content: staticEditorLib, filePath: 'file:///static-types.d.ts' });
+		}
+
+		// 动态类型（extraLibs、UI 模板、游戏设置、修饰器模板）
+		try {
+			const dynamicLibs = await mapContentService.getAllTypeLibs();
+			if (dynamicLibs.extraLibs) {
+				libs.push({ content: dynamicLibs.extraLibs, filePath: 'file:///extra-libs.d.ts' });
+			}
+			if (dynamicLibs.uiTemplateTypes) {
+				libs.push({ content: dynamicLibs.uiTemplateTypes, filePath: 'file:///ui-templates.d.ts' });
+			}
+			if (dynamicLibs.gameSettingTypes) {
+				libs.push({ content: dynamicLibs.gameSettingTypes, filePath: 'file:///game-settings.d.ts' });
+			}
+			if (dynamicLibs.modifierTemplateTypes) {
+				libs.push({ content: dynamicLibs.modifierTemplateTypes, filePath: 'file:///modifier-templates.d.ts' });
+			}
+		} catch {
+			// dynamic libs not available, continue with static only
+		}
+
+		if (libs.length === 0) {
+			return { valid: false, errors: [{ line: 0, column: 0, message: "No type libraries available" }] };
+		}
+
+		// 保存当前 extraLibs，校验完成后恢复，避免影响 UI 编辑器
+		const prevLibs = tsDefaults.getExtraLibs();
+		tsDefaults.setExtraLibs(libs);
+
 		// 创建临时 model
 		const uri = monacoInstance.Uri.parse(`file:///validate-${Date.now()}.ts`);
 		const model = monacoInstance.editor.createModel(fullCode, "typescript", uri);
@@ -149,6 +186,8 @@ export function useMonacoValidator() {
 			return { valid: errors.length === 0, errors };
 		} finally {
 			model.dispose();
+			// 恢复 extraLibs，避免影响 UI 编辑器的类型提示
+			tsDefaults.setExtraLibs(prevLibs);
 		}
 	}
 

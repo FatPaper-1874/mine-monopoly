@@ -5,6 +5,7 @@ import { ModifierTemplate } from "@mine-monopoly/types";
 import CodeEditor from "@src/components/code-editor/index.vue";
 import libContent from "@src/components/code-editor/editor-lib.d.ts?raw";
 import { generateShortId } from "@src/utils/short-id";
+import { generateModifierTemplate, generateModifierParams, replaceEffectCodeParams } from "@src/components/code-editor/code-templates";
 
 const props = defineProps<{ data: ModifierTemplate }>();
 const emit = defineEmits(["save", "cancel"]);
@@ -53,38 +54,16 @@ const commandTypeOptions = [
 	},
 ];
 
-// 生成完整的模板代码（用于空代码初始化）
-function generateTemplate(commandType: string): string {
-	return `(async (player: IPlayer, gameProcess: IGameProcess, cmd: ICommand<PlayerCommandMap, "${commandType}">, ctx: ICommandContext<PlayerCommandMap, "${commandType}">) => {
-	
-})`;
-}
 
-// 仅生成参数声明部分（用于替换已有代码中的参数）
-function generateParams(commandType: string): string {
-	return `player: IPlayer, gameProcess: IGameProcess, cmd: ICommand<PlayerCommandMap, "${commandType}">, ctx: ICommandContext<PlayerCommandMap, "${commandType}">`;
-}
 
-const templateText = computed(() => generateTemplate(localData.value.descriptor.commandType));
+const templateText = computed(() => generateModifierTemplate(localData.value.descriptor.commandType));
 
-/** 只替换 effectCode 中的函数参数声明部分，保留函数体 */
 function updateEffectCodeCommandType(commandType: string) {
-	const current = localData.value.effectCode?.trim();
-	if (!current) {
-		// 代码为空，使用完整模板
-		localData.value.effectCode = generateTemplate(commandType);
-		return;
-	}
-	// 匹配 async 箭头函数的参数区域：从 ( 之后到 ) => 之前
-	const paramPattern = /^(\(async\s*\()(\s*[\s\S]*?)(\s*\)\s*=>\s*\{)/;
-	const match = current.match(paramPattern);
-	if (match) {
-		const newParams = generateParams(commandType);
-		localData.value.effectCode = match[1] + ' ' + newParams + match[3] + current.slice(match[0].length);
-	} else {
-		// 无法解析参数格式，回退为完整模板
-		localData.value.effectCode = generateTemplate(commandType);
-	}
+	localData.value.effectCode = replaceEffectCodeParams(
+		localData.value.effectCode,
+		() => generateModifierTemplate(commandType),
+		() => generateModifierParams(commandType),
+	);
 }
 
 // 初始化时根据当前 commandType 更新参数声明

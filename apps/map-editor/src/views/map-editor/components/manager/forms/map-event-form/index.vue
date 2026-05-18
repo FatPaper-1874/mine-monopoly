@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { MapEvent } from "@mine-monopoly/types/interfaces/game/item";
 import CodeEditor from "@src/components/code-editor/index.vue";
-import libContent from "./editor-lib.d.ts?raw";
-import templateText from "./template-text?raw";
+import libContent from "@src/components/code-editor/editor-lib.d.ts?raw";
+import { MAP_EVENT_TEMPLATE as templateText } from "@src/components/code-editor/code-templates";
 import { reactive, watch } from "vue";
 import { useMapDataStore, useResourceStore } from "@src/stores";
 import { message } from "ant-design-vue";

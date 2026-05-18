@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import CodeEditor from "@src/components/code-editor/index.vue";
-import libContent from "./editor-lib.d.ts?raw";
-import TemplateText from "./template-text?raw";
+import libContent from "@src/components/code-editor/editor-lib.d.ts?raw";
+import { GAME_PHASE_TEMPLATE as TemplateText } from "@src/components/code-editor/code-templates";
 import { computed, ref } from "vue";
 import { useMapDataStore } from "@src/stores";
 import { GamePhaseInfo } from "@mine-monopoly/types";

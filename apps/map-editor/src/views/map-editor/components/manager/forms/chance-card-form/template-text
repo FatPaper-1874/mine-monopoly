@@ -1,3 +1,0 @@
-(async (sourcePlayer: IPlayer, target: IPlayer, gameProcess: IGameProcess) => {
-  
-});
