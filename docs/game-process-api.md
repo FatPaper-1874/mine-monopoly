@@ -1,7 +1,7 @@
-# MineMonopoly 游戏进程 API 参考
+﻿# MineMonopoly 游戏进程 API 参考
 
 > 版本：1.0.0
-> 更新时间：2026-03-01
+> 更新时间：2026-05-18
 
 本文档描述游戏进程的公开接口，供地图编辑器编写自定义逻辑时参考。
 
@@ -1213,20 +1213,20 @@ getOriginalData(): PropertyInfo
 
 ### 修饰器
 
-#### registerModifier
+#### modifierManager.add
 
-注册修饰器。
+通过 modifierManager 添加修饰器。（已废弃 `modifierManager.add`，迁移到此接口。）
 
 ```typescript
-registerModifier<K extends keyof PropertyCommandMap>(modifier: IModifier<PropertyCommandMap, K>): void
+modifierManager.add(modifier: IModifier<PropertyCommandMap, K>): string
 ```
 
 **参数:**
-- `modifier`: 要注册的修饰器
+- `modifier`: 要添加的修饰器
 
 **示例:**
 ```typescript
-property.registerModifier({
+property.modifierManager.add({
   descriptor: {
     id: 'mod-001',
     timing: 'after',

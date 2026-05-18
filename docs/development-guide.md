@@ -94,11 +94,62 @@
 - 工具定义: [apps/map-editor/src/mcp/tools/](../apps/map-editor/src/mcp/tools/)
 
 **可用接口：**
-- `list_chance_cards` - 查询机会卡列表
-- `list_map_events` - 查询地图事件列表
-- `list_roles` - 查询角色列表
-- `check_mcp_connection` - 检查连接状态
 
+| 分类 | 工具名 | 说明 |
+|------|--------|------|
+| System | check_mcp_connection | 检查连接状态 |
+| Map Items | list_map_items / get_map_item | 查询地图元素 |
+| Map Events | list_map_events / get_map_event / create_map_event / update_map_event / delete_map_event | 地图事件 CRUD |
+| Chance Cards | list_chance_cards / get_chance_card / create_chance_card / update_chance_card / delete_chance_card | 机会卡 CRUD |
+| Roles | list_roles / get_role / create_role / update_role / delete_role | 角色 CRUD |
+| Properties | list_properties / get_property / create_property / update_property / delete_property | 地产 CRUD |
+| Game Phases | list_game_phases / create_game_phase / update_game_phase / delete_game_phase | 游戏阶段 CRUD |
+| Game Settings | get_game_settings / update_game_settings | 游戏设置读写 |
+| Modifier Templates | list_modifier_templates / create_modifier_template / update_modifier_template / delete_modifier_template | 修饰器模板 CRUD |
+| UI Templates | list_ui_templates / create_ui_template / update_ui_template / delete_ui_template | UI 模板 CRUD |
+| Custom UIs | list_custom_uis / create_custom_ui / update_custom_ui / delete_custom_ui | 自定义 UI CRUD |
+| Extra Libs | list_extra_libs / create_extra_lib / update_extra_lib / delete_extra_lib | 额外库 CRUD |
+| Type Libs | list_type_libs / create_type_lib / update_type_lib / delete_type_lib | 类型库 CRUD |
+| Resources | list_models / list_images / get_resource_by_id / add_temp_model / add_temp_image | 资源文件管理 |
+| Validation | validate_effect_code | 校验 effectCode TypeScript 类型 |
+
+### 游戏存档系统
+
+基于 IndexedDB 的游戏存档系统，支持房主手动保存/读取游戏状态。
+
+**关键文件：**
+- 类型定义: [packages/types/interfaces/game/game-process/entities.ts](../packages/types/interfaces/game/game-process/entities.ts)
+
+**特性：**
+- 房主手动触发保存和读取
+- 每个重要类（Player、Property、ModifierManager）通过 `getSnapshot()`/`restoreFromSnapshot()` 封装序列化职责
+- Post-Init 注入模式：复用完整游戏启动流程，在所有客户端加载完毕后注入存档数据
+- 修饰器函数通过 `fn.toString()` 序列化
+
+### 修饰器模板系统
+
+地图编辑器中的修饰器模板管理功能，支持创建、编辑、删除修饰器模板。
+
+**关键文件：**
+- MCP 工具: [apps/map-editor/src/mcp/tools/modifier-templates.ts](../apps/map-editor/src/mcp/tools/modifier-templates.ts)
+- API 文档: [docs/api/modifier-system.md](modifier-system.md)
+
+**特性：**
+- 独立实例机制：每次添加修饰器生成唯一实例 ID
+- 支持模板化的修饰器创建和管理
+- 与 MCP 工具集成，支持 AI 辅助编写
+
+### effectCode 类型校验
+
+MCP ``validate_effect_code`` 工具支持对 effectCode 进行 TypeScript 类型校验。
+
+**关键文件：**
+- 校验工具: [apps/map-editor/src/mcp/tools/validate-effect-code.ts](../apps/map-editor/src/mcp/tools/validate-effect-code.ts)
+
+**特性：**
+- 校验 effectCode、initCode、initEventCode、extraLibs 等代码字段
+- 动态生成 editor.d.ts 类型声明
+- 返回结构化的错误信息，便于 AI 修正代码
 ### 3D 机会卡渲染
 
 使用 Three.js 实现真正的 3D 机会卡展示。
@@ -230,6 +281,9 @@ const result = await modifier.consume();
 Monaco 编辑器已拆分为 Composable 架构：
 - [useMonacoInstance.ts](../apps/map-editor/src/components/code-editor/composables/useMonacoInstance.ts) - 实例管理
 - [useMonacoTypeLibs.ts](../apps/map-editor/src/components/code-editor/composables/useMonacoTypeLibs.ts) - 类型库加载
+
+代码模板集中管理：
+- [code-templates.ts](../apps/map-editor/src/components/code-editor/code-templates.ts) - 所有 effectCode / initCode 模板文本（静态常量 + 动态生成器 + 参数替换工具）
 
 ### FontAwesome 图标
 
