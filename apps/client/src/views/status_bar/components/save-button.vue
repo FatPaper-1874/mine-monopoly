@@ -49,13 +49,7 @@ async function handleSave() {
 	justify-content: center;
 	align-items: center;
 	gap: 0.4rem;
-	background-color: $color-second;
-	color: #ffffff;
-	box-shadow: 0 0.15rem 0 darken($color-second, 12%), 0 0.2rem 0.3rem rgba(0, 0, 0, 0.15);
-
-	&:hover:not(:disabled) {
-		box-shadow: 0 0.2rem 0 darken($color-primary, 12%), 0 0.3rem 0.4rem rgba(0, 0, 0, 0.2);
-	}
+	// 使用默认 --btn-bg，box-shadow 已在 ui.scss 中自适应
 
 	&:disabled {
 		opacity: 0.6;

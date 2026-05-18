@@ -51,7 +51,8 @@ input[type="submit"] {
   font-size: 1.1rem;
   padding: 0.4rem 1rem;
   color: var(--color-text-white);
-  background-color: var(--color-second);
+  --btn-bg: var(--color-second); // 可被子类覆盖的自定义背景色变量
+  background-color: var(--btn-bg);
   background-image: var(--texture-felt);
   text-shadow: var(--text-shadow-pressed);
   cursor: pointer;
@@ -59,8 +60,9 @@ input[type="submit"] {
   box-sizing: border-box;
   margin-bottom: 0.25rem;
   border-radius: inherit;
+  // 阴影颜色基于 --btn-bg 变量自适应
   box-shadow:
-    0 0.25rem 0 darken($color-second, 12%),
+    0 0.25rem 0 color-mix(in srgb, var(--btn-bg), black 20%),
     0 0.4rem 0.5rem rgba(0, 0, 0, 0.15);
 
   &::after {
@@ -76,17 +78,18 @@ input[type="submit"] {
   }
 
   &:hover {
-    background-color: var(--color-primary);
+    --btn-bg: var(--color-primary);
     transform: translateY(-2px);
     box-shadow:
-      0 0.35rem 0 darken($color-primary, 12%),
+      0 0.35rem 0 color-mix(in srgb, var(--btn-bg), black 20%),
       0 0.6rem 0.8rem rgba(0, 0, 0, 0.2);
   }
 
   &:active {
+    --btn-bg: var(--color-primary);
     transform: translateY(0.2rem);
     box-shadow:
-      0 0.05rem 0 darken($color-primary, 12%),
+      0 0.05rem 0 color-mix(in srgb, var(--btn-bg), black 20%),
       inset 0 2px 4px rgba(0, 0, 0, 0.2);
   }
 
@@ -115,20 +118,20 @@ input[type="submit"] {
       display: none;
     }
 
-    box-shadow: 0 0.15rem 0 darken($color-second, 12%),
+    box-shadow: 0 0.15rem 0 color-mix(in srgb, var(--btn-bg), black 20%),
     0 0.2rem 0.3rem rgba(0, 0, 0, 0.15);
 
     &:hover {
       transform: translateY(-1px);
       box-shadow:
-        0 0.2rem 0 darken($color-primary, 12%),
+        0 0.2rem 0 color-mix(in srgb, var(--btn-bg), black 20%),
         0 0.3rem 0.4rem rgba(0, 0, 0, 0.2);
     }
 
     &:active {
       transform: translateY(0.1rem);
       box-shadow:
-        0 0.05rem 0 darken($color-primary, 12%),
+        0 0.05rem 0 color-mix(in srgb, var(--btn-bg), black 20%),
         inset 0 1px 2px rgba(0, 0, 0, 0.2);
     }
   }

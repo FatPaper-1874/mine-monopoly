@@ -752,18 +752,12 @@ async function handleUploadMap() {
 				}
 
 				.save-delete-btn {
-					background-color: #e74c3c;
+					--btn-bg: #e74c3c; // 红色背景，box-shadow 自动适配
+					background-color: var(--btn-bg);
 					color: white;
 					display: flex;
 					justify-content: center;
 					align-items: center;
-					box-shadow: 0 0.15rem 0 darken(#c0392b, 12%),
-						0 0.2rem 0.3rem rgba(0, 0, 0, 0.15);
-
-					&:hover {
-						box-shadow: 0 0.2rem 0 darken(#e74c3c, 12%),
-							0 0.3rem 0.4rem rgba(0, 0, 0, 0.2);
-					}
 				}
 			}
 		}

@@ -8,6 +8,10 @@ import useEventBus from "@src/utils/event-bus";
 import FpMessage from "@mine-monopoly/ui/fp-message";
 import { useAudioManager } from "@src/utils/audio";
 
+const openInspector = () => {
+	window.electronAPI?.openInspector();
+};
+
 const settingVisible = ref(false);
 const settingStore = useSettig();
 const router = useRoute();
@@ -357,6 +361,14 @@ const applySettings = () => {
 					</div>
 				</div>
 
+				<!-- 开发者工具 -->
+				<div class="setting-item">
+					<div class="label">开发者</div>
+					<div class="content">
+						<button @click="openInspector" class="dev-button">打开 GameProcess Inspector</button>
+					</div>
+				</div>
+
 				<!-- 应用按钮 -->
 				<div class="setting-item apply-button-item">
 					<button @click="applySettings" class="apply-button" :disabled="!hasChanges">应用设置</button>
@@ -564,4 +576,20 @@ const applySettings = () => {
 		}
 	}
 }
+				.dev-button {
+					width: 100%;
+					--btn-bg: #6c5ce7; // 使用 --btn-bg 变量让阴影颜色自适应
+					background: var(--btn-bg);
+					color: white;
+					border: none;
+					border-radius: 0.5rem;
+					padding: 0.6rem;
+					font-size: 0.9rem;
+					cursor: pointer;
+					transition: all 0.3s;
+				}
+				.dev-button:hover {
+					opacity: 0.85;
+					transform: translateY(-2px);
+				}
 </style>
