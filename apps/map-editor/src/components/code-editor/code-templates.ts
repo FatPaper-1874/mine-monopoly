@@ -20,7 +20,7 @@ export const ROLE_TEMPLATE = `((player: IPlayer, gameProcess: IGameProcess) => {
 });`;
 
 /** 游戏阶段 initEventCode 模板 */
-export const GAME_PHASE_TEMPLATE = `(async (gameProcess: IGameProcess) => {
+export const GAME_PHASE_TEMPLATE = `(async (context, gameProcess: IGameProcess) => {
 	
 });`;
 
@@ -52,14 +52,14 @@ export function generateChanceCardParams(targetType: TargetSelectType): string {
 
 /** 生成修饰器完整模板代码 */
 export function generateModifierTemplate(commandType: string): string {
-	return `(async (player: IPlayer, gameProcess: IGameProcess, cmd: ICommand<PlayerCommandMap, "${commandType}">, ctx: ICommandContext<PlayerCommandMap, "${commandType}">) => {
+	return `(async (player: IPlayer, gameProcess: IGameProcess, cmd: ICommand<ICommandMap, keyof ICommandMap>, ctx: ICommandContext<ICommandMap, keyof ICommandMap>) => {
 	
 })`;
 }
 
 /** 仅生成修饰器参数声明部分 */
 export function generateModifierParams(commandType: string): string {
-	return `player: IPlayer, gameProcess: IGameProcess, cmd: ICommand<PlayerCommandMap, "${commandType}">, ctx: ICommandContext<PlayerCommandMap, "${commandType}">`;
+	return `player: IPlayer, gameProcess: IGameProcess, cmd: ICommand<ICommandMap, keyof ICommandMap>, ctx: ICommandContext<ICommandMap, keyof ICommandMap>`;
 }
 
 // =========================================================

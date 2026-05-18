@@ -36,6 +36,12 @@ body {
 	border-bottom: 1px solid var(--border);
 	flex-shrink: 0;
 }
+.toolbar .title {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--accent);
+	margin-right: 8px;
+}
 .toolbar button {
 	background: var(--accent);
 	color: #111;
@@ -203,6 +209,7 @@ tr:hover { background: rgba(137,180,250,0.06); }
 </head>
 <body>
 <div class="toolbar">
+	<span class="title">GameProcess Inspector</span>
 	<button id="refreshBtn">Refresh</button>
 	<button id="autoBtn">Auto: OFF</button>
 	<span class="status" id="status">Not connected</span>
