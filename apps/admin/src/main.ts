@@ -45,6 +45,8 @@ import {
 	faLock,
 	faPlay,
 	faChevronRight,
+	faBars,
+	faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 
 /* add icons to the library */
@@ -81,7 +83,9 @@ library.add(
 	faLockOpen,
 	faLock,
 	faPlay,
-	faChevronRight
+	faChevronRight,
+	faBars,
+	faXmark
 );
 
 const app = createApp(App);
