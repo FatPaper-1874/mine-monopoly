@@ -16,3 +16,5 @@ export type {
 	ICommand,
 	ICommandContext,
 } from "@mine-monopoly/types";
+
+export { MoneyTag } from "@mine-monopoly/types";

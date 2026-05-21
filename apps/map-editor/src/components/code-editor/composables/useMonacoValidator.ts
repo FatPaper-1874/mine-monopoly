@@ -27,53 +27,59 @@ interface TemplateConfig {
 const TEMPLATES: Record<string, TemplateConfig> = {
 	"chance-card": {
 		header: `import type { IPlayer, IProperty, IChanceCard, IGameProcess } from "@mine-monopoly/types/interfaces/game/game-process";
+	import { MoneyTag } from "@mine-monopoly/types/enums/money-tag";
 
-(async (player: IPlayer, target: IPlayer | IProperty | IPlayer[] | IProperty[], gameProcess: IGameProcess) => {
-`,
+	(async (sourcePlayer: IPlayer, target: IPlayer | IProperty | IPlayer[] | IProperty[], gameProcess: IGameProcess) => {
+	`,
 		footer: `});
-`,
+	`,
 	},
 	"map-event": {
 		header: `import type { IPlayer, IGameProcess } from "@mine-monopoly/types/interfaces/game/game-process";
+	import { MoneyTag } from "@mine-monopoly/types/enums/money-tag";
 
-(async (player: IPlayer, gameProcess: IGameProcess) => {
-`,
+	(async (player: IPlayer, gameProcess: IGameProcess) => {
+	`,
 		footer: `});
-`,
+	`,
 	},
 	"role": {
 		header: `import type { IPlayer, IGameProcess } from "@mine-monopoly/types/interfaces/game/game-process";
+	import { MoneyTag } from "@mine-monopoly/types/enums/money-tag";
 
-((player: IPlayer, gameProcess: IGameProcess) => {
-`,
+	((player: IPlayer, gameProcess: IGameProcess) => {
+	`,
 		footer: `});
-`,
+	`,
 	},
 	"game-phase": {
 		header: `import type { GameContext, IGameProcess } from "@mine-monopoly/types/interfaces/game/game-process";
+	import { MoneyTag } from "@mine-monopoly/types/enums/money-tag";
 
-((ctx: GameContext, gameProcess: IGameProcess) => {
-`,
+	((ctx: GameContext, gameProcess: IGameProcess) => {
+	`,
 		footer: `});
-`,
+	`,
 	},
 	"modifier": {
 		header: `import type { IPlayer, IGameProcess } from "@mine-monopoly/types/interfaces/game/game-process";
-import type { ICommand, ICommandContext, ICommandMap } from "@mine-monopoly/types/interfaces/game/action-system/command";
-import type { ModifierTemplate } from "@mine-monopoly/types/interfaces/game/action-system/modifier";
+	import type { ICommand, ICommandContext, ICommandMap } from "@mine-monopoly/types/interfaces/game/action-system/command";
+	import type { ModifierTemplate } from "@mine-monopoly/types/interfaces/game/action-system/modifier";
+	import { MoneyTag } from "@mine-monopoly/types/enums/money-tag";
 
-(async (player: IPlayer, gameProcess: IGameProcess, cmd: ICommand<ICommandMap, keyof ICommandMap>, ctx: ICommandContext<ICommandMap, keyof ICommandMap>) => {
-`,
+	(async (player: IPlayer, gameProcess: IGameProcess, cmd: ICommand<ICommandMap, keyof ICommandMap>, ctx: ICommandContext<ICommandMap, keyof ICommandMap>) => {
+	`,
 		footer: `});
-`,
+	`,
 	},
 	"property": {
 		header: `import type { IPlayer, IProperty, IGameProcess } from "@mine-monopoly/types/interfaces/game/game-process";
+	import { MoneyTag } from "@mine-monopoly/types/enums/money-tag";
 
-(async (player: IPlayer, property: IProperty, gameProcess: IGameProcess) => {
-`,
+	(async (player: IPlayer, property: IProperty, gameProcess: IGameProcess) => {
+	`,
 		footer: `});
-`,
+	`,
 	},
 	"extra-libs": {
 		header: "",
@@ -119,9 +125,30 @@ export function useMonacoValidator() {
 			};
 		}
 
-		// 组装完整代码
-		const fullCode = template.header + code + "\n" + template.footer;
-		const headerLines = getHeaderLineCount(codeType);
+		// 获取动态类型声明（修饰器、UI 模板等）
+		// 将它们直接内联到代码中，而不是通过 setExtraLibs（因为 declare global 在 extraLibs 中可能不生效）
+		let dynamicTypeDeclarations = "";
+		try {
+			const dynamicLibs = await mapContentService.getAllTypeLibs();
+			// 提取 declare global 块中的内容
+			const extractGlobalContent = (libContent: string) => {
+				const match = libContent.match(/declare global\s*{([\s\S]*?)}/);
+				return match ? match[1] : "";
+			};
+			if (dynamicLibs.modifierTemplateTypes) {
+				dynamicTypeDeclarations += extractGlobalContent(dynamicLibs.modifierTemplateTypes) + "\n";
+			}
+			if (dynamicLibs.uiTemplateTypes) {
+				dynamicTypeDeclarations += extractGlobalContent(dynamicLibs.uiTemplateTypes) + "\n";
+			}
+		} catch {
+			// 动态类型获取失败，继续使用静态类型
+		}
+
+		// 组装完整代码，将动态类型声明插入到模板 header 之后
+		const fullCode = template.header + dynamicTypeDeclarations + code + "\n" + template.footer;
+		// 计算实际 header 行数（模板 header + 动态类型声明）
+		const headerLines = getHeaderLineCount(codeType) + dynamicTypeDeclarations.split("\n").length;
 
 		// 注入完整类型库到 Monaco TS 语言服务
 		const tsDefaults = monacoInstance.languages.typescript.typescriptDefaults;
@@ -132,23 +159,18 @@ export function useMonacoValidator() {
 			libs.push({ content: staticEditorLib, filePath: 'file:///static-types.d.ts' });
 		}
 
-		// 动态类型（extraLibs、UI 模板、游戏设置、修饰器模板）
+		// 额外库代码（用户自定义）
 		try {
 			const dynamicLibs = await mapContentService.getAllTypeLibs();
 			if (dynamicLibs.extraLibs) {
 				libs.push({ content: dynamicLibs.extraLibs, filePath: 'file:///extra-libs.d.ts' });
 			}
-			if (dynamicLibs.uiTemplateTypes) {
-				libs.push({ content: dynamicLibs.uiTemplateTypes, filePath: 'file:///ui-templates.d.ts' });
-			}
+			// 游戏设置类型也通过 extraLibs 加载
 			if (dynamicLibs.gameSettingTypes) {
 				libs.push({ content: dynamicLibs.gameSettingTypes, filePath: 'file:///game-settings.d.ts' });
 			}
-			if (dynamicLibs.modifierTemplateTypes) {
-				libs.push({ content: dynamicLibs.modifierTemplateTypes, filePath: 'file:///modifier-templates.d.ts' });
-			}
 		} catch {
-			// dynamic libs not available, continue with static only
+			// extra libs not available, continue with static only
 		}
 
 		if (libs.length === 0) {
