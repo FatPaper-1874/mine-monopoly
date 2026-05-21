@@ -272,12 +272,12 @@ async function handleUploadMap() {
 			<div class="room-footbar">
 				<template v-if="isOwner">
 					<div v-if="saveRecords.length > 0" class="footbar-row">
-						<button :disabled="canStart" class="ready-button footbar-btn-start" @click="handleGameStart">
-							{{ currentMap ? "开始游戏" : "先选择地图吧" }}
-						</button>
 						<button class="load-save-button btn-small footbar-btn-load" @click="saveDialogVisible = true">
 							<FontAwesomeIcon style="font-size: 0.9rem; margin-right: 0.3rem" icon="clock-rotate-left" />
 							读取存档
+						</button>
+						<button :disabled="canStart" class="ready-button footbar-btn-start" @click="handleGameStart">
+							{{ currentMap ? "开始游戏" : "先选择地图吧" }}
 						</button>
 					</div>
 					<button v-else :disabled="canStart" class="ready-button" @click="handleGameStart">

@@ -1,18 +1,17 @@
 <script setup lang="ts">
-import { computed } from "vue";
-import { useRoute } from "vue-router";
-import Ping from "./components/ping.vue";
-import Fps from "./components/fps.vue";
-import FullScreenButton from "./components/full-screen-button.vue";
-import SettingButton from "./components/setting-button.vue";
-import Help from "./components/help.vue";
-import CameraFocusButton from "./components/camera-focus-button.vue";
-import MapInfoButton from "./components/map-info-button.vue";
-import ExitButton from "./components/exit-button.vue";
-import SaveButton from "./components/save-button.vue";
+	import { computed } from "vue";
+	import { useRoute } from "vue-router";
+	import Ping from "./components/ping.vue";
+	import Fps from "./components/fps.vue";
+	import FullScreenButton from "./components/full-screen-button.vue";
+	import SettingButton from "./components/setting-button.vue";
+	import Help from "./components/help.vue";
+	import CameraFocusButton from "./components/camera-focus-button.vue";
+	import MapInfoButton from "./components/map-info-button.vue";
+	import SaveButton from "./components/save-button.vue";
 
-const router = useRoute();
-const canChat = computed(() => router.name === "room" || router.name === "game");
+	const router = useRoute();
+	const canChat = computed(() => router.name === "room" || router.name === "game");
 </script>
 
 <template>
@@ -25,20 +24,19 @@ const canChat = computed(() => router.name === "room" || router.name === "game")
 		<Help />
 		<SettingButton />
 		<SaveButton />
-		<ExitButton />
 	</div>
 </template>
 
 <style lang="scss" scoped>
-.status-bar {
-	position: absolute;
-	top: 0;
-	right: 0;
-	display: flex;
-	align-items: center;
-	justify-content: space-around;
-  padding: .4rem;
-  gap: .6rem;
-	z-index: var(--z-ui);
-}
+	.status-bar {
+		position: absolute;
+		top: 0;
+		right: 0;
+		display: flex;
+		align-items: center;
+		justify-content: space-around;
+	  padding: .4rem;
+	  gap: .6rem;
+		z-index: var(--z-ui);
+	}
 </style>
