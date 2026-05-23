@@ -1,0 +1,48 @@
+.money-particle {
+  position: absolute;
+  pointer-events: none;
+  will-change: transform, opacity;
+  z-index: var(--z-fly-item);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  .particle-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 140%;
+    filter:
+      drop-shadow(-1px -1px 0 #fff)
+      drop-shadow(1px -1px 0 #fff)
+      drop-shadow(-1px 1px 0 #fff)
+      drop-shadow(1px 1px 0 #fff)
+      drop-shadow(-1px 0 0 #fff)
+      drop-shadow(1px 0 0 #fff)
+      drop-shadow(0 -1px 0 #fff)
+      drop-shadow(0 1px 0 #fff);
+  }
+
+  .particle-amount {
+    margin-top: 2px;
+    font-size: 24px;
+    font-weight: bold;
+    white-space: nowrap;
+    -webkit-text-stroke: 5px #fff;
+    paint-order: stroke fill;
+  }
+
+  &.gold .particle-amount {
+    color: #ffd700;
+  }
+
+  &.red .particle-amount {
+    color: #ff5252;
+  }
+}
+
+.particle-sm { width: 48px; height: 56px; font-size: 16px; }
+.particle-md { width: 64px; height: 72px; font-size: 20px; }
+.particle-lg { width: 80px; height: 88px; font-size: 24px; }
+.particle-xl { width: 96px; height: 104px; font-size: 28px; }

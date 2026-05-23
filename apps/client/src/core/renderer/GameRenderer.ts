@@ -93,6 +93,7 @@ export class GameRenderer {
 	private arrivedEventInfoLabelInstance: ComponentPublicInstance;
 
 	private diceManager: DiceManager | null = null;
+	private moneyParticleSystemRef: any = null;
 	private isRenderDice = false;
 	private diceRollQueue: DiceResult[][] = []; // 骰子动画队列
 	private isProcessingDiceRoll: boolean = false; // 是否正在处理骰子动画
@@ -1129,9 +1130,26 @@ export class GameRenderer {
 			}
 		});
 
-		useEventBus().on("player-money", async (playerId: string, oldMoney: number, newMoney: number) => {
-			this.createPopoverOnPlayerTop(playerId, moneyPopTip, { money: newMoney - oldMoney }, 2000);
-		});
+			useEventBus().on("player-money", async (playerId: string, oldMoney: number, newMoney: number) => {
+				const moneyDiff = newMoney - oldMoney;
+
+				if (this.moneyParticleSystemRef) {
+					const playerEntity = this.playerEntities.get(playerId);
+					if (!playerEntity) return;
+
+					const playerPosition = playerEntity.model.position.clone();
+					const screenPos = this.getWorldToScreenPosition(playerPosition);
+
+					await this.moneyParticleSystemRef.spawnParticles({
+						playerId,
+						amount: moneyDiff,
+						playerX: screenPos.x,
+						playerY: screenPos.y,
+					});
+				} else {
+					this.createPopoverOnPlayerTop(playerId, moneyPopTip, { money: moneyDiff }, 2000);
+				}
+			});
 		for (const key of ["level", "owner", "costList"]) {
 			useEventBus().on(`property-${key}`, async (propertyId: string) => {
 				this.updateBuilding(useGameData().getPropertyById(propertyId)!);
@@ -1838,6 +1856,13 @@ export class GameRenderer {
 		}
 	}
 
+	/**
+	 * 注册金钱粒子系统
+	 */
+	public registerMoneyParticleSystem(systemRef: any) {
+		this.moneyParticleSystemRef = systemRef;
+	}
+
 	public toggleLockCamera() {
 		this.isLockingRole = !this.isLockingRole;
 		return this.isLockingRole;
@@ -1901,6 +1926,19 @@ export class GameRenderer {
 		this.updateCamera(this.controls, this.currentFocusModule, 8, 30);
 		this.controls.update();
 	}
+
+		/**
+		 * 将世界坐标转换为屏幕坐标
+		 */
+		private getWorldToScreenPosition(worldPos: THREE.Vector3): { x: number; y: number } {
+			const vector = worldPos.clone();
+			vector.project(this.camera);
+
+			const screenX = (vector.x * 0.5 + 0.5) * this.container.clientWidth;
+			const screenY = (-(vector.y * 0.5) + 0.5) * this.container.clientHeight;
+
+			return { x: screenX, y: screenY };
+		}
 
 	/**
 	 * 应用新的像素比

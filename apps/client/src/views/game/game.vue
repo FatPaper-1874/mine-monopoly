@@ -29,6 +29,7 @@ import { CustomUI, GameMap, UISchema } from "@mine-monopoly/types";
 import { compileTsToJs } from "@src/utils";
 import { storeToRefs } from "pinia";
 import UiRenderer from "@src/components/utils/ui-renderer/ui-renderer.vue";
+import MoneyParticleSystem from "./components/money-particle-system.vue";
 
 //pinia仓库
 const mapDataStore = useMapData();
@@ -41,6 +42,7 @@ const currentPlayerId = computed(() => userInfoStore.userId);
 
 let socketClient: MonopolyClient;
 let gameRenderer: GameRenderer | null;
+const moneyParticleSystemRef = ref<any>(null);
 const islockingCamera = ref(true);
 const lockCameraIcon = computed(() => (islockingCamera.value ? "fa-video" : "fa-video-slash"));
 
@@ -72,6 +74,11 @@ onMounted(async () => {
 		console.log("🚀 ~ mapData:", mapData);
 		gameRenderer = new GameRenderer(canvas, container, mapData);
 		await gameRenderer.init();
+
+			// 注册金钱粒子系统
+			if (moneyParticleSystemRef.value) {
+				gameRenderer.registerMoneyParticleSystem(moneyParticleSystemRef.value);
+			}
 
 		// 恢复心跳检测
 		socketClient.resumeHeartBeat();
@@ -131,6 +138,9 @@ function getUiTemplateById(id: string) {
 				<CountdownTimer />
 			</teleport>
 		</div>
+
+		<!-- 金钱粒子系统：放在 ui-container 外部，避免 pointer-events 冲突 -->
+		<MoneyParticleSystem ref="moneyParticleSystemRef" />
 
 		<scoreboard />
 	</div>
