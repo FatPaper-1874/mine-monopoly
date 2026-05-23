@@ -14,6 +14,7 @@
 		"noEmit": true,
 		"paths": {
 			"@/*": ["./src/*"],
+			"@mine-monopoly/style": ["../../packages/style/dist/types.d.ts"]
 		}
 	},
 	"include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx", "src/**/*.vue"],

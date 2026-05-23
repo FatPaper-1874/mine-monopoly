@@ -37,6 +37,10 @@ export default defineConfig(({ command }) => {
 					find: "@mine-monopoly/env",
 					replacement: path.resolve(__dirname, "../../packages/env/src/browser.ts"),
 				},
+				{
+					find: "@mine-monopoly/style",
+					replacement: path.resolve(__dirname, "../../packages/style/dist"),
+				},
 			],
 		},
 		esbuild: {
