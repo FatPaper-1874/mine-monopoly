@@ -83,13 +83,19 @@ function formatWorkerError(error: Error | string, context?: string): string {
 
 // 发送错误到主线程
 function reportWorkerError(error: Error | string, context?: string, additionalData?: Record<string, any>) {
+	// 附加游戏状态快照（如果 gameProcess 可用）
+	const gameState = gameProcess ? gameProcess.getDebugState() : undefined;
+
 	const errorInfo = {
 		type: "Worker" as const,
 		message: error instanceof Error ? error.message : String(error),
 		stack: error instanceof Error ? error.stack : undefined,
 		info: context,
 		timestamp: new Date().toISOString(),
-		additionalData,
+		additionalData: {
+			...additionalData,
+			gameState, // 附加游戏状态快照
+		},
 	};
 
 	// 通过 postMessage 发送到主线程
@@ -137,22 +143,37 @@ self.postMessage(<WorkerCommMsg>{
 });
 
 self.addEventListener("message", async (ev) => {
-	const data = ev.data as WorkerCommMsg;
+	try {
+		const data = ev.data as WorkerCommMsg;
+		await handleMessage(data);
+	} catch (e: any) {
+		console.error("[Worker Message Handler Error]:", e);
+		reportWorkerError(e, "Message Handler Error");
+	}
+});
+
+async function handleMessage(data: WorkerCommMsg) {
 	switch (data.type) {
 		case WorkerCommType.LoadGameInfo:
 			{
-				const { mapInfo, setting, userList, roomOwnerId, saveData } = data.data;
-				gameProcess = new GameProcess(mapInfo, setting, userList, roomOwnerId);
-				if (saveData) {
-					gameProcess.setPendingSaveData(saveData);
-				}
-				gameProcess.start();
+				try {
+					const { mapInfo, setting, userList, roomOwnerId, saveData } = data.data;
+					gameProcess = new GameProcess(mapInfo, setting, userList, roomOwnerId);
+					if (saveData) {
+						gameProcess.setPendingSaveData(saveData);
+					}
+					gameProcess.start();
 
-				// 发送gameProcess就绪消息给主线程，包含gameProcess引用
-				self.postMessage(<WorkerCommMsg>{
-					type: WorkerCommType.GameProcessReady,
-					data: undefined, // 暂时不需要数据
-				});
+					// 发送gameProcess就绪消息给主线程，包含gameProcess引用
+					self.postMessage(<WorkerCommMsg>{
+						type: WorkerCommType.GameProcessReady,
+						data: undefined, // 暂时不需要数据
+					});
+				} catch (e: any) {
+					console.error("[LoadGameInfo Error]:", e);
+					reportWorkerError(e, "LoadGameInfo");
+					throw e;
+				}
 			}
 			break;
 		case WorkerCommType.EmitOperation:
@@ -192,9 +213,15 @@ self.addEventListener("message", async (ev) => {
 			break;
 		case WorkerCommType.LoadSaveData:
 			{
-				if (gameProcess) {
-					const { snapshot, aiPlayerIds } = data.data;
-					await gameProcess.restoreFromSnapshot(snapshot, aiPlayerIds);
+				try {
+					if (gameProcess) {
+						const { snapshot, aiPlayerIds } = data.data;
+						await gameProcess.restoreFromSnapshot(snapshot, aiPlayerIds);
+					}
+				} catch (e: any) {
+					console.error("[LoadSaveData Error]:", e);
+					reportWorkerError(e, "LoadSaveData", { snapshot: data.data.snapshot, aiPlayerIds: data.data.aiPlayerIds });
+					throw e;
 				}
 			}
 			break;
@@ -218,7 +245,7 @@ self.addEventListener("message", async (ev) => {
 			}
 			break;
 	}
-});
+}
 
 function sendToUsers(userIdList: string[], msg: ServerSocketMessage) {
 	self.postMessage(<WorkerCommMsg>{
@@ -293,6 +320,13 @@ export class GameProcess implements IGameProcess {
 	private cachedUiReplacements: Array<{ token: string; json: string }> = [];
 	/** 缓存的 modifier 替换规则（用于运行时动态创建的 modifier） */
 	private cachedModReplacements: Array<{ token: string; json: string }> = [];
+
+	/** 心跳定时器 */
+	private heartbeatTimer: number | null = null;
+	/** 是否正在处理耗时操作 */
+	private isProcessingLongOperation: boolean = false;
+	/** 心跳间隔（毫秒） */
+	private static readonly HEARTBEAT_INTERVAL = 5000;
 
 	public gameOverRuleFunction = async (): Promise<string[] | true | false> => {
 		return false;
@@ -1074,7 +1108,7 @@ export class GameProcess implements IGameProcess {
 			this.eventBus.emit("game.round.start");
 			const roundStartPhases = this.gameRoundPhase.roundStartPhase;
 			for (const phase of roundStartPhases) {
-				await this.runGamePhase(phase);
+				await this.runLongOperation(() => this.runGamePhase(phase), `执行回合开始阶段: ${phase.name}`);
 			}
 
 			//玩家回合
@@ -1109,7 +1143,7 @@ export class GameProcess implements IGameProcess {
 				};
 				const playerRoundPhases = player.getRoundPhases();
 				for (const phase of playerRoundPhases) {
-					await this.runGamePhase(phase, context);
+					await this.runLongOperation(() => this.runGamePhase(phase, context), `${player.name} 回合阶段: ${phase.name}`);
 				}
 				this.currentRoundPlayer = null;
 				await player.commandBus.execute({ type: "player.round.end", payload: { player } });
@@ -1118,7 +1152,7 @@ export class GameProcess implements IGameProcess {
 			//回合结束阶段
 			const roundEndPhases = this.gameRoundPhase.roundEndPhase;
 			for (const phase of roundEndPhases) {
-				await this.runGamePhase(phase);
+				await this.runLongOperation(() => this.runGamePhase(phase), `执行回合结束阶段: ${phase.name}`);
 			}
 			this.eventBus.emit("game.round.end");
 		}
@@ -1812,6 +1846,66 @@ export class GameProcess implements IGameProcess {
 		return result;
 	}
 
+	/**
+	 * 启动心跳机制
+	 */
+	private startHeartbeat(): void {
+		const scheduleNextHeartbeat = () => {
+			this.heartbeatTimer = setTimeout(() => {
+				this.sendHeartbeat();
+				scheduleNextHeartbeat();
+			}, GameProcess.HEARTBEAT_INTERVAL) as any;
+		};
+		scheduleNextHeartbeat();
+	}
+
+	/**
+	 * 发送心跳消息到主线程
+	 */
+	private sendHeartbeat(): void {
+		self.postMessage(<WorkerCommMsg>{
+			type: WorkerCommType.WorkerHeartbeat,
+			data: {
+				timestamp: Date.now(),
+				gameState: {
+					currentRound: this.currentRound,
+					currentPlayerId: this.currentRoundPlayer?.id,
+					isGameOver: this.isGameOver,
+					isBusy: this.isProcessingLongOperation
+				}
+			}
+		});
+	}
+
+	/**
+	 * 停止心跳机制
+	 */
+	private stopHeartbeat(): void {
+		if (this.heartbeatTimer) {
+			clearTimeout(this.heartbeatTimer);
+			this.heartbeatTimer = null;
+		}
+	}
+
+	/**
+	 * 运行耗时操作的包装方法
+	 * @param fn 要执行的异步函数
+	 * @param operationName 操作名称（用于显示）
+	 * @returns 函数执行结果
+	 */
+	private async runLongOperation<T>(
+		fn: () => Promise<T>,
+		operationName: string
+	): Promise<T> {
+		this.isProcessingLongOperation = true;
+		this.setCurrentEventName(operationName);
+		try {
+			return await fn();
+		} finally {
+			this.isProcessingLongOperation = false;
+		}
+	}
+
 	public async showMessageCard(playerIds: string[], option: MessageCardOption): Promise<void> {
 		sendToUsers(playerIds, {
 			type: SocketMsgType.MessageCard,
@@ -1853,6 +1947,9 @@ export class GameProcess implements IGameProcess {
 
 		// 步骤4: 等待客户端初始化完成
 		await this.waitInitFinished();
+
+		// 启动心跳机制
+		this.startHeartbeat();
 
 		// 步骤5: 开始游戏循环
 		await this.gameLoop();
@@ -2127,6 +2224,9 @@ export class GameProcess implements IGameProcess {
 	}
 
 	public destroy() {
+		// 停止心跳机制
+		this.stopHeartbeat();
+
 		this.players.keys().forEach((playerId) => {
 			operationListener.removeAll(playerId);
 		});

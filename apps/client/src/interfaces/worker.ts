@@ -1,7 +1,49 @@
-import { WorkerCommType } from "@src/enums/worker";
+import { WorkerCommType, WorkerState } from "@src/enums/worker";
 import { GameMap, GameSetting, PlayerOperationResult, ServerSocketMessage, UserInRoomInfo } from "@mine-monopoly/types";
 import { OperateType } from "@mine-monopoly/types";
 import { SaveSnapshot } from "@src/core/save/types";
+
+// 组件验证错误
+export interface ComponentValidationError {
+	componentType: 'role' | 'property' | 'phase' | 'chanceCard';
+	componentId: string;
+	componentName: string;
+	errorType: 'compile' | 'runtime' | 'notFound';
+	errorMessage: string;
+	errorStack?: string;
+	userId?: string;
+}
+
+// 状态变化消息
+export interface WorkerStateChangedData {
+	previousState: WorkerState;
+	currentState: WorkerState;
+	reason?: string;
+}
+
+// 心跳数据
+export interface HeartbeatData {
+	timestamp: number;
+	gameState: {
+		currentRound: number;
+		currentPlayerId?: string;
+		isGameOver: boolean;
+		isBusy: boolean;
+	};
+}
+
+// 详细错误数据
+export interface DetailedErrorData {
+	category: string;
+	type: string;
+	component?: string;
+	message: string;
+	technical?: {
+		message: string;
+		stack?: string;
+		mapInfo?: any;
+	};
+}
 
 export type WorkerCommMsg = {
 	[K in keyof WorkerCommDataTypeMap]: {
@@ -42,6 +84,19 @@ interface WorkerCommDataTypeMap {
 
 	// Debug (dev only)
 	[WorkerCommType.DebugStateResponse]: { state: GameProcessDebugState | null };
+
+	// 状态同步
+	[WorkerCommType.WorkerStateChanged]: WorkerStateChangedData;
+	[WorkerCommType.WorkerHeartbeat]: HeartbeatData;
+
+	// 错误报告
+	[WorkerCommType.ValidationError]: ComponentValidationError[];
+	[WorkerCommType.DetailedError]: DetailedErrorData;
+
+	// 安全模式控制
+	[WorkerCommType.EnterSafeMode]: { reason?: string };
+	[WorkerCommType.ExitSafeMode]: undefined;
+	[WorkerCommType.RetryFromSafeMode]: undefined;
 }
 
 

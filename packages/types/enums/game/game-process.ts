@@ -30,4 +30,8 @@ export enum OperateType {
 	FormDialogResult = "FormDialogResult",
 	/** 动态按钮点击 */
 	DynamicButtonClick = "DynamicButtonClick",
+	/** 安全模式重试 */
+	SafeModeRetry = "SafeModeRetry",
+	/** 安全模式放弃游戏 */
+	SafeModeAbort = "SafeModeAbort",
 }

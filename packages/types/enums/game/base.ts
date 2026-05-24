@@ -50,6 +50,8 @@ export const enum SocketMsgType {
 	ButtonStateChanged = "ButtonStateChanged",
 	/** 按钮移除 */
 	ButtonRemove = "ButtonRemove",
+	/** 安全模式操作面板 */
+	SafeModePanel = "SafeModePanel",
 }
 
 export enum SocketMsgSource {
