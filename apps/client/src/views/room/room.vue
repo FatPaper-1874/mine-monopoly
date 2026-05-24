@@ -77,8 +77,14 @@
 	const roleSelectorVisible = ref(false);
 	const tempRoleSelectedId = ref<string[]>([]);
 
+	function handleSelectRole() {
+		const currentUser = roomInfoStore.userList.find((user) => user.userId === userInfoStore.userId);
+		tempRoleSelectedId.value = currentUser?.roleId ? [currentUser.roleId] : [];
+		roleSelectorVisible.value = true;
+	}
+
 	function handleChangeRole() {
-		if (socketClient && tempMapSelectedId.value[0] !== currentMap.value?.id) {
+		if (socketClient && tempRoleSelectedId.value.length > 0 && tempRoleSelectedId.value[0] !== undefined) {
 			socketClient.changeRole(tempRoleSelectedId.value[0]);
 		}
 	}
@@ -295,7 +301,7 @@
 			<div class="right-container">
 				<div class="player-list-container">
 					<room-user-card
-						@role-select="roleSelectorVisible = true"
+						@role-select="handleSelectRole"
 						v-for="player in playerList"
 						:key="player.userId"
 						:user="player"
