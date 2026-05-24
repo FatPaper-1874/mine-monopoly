@@ -3,6 +3,7 @@ import { env } from "@mine-monopoly/env";
 import { FPMessage } from "@mine-monopoly/ui";
 import { clearAuthAndRedirect, getRefreshToken, setToken, setRefreshToken } from "@src/utils/auth";
 import type { ApiResponse } from "@mine-monopoly/types";
+import logService, { ErrorCategory, ErrorLevel } from "@src/utils/log";
 
 // 获取 API 基础 URL
 const getApiBaseUrl = () => {
@@ -130,13 +131,18 @@ apiClient.interceptors.response.use(
 		const originalConfig = error.config as InternalAxiosRequestConfig | undefined;
 		let message = "";
 		let showErrorMessage = true;
+		let errorLevel: ErrorLevel = ErrorLevel.ERROR;
+		let errorCategory: ErrorCategory = ErrorCategory.UNKNOWN;
 
 		// 1. 处理网络错误和超时
 		if (!error.response) {
+			errorCategory = ErrorCategory.NETWORK;
 			if (error.code === "ECONNABORTED") {
 				message = "请求超时，请检查网络连接";
+				errorLevel = ErrorLevel.WARNING;
 			} else {
 				message = "网络错误，请检查网络连接";
+				errorLevel = ErrorLevel.ERROR;
 			}
 		}
 		// 2. 处理 HTTP 错误
@@ -146,8 +152,12 @@ apiClient.interceptors.response.use(
 			switch (status) {
 				case 400:
 					message = (data as any)?.msg || "请求参数错误";
+					errorCategory = ErrorCategory.UNKNOWN;
+					errorLevel = ErrorLevel.WARNING;
 					break;
 				case 401: {
+					errorCategory = ErrorCategory.AUTH;
+					errorLevel = ErrorLevel.FATAL;
 					// 刷新请求本身失败，直接跳登录
 					if (originalConfig?.url?.includes("/user/refresh-token")) {
 						clearAuthAndRedirect();
@@ -167,17 +177,47 @@ apiClient.interceptors.response.use(
 				}
 				case 403:
 					message = (data as any)?.msg || "没有权限访问";
+					errorCategory = ErrorCategory.AUTH;
+					errorLevel = ErrorLevel.FATAL;
 					break;
 				case 404:
 					message = (data as any)?.msg || "请求的资源不存在";
+					errorCategory = ErrorCategory.UNKNOWN;
+					errorLevel = ErrorLevel.WARNING;
 					break;
 				case 500:
+				case 502:
+				case 503:
+				case 504:
 					message = (data as any)?.msg || "服务器内部错误";
+					errorCategory = ErrorCategory.NETWORK;
+					errorLevel = ErrorLevel.ERROR;
 					break;
 				default:
 					message = (data as any)?.msg || `请求失败(${status})`;
+					errorCategory = ErrorCategory.NETWORK;
+					errorLevel = ErrorLevel.ERROR;
 			}
 		}
+
+		// 记录错误日志
+		await logService.error({
+			category: errorCategory,
+			message,
+			stack: error.stack,
+			context: {
+				requestConfig: originalConfig ? {
+					url: originalConfig.url,
+					method: originalConfig.method,
+					data: originalConfig.data
+				} : undefined,
+				responseInfo: error.response ? {
+					status: error.response.status,
+					statusText: error.response.statusText,
+					data: error.response.data
+				} : undefined
+			}
+		});
 
 		// 显示错误消息
 		if (showErrorMessage && message) {
