@@ -1543,38 +1543,35 @@ export class GameRenderer {
 			playerBody && playerBody.add(stepMesh);
 			// ----------------------------
 
-			let animationShouldStop = false;
-			let currentAnimation: gsap.core.Timeline | null = null;
 			const deviceStatusStore = useDeviceStatus();
-
-			deviceStatusStore.$subscribe(
-				(mutation, state) => {
-					animationShouldStop = state.isFocus;
-				},
-				{ once: true },
-			);
 
 			try {
 				for (let i = 1; i <= animationSteps; i++) {
-					if (animationShouldStop) {
-						currentAnimation && currentAnimation.kill();
-						const endMapItem = this.getMapItem(endIndex);
-						if (endMapItem) {
-							const surfaceY = this.getMapItemSurfaceHeight(endMapItem);
-							const { x, z } = endMapItem.position;
-
-							playerModule.position.set(x, surfaceY, z);
-							if (playerBody) {
-								playerBody.scale.y = 1;
-								playerBody.scale.x = Math.sign(playerBody.scale.x);
-							}
-						}
-						break;
-					}
-
 					const nextMapItem = this.getMapItem((((sourceIndex + Math.sign(stepNum) * i) % total) + total) % total);
 
 					if (nextMapItem) {
+						let currentAnimation: gsap.core.Timeline | null = null;
+
+						// 检查是否失焦，如果是则跳到当前步目标位置后继续
+						if (!deviceStatusStore.isFocus) {
+							const nextSurfaceY = this.getMapItemSurfaceHeight(nextMapItem);
+							const { x, z } = nextMapItem.position;
+
+							playerModule.position.set(x, nextSurfaceY, z);
+							if (playerBody) {
+								const { x: nextMapItemScreenX } = getScreenPosition(nextMapItem, this.camera);
+								const { x: playerScreenX } = getScreenPosition(playerModule, this.camera);
+								const targetDir = nextMapItemScreenX > playerScreenX ? 1 : nextMapItemScreenX < playerScreenX ? -1 : Math.sign(playerBody.scale.x);
+								playerBody.scale.set(targetDir, 1, 1);
+
+								const remaining = actualTotalSteps - (actualStartStep + i);
+								if (remaining >= 0) {
+									stepTextSprite.updateText(remaining.toString());
+								}
+							}
+							continue;
+						}
+
 						const { x: nextMapItemScreenX } = getScreenPosition(nextMapItem, this.camera);
 						const { x: playerScreenX } = getScreenPosition(playerModule, this.camera);
 
