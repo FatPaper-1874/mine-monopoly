@@ -1,6 +1,6 @@
 <template>
   <div class="resource-picker">
-    <div class="preview-section">
+    <div v-if="!props.hidePreview" class="preview-section">
       <ImagePreview v-if="type === 'image'" :url="displayUrl" />
       <ModelPreview v-else-if="type === 'model'" :url="displayUrl" />
     </div>
@@ -42,7 +42,8 @@ import type { ResourcePickerProps, ResourcePickerEmits } from './types'
 const props = withDefaults(defineProps<ResourcePickerProps>(), {
   disabled: false,
   acceptTypes: () => [],
-  autoSave: true
+  autoSave: true,
+  hidePreview: false
 })
 
 const emit = defineEmits<ResourcePickerEmits>()

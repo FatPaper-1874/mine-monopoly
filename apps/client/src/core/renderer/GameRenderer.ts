@@ -1469,7 +1469,7 @@ export class GameRenderer {
 			lookat.copy(linkItem.position);
 			lookat.setY(linkSurfaceY);
 			propertyBuildModel.lookAt(lookat);
-			propertyBuildModel.rotateY(-Math.PI / 2);
+			// propertyBuildModel.rotateY(-Math.PI / 2);
 		}
 		propertyBuildModel.scale.set(0, 0, 0);
 		this.mapContainer.add(propertyBuildModel);

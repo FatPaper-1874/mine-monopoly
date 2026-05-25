@@ -12,6 +12,11 @@ export interface ResourcePickerProps {
    * 默认 true。对于编辑模式，应该设置为 false，只在表单提交时才保存
    */
   autoSave?: boolean
+  /**
+   * 是否隐藏内置预览组件
+   * 默认 false。当外层已有预览面板时设为 true
+   */
+  hidePreview?: boolean
 }
 
 export interface ResourcePickerEmits {
