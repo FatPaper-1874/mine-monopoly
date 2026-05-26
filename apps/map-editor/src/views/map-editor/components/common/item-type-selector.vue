@@ -6,6 +6,7 @@ import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import itemTypeCreator from "./item-type-creator.vue";
 import { eventBus } from "@src/utils/event-bus";
 import { Modal, Select, message } from "ant-design-vue";
+import { h } from "vue";
 
 const mapDataStroe = useMapDataStore();
 const editorStore = useEditorStore();
@@ -40,6 +41,28 @@ watch(
 );
 
 const createFormVisible = ref(false);
+const showAllTypesVisible = ref(false);
+
+const allTypesColumns = [
+	{
+		title: "颜色",
+		dataIndex: "color",
+		width: 60,
+		customRender: ({ record }: { record: any }) => {
+			return h("div", {
+				style: {
+					width: "24px",
+					height: "24px",
+					backgroundColor: record.color,
+					borderRadius: "4px",
+					border: "1px solid #d9d9d9"
+				}
+			});
+		}
+	},
+	{ title: "名称", dataIndex: "name", width: 100 },
+	{ title: "ID", dataIndex: "id", width: 180 },
+];
 
 function handleMapItemTypeSelected(id: string | undefined) {
 	editorStore.currentMapItemTypeId = id || "";
@@ -89,6 +112,7 @@ function handleDeleteMapItemType() {
 					</a-select-option>
 				</a-select>
 			</a-space>
+			<a-button @click="showAllTypesVisible = true" size="small" style="width: 100%">查看所有类型</a-button>
 			<div id="item-type-model-preview-canvas-container"></div>
 			<a-button @click="handleDeleteMapItemType" v-if="currentMapItemType" style="width: 100%" type="primary" danger
 				>删除这个物块类型</a-button
@@ -96,6 +120,22 @@ function handleDeleteMapItemType() {
 		</a-space>
 	</a-card>
 	<item-type-creator v-model="createFormVisible" />
+
+	<a-modal
+		title="所有物块类型"
+		v-model:open="showAllTypesVisible"
+		:footer="null"
+		width="500px"
+	>
+		<a-table
+			:columns="allTypesColumns"
+			:dataSource="mapItemTypes"
+			:pagination="{ pageSize: 10 }"
+			size="small"
+			:scroll="{ y: 400 }"
+		>
+		</a-table>
+	</a-modal>
 </template>
 
 <style lang="scss" scoped>

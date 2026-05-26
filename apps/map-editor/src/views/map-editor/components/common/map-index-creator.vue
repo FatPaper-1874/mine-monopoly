@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { MapItemType, MapItem } from "@mine-monopoly/types";
+import { MapItem } from "@mine-monopoly/types";
 import { message } from "ant-design-vue";
-import { computed, onBeforeMount, ref } from "vue";
+import { computed, ref } from "vue";
 import { useMapDataStore } from "@src/stores/index";
 
 const mapItemslist = computed(() => useMapDataStore().mapItems);
@@ -14,23 +14,52 @@ const _itemTypeIdToAppendPath = ref<string[]>([]);
 const model = defineModel({ default: false });
 
 async function handleAppendMapIndex() {
-	let startMapItem: MapItem | undefined;
-	startMapItem = useMapDataStore().findMapItemById(startMapItemId.value);
-	if (!startMapItem) {
-		message.error(`找不到ID为: ${startMapItemId.value}的MapItem`);
+	// 检查是否选择了类型
+	if (_itemTypeIdToAppendPath.value.length === 0) {
+		message.warning("请先选择至少一个地图元素类型");
+		return;
 	}
-	const tempMapItemsList = mapItemslist.value.filter((item) => _itemTypeIdToAppendPath.value.includes(item.type.id));
-	if (tempMapItemsList.length > 0) {
-		let mapIndex: string[] = [];
-		try {
-			mapIndex = findPath(tempMapItemsList, startMapItem);
-			useMapDataStore().updateMapIndex(mapIndex);
-			message.success("更新路径索引成功", 1);
-			emits("submit");
-		} catch (e: any) {
-			useMapDataStore().updateMapIndex([]);
-			message.error(e.message);
+
+	// 获取选中类型的名称集合（用于兼容旧数据的 UUID 类型 ID）
+	const selectedTypeNames = new Set(
+		_itemTypeIdToAppendPath.value
+			.map(id => itemTypeList.value.find(t => t.id === id)?.name)
+			.filter(Boolean)
+	);
+
+	// 过滤出选定类型的 MapItem
+	const tempMapItemsList = mapItemslist.value.filter((item) => {
+		const itemTypeId = item.type?.id;
+		const itemTypeName = item.type?.name;
+		// 同时匹配 ID 和类型名称（兼容旧数据）
+		return (
+			(itemTypeId && _itemTypeIdToAppendPath.value.includes(itemTypeId)) ||
+			(itemTypeName && selectedTypeNames.has(itemTypeName))
+		);
+	});
+
+	if (tempMapItemsList.length === 0) {
+		message.warning("所选类型没有对应的地图元素，请检查");
+		return;
+	}
+
+	// 处理起点（可选）
+	let startMapItem: MapItem | undefined;
+	if (startMapItemId.value) {
+		startMapItem = useMapDataStore().findMapItemById(startMapItemId.value);
+		if (!startMapItem) {
+			message.warning(`找不到ID为 ${startMapItemId.value} 的地图元素，将使用第一个元素作为起点`);
 		}
+	}
+
+	try {
+		const mapIndex = findPath(tempMapItemsList, startMapItem);
+		useMapDataStore().updateMapIndex(mapIndex);
+		message.success(`更新路径索引成功，共 ${mapIndex.length} 个节点`, 2);
+		emits("submit");
+	} catch (e: any) {
+		useMapDataStore().updateMapIndex([]);
+		message.error(e.message || "生成路线失败");
 	}
 }
 
@@ -40,10 +69,9 @@ function findPath(mapItems: MapItem[], startMapItem?: MapItem): string[] | never
 	}
 
 	const itemsCopy: MapItem[] = JSON.parse(JSON.stringify(mapItems));
-
 	const startingPoint: MapItem = startMapItem ? startMapItem : itemsCopy[0];
-
 	const traversedItems: MapItem[] | null = traverseMap(itemsCopy, startingPoint);
+
 	if (!traversedItems || traversedItems.length == 0) {
 		throw new Error("无法遍历整个数组");
 	}
@@ -52,32 +80,23 @@ function findPath(mapItems: MapItem[], startMapItem?: MapItem): string[] | never
 }
 
 function traverseMap(items: MapItem[], startPoint: MapItem): MapItem[] | null {
-	// 创建一个集合用于存储已经访问过的节点
 	const visited: { [key: string]: boolean } = {};
-	// 创建一个结果数组用于存储遍历的节点
 	const result: MapItem[] = [];
 
-	// 使用深度优先搜索（DFS）算法进行遍历
 	function dfs(node: MapItem) {
-		// 将当前节点标记为已访问
 		visited[`${node.x},${node.y}`] = true;
-		// 将当前节点加入结果数组
 		result.push(node);
 
-		// 寻找当前节点的相邻节点进行遍历
 		const neighbors = findNeighbors(node, items);
 		for (const neighbor of neighbors) {
-			// 如果相邻节点未被访问，则递归访问它
 			if (!visited[`${neighbor.x},${neighbor.y}`]) {
 				dfs(neighbor);
 			}
 		}
 	}
 
-	// 开始遍历
 	dfs(startPoint);
 
-	// 检查是否所有节点都被访问到了
 	if (result.length !== items.length) {
 		return null;
 	}
@@ -88,16 +107,15 @@ function traverseMap(items: MapItem[], startPoint: MapItem): MapItem[] | null {
 function findNeighbors(node: MapItem, items: MapItem[]): MapItem[] {
 	const neighbors: MapItem[] = [];
 	const directions = [
-		{ x: 1, y: 0 }, // 右
-		{ x: -1, y: 0 }, // 左
-		{ x: 0, y: 1 }, // 下
-		{ x: 0, y: -1 }, // 上
+		{ x: 1, y: 0 },
+		{ x: -1, y: 0 },
+		{ x: 0, y: 1 },
+		{ x: 0, y: -1 },
 	];
 
 	for (const dir of directions) {
 		const neighborX = node.x + dir.x;
 		const neighborY = node.y + dir.y;
-
 		const neighbor = items.find((item) => item.x === neighborX && item.y === neighborY);
 		if (neighbor) {
 			neighbors.push(neighbor);

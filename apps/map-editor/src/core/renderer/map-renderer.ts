@@ -302,6 +302,11 @@ export class MapRenderer {
 			await this.handleBatchDeleteMapItems(ids);
 		});
 
+			eventBus.on("batch-rotate-map-items", async (data: { ids: string[], direction: 1 | -1 }) => {
+				console.log('[渲染器] 收到批量旋转事件:', data);
+				await this.handleBatchRotateMapItems(data.ids, data.direction);
+			});
+
 		eventBus.on("batch-select-all", () => {
 			console.log('[渲染器] 收到全选事件');
 			this.handleBatchSelectAll();
@@ -1163,6 +1168,29 @@ export class MapRenderer {
 			message.success('移动成功', 1);
 		} catch (e: any) {
 			console.error('[批量移动] 错误:', e);
+			message.error(e.message, 2);
+		}
+	}
+
+	private async handleBatchRotateMapItems(ids: string[], direction: 1 | -1) {
+		try {
+			console.log('[批量旋转] 开始旋转', ids.length, ' 个 MapItem, 方向:', direction === 1 ? '顺时针' : '逆时针');
+
+			useMapDataStore().batchRotateMapItem(ids, direction);
+
+			// 更新 3D 对象旋转
+			ids.forEach(id => {
+				const object = this.mapItemsInScene.get(id);
+				const mapItem = useMapDataStore().findMapItemById(id);
+				if (object && mapItem) {
+					this.setItemPositionOnMap(object, mapItem.x, mapItem.y, mapItem.rotation);
+					console.log('[批量旋转] 更新对象旋转:', id, '→', mapItem.rotation);
+				}
+			});
+
+			message.success('旋转成功', 1);
+		} catch (e: any) {
+			console.error('[批量旋转] 错误:', e);
 			message.error(e.message, 2);
 		}
 	}

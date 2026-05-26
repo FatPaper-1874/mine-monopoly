@@ -33,6 +33,12 @@ type Events = {
 		deltaY: number;
 	};
 
+	// 批量旋转地图项事件
+	"batch-rotate-map-items": {
+		ids: string[];
+		direction: 1 | -1;  // 1 = 顺时针 90°, -1 = 逆时针 90°
+	};
+
 	// 批量删除地图项事件
 	"batch-delete-map-items": string[];
 

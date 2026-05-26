@@ -50,6 +50,8 @@ watch(visible, (isOpen) => {
         formState.modelId = target.id;
         previewUrl.value = target.url;
       }
+      // 编辑模式也重置变换状态
+      transformState.value = { ...DEFAULT_TRANSFORM };
     } else {
       resetAll();
     }
@@ -61,6 +63,8 @@ function handleResourceChange(resource: any) {
     const fpUrl = convertToFpUrl(resource.url);
     formState.tempFilePath = fpUrl;
     previewUrl.value = fpUrl;
+    // 切换模型时重置变换状态
+    transformState.value = { ...DEFAULT_TRANSFORM };
   }
 }
 

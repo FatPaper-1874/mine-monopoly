@@ -16,8 +16,10 @@ const selectedCount = computed(() => editorStore.selectedMapItemIds.length);
 const hasMultipleSelection = computed(() => editorStore.hasMultipleSelection);
 const selectedItems = computed(() => editorStore.selectedMapItems);
 const canMove = computed(() => {
-  const result = editorStore.selectedMapItemIds.length > 0;
-  console.log('[移动按钮状态] canMove:', result, '选中项数量:', editorStore.selectedMapItemIds.length);
+  const hasMultiSelection = editorStore.selectedMapItemIds.length > 0;
+  const hasSingleSelection = !!currentMapItemId.value;
+  const result = hasMultiSelection || hasSingleSelection;
+  console.log('[移动按钮状态] canMove:', result, '多选数量:', editorStore.selectedMapItemIds.length, '单选:', currentMapItemId.value);
   return result;
 });
 
@@ -110,6 +112,43 @@ function handleMapItemDelete() {
 		eventBus.emit("batch-delete-map-items", editorStore.selectedMapItemIds);
 	}
 }
+
+function handleRotate(direction: 'clockwise' | 'counter-clockwise') {
+	console.log('[旋转函数] handleRotate 被调用，方向:', direction);
+
+	const store = useEditorStore();
+	console.log('[旋转函数] 选中项数量:', store.selectedMapItemIds.length);
+
+	// 获取要旋转的 MapItem ID 列表（支持多选和单选）
+	let idsToRotate: string[] = [];
+
+	if (store.selectedMapItemIds.length > 0) {
+		// 多选模式：使用选中的 IDs
+		idsToRotate = store.selectedMapItemIds;
+	} else if (currentMapItemId.value) {
+		// 单选模式：使用当前选中的 ID
+		idsToRotate = [currentMapItemId.value];
+	}
+
+	if (idsToRotate.length === 0) {
+		message.info("未选中任何 MapItem", 1);
+		return;
+	}
+
+	const rotateDir = direction === 'clockwise' ? 1 : -1;
+
+	try {
+		// 通过 eventBus 通知 renderer 执行旋转
+		eventBus.emit('batch-rotate-map-items', {
+			ids: idsToRotate,
+			direction: rotateDir
+		});
+		console.log('[旋转函数] 事件已发送');
+	} catch (e: any) {
+		console.error('[旋转函数] 发送事件失败:', e);
+		message.error(e.message, 2);
+	}
+}
 </script>
 
 <template>
@@ -124,6 +163,7 @@ function handleMapItemDelete() {
 
 						<!-- 方向控制按钮 -->
 						<div class="move-controls">
+							<div class="control-label">移动</div>
 							<div class="direction-pad">
 								<a-button
 									type="primary"
@@ -164,6 +204,31 @@ function handleMapItemDelete() {
 							</div>
 						</div>
 
+						<!-- 旋转控制按钮 -->
+						<div class="move-controls">
+							<div class="control-label">旋转</div>
+							<div class="rotate-controls">
+								<a-button
+									type="default"
+									@click="() => handleRotate('counter-clockwise')"
+									:disabled="!canMove"
+									class="rotate-btn"
+								>
+									<font-awesome-icon :icon="['fas', 'rotate-left']" />
+									<span>逆时针 90°</span>
+								</a-button>
+								<a-button
+									type="default"
+									@click="() => handleRotate('clockwise')"
+									:disabled="!canMove"
+									class="rotate-btn"
+								>
+									<font-awesome-icon :icon="['fas', 'rotate-right']" />
+									<span>顺时针 90°</span>
+								</a-button>
+							</div>
+						</div>
+
 						<a-button type="primary" danger @click="handleMapItemDelete">
 							批量删除 (Delete)
 						</a-button>
@@ -174,6 +239,29 @@ function handleMapItemDelete() {
 				<template v-if="currentMapItem && !hasMultipleSelection">
 					<map-event-selector v-if="!currentMapItem.beLinked" />
 					<map-item-info :map-item="currentMapItem"></map-item-info>
+
+					<!-- 旋转控制 -->
+					<div class="move-controls single-select-controls">
+						<div class="control-label">旋转</div>
+						<div class="rotate-controls">
+							<a-button
+								type="default"
+								@click="() => handleRotate('counter-clockwise')"
+								class="rotate-btn"
+							>
+								<font-awesome-icon :icon="['fas', 'rotate-left']" />
+								<span>逆时针 90°</span>
+							</a-button>
+							<a-button
+								type="default"
+								@click="() => handleRotate('clockwise')"
+								class="rotate-btn"
+							>
+								<font-awesome-icon :icon="['fas', 'rotate-right']" />
+								<span>顺时针 90°</span>
+							</a-button>
+						</div>
+					</div>
 					<a-button
 						type="primary"
 						v-if="!(currentMapItem.linkto || currentMapItem.beLinked)"
@@ -197,7 +285,6 @@ function handleMapItemDelete() {
 		</div>
 	</div>
 </template>
-
 <style lang="scss" scoped>
 .select-mode-ui {
 	width: 100%;
@@ -225,6 +312,42 @@ function handleMapItemDelete() {
 		right: 0;
 	}
 
+	// 单选模式的旋转控制样式
+	.single-select-controls {
+		background-color: white;
+		padding: 12px;
+		border: 1px solid #d9d9d9;
+		border-radius: 4px;
+		margin-bottom: 12px;
+
+		.control-label {
+			font-size: 13px;
+			font-weight: 500;
+			color: #666;
+			margin-bottom: 8px;
+			text-align: center;
+		}
+
+		.rotate-controls {
+			display: flex;
+			gap: 8px;
+			justify-content: center;
+
+			.rotate-btn {
+				flex: 1;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				gap: 6px;
+				font-size: 13px;
+
+				span {
+					font-size: 12px;
+				}
+			}
+		}
+	}
+
 	.multi-select-panel {
 		background-color: white;
 		padding: 12px;
@@ -249,6 +372,14 @@ function handleMapItemDelete() {
 			background-color: #fafafa;
 			margin-bottom: 12px;
 
+			.control-label {
+				font-size: 13px;
+				font-weight: 500;
+				color: #666;
+				margin-bottom: 8px;
+				text-align: center;
+			}
+
 			.direction-pad {
 				display: flex;
 				flex-direction: column;
@@ -271,6 +402,25 @@ function handleMapItemDelete() {
 				.horizontal-buttons {
 					display: flex;
 					gap: 8px;
+				}
+			}
+
+			.rotate-controls {
+				display: flex;
+				gap: 8px;
+				justify-content: center;
+
+				.rotate-btn {
+					flex: 1;
+					display: flex;
+					align-items: center;
+					justify-content: center;
+					gap: 6px;
+					font-size: 13px;
+
+					span {
+						font-size: 12px;
+					}
 				}
 			}
 		}

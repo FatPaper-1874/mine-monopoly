@@ -373,6 +373,8 @@ export class GameRenderer {
 			const model = this.mapModules.get(mapItem.type.modelId);
 			if (!model) throw Error("加载MapItem时找不到模型");
 			const mapItemModel = new THREE.Group().copy(model);
+			// 保存原始模型的Y偏移，用于正确放置地皮
+			const originalY = model.position.y;
 			// mapItemModel.scale.set(0.5, 0.5, 0.5);
 			mapItemModel.userData["position"] = { x: mapItem.x, y: mapItem.y };
 			mapItemModel.userData["rotation"] = mapItem.rotation;
@@ -383,16 +385,17 @@ export class GameRenderer {
 				if (mapEvent) mapItemModel.userData["mapEvent"] = clone(mapEvent);
 			}
 
-			this.setItemPositionOnMap(mapItemModel, mapItem.x, mapItem.y, mapItem.rotation);
+			// 使用原始模型的Y偏移来放置地皮
+			this.setItemPositionOnMap(mapItemModel, mapItem.x, mapItem.y, mapItem.rotation, originalY);
 			this.mapItemsInScene.set(mapItem.id, mapItemModel);
 			this.mapContainer.add(mapItemModel);
 
 			// [修改] 如果有事件图标，需要计算当前格子的表面高度来放置图标
 			if (mapItem.mapEventId) {
 				const arrivedEvent = useMapData().getMapEventById(mapItem.mapEventId);
-				if (!arrivedEvent) return;
+				if (!arrivedEvent) continue;
 				const iconUrl = useResourceStore().getRecourceById(arrivedEvent.iconId)?.url;
-				if (!iconUrl) return;
+				if (!iconUrl) continue;
 				const texture = await textureLoader.loadAsync(iconUrl);
 				texture.colorSpace = THREE.SRGBColorSpace;
 				const planeGeometry = new THREE.PlaneGeometry(1, 1);

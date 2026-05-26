@@ -383,6 +383,26 @@ export const useMapDataStore = defineStore("MapData", {
 			});
 		},
 
+			// 批量旋转 MapItem
+			batchRotateMapItem(ids: string[], direction: 1 | -1) {
+				if (ids.length === 0) return;
+
+				// 执行旋转（direction: 1 = 顺时针 90°, -1 = 逆时针 90°）
+				ids.forEach(id => {
+					const item = this.findMapItemById(id);
+					if (item) {
+						// rotation 值域为 0 | 1 | 2 | 3，分别对应 0°, 90°, 180°, 270°
+						const newRotation = ((item.rotation + direction + 4) % 4) as 0 | 1 | 2 | 3;
+						this.updateMapItem(id, { rotation: newRotation });
+					}
+				});
+
+				// 通知渲染器更新
+				ids.forEach(id => {
+					eventBus.emit("map-item-updated", id);
+				});
+			},
+
 		// MapEvent edit
 		updateMapEvent(mapEvent: MapEvent) {
 			this.editMapEvent(mapEvent);
