@@ -1517,7 +1517,18 @@ export class MapRenderer {
 		iconPlane.renderOrder = 999;
 		this.mapEventInScene.set(mapItem.id, iconPlane);
 		this.mapEventGroup.add(iconPlane);
-		this.setItemPositionOnMap(iconPlane, mapItem.x, mapItem.y, undefined, 0.1);
+
+		// 获取 mapItem 模型
+		const mapItemModel = this.mapItemsInScene.get(mapItem.id);
+		if (mapItemModel) {
+			// 获取格子表面高度
+			const surfaceY = this.getMapItemSurfaceHeight(mapItemModel);
+			// 放在表面上方
+			this.setItemPositionOnMap(iconPlane, mapItem.x, mapItem.y, undefined, surfaceY + 0.01);
+		} else {
+			// 回退方案：如果找不到模型，使用默认高度
+			this.setItemPositionOnMap(iconPlane, mapItem.x, mapItem.y, undefined, 0.1);
+		}
 	}
 
 	private removeMapEventIcon(mapItemId: string) {
@@ -1593,6 +1604,38 @@ export class MapRenderer {
 		// this.camera.up.set(0, 0, -1);
 		this.camera.lookAt(center);
 		this.controls.target.set(center.x, center.y, center.z);
+	}
+
+	/**
+	 * 获取指定 MapItem 模型的表面高度 (世界坐标 Y)
+	 * 优先查找名为 'Floor'/'Base'/'Ground' 的子Mesh作为地面基准
+	 * @param mapItem 格子的 Group 对象
+	 */
+	private getMapItemSurfaceHeight(mapItem: THREE.Object3D): number {
+		if (!mapItem) return 0;
+
+		let target: THREE.Object3D | null = null;
+		// 1. 尝试寻找明确标记为地面的子对象
+		mapItem.traverse((child) => {
+			const name = child.name.toLowerCase();
+			if (name.includes("floor") || name.includes("base") || name.includes("ground")) {
+				// 简单的启发式：通常地面是 Mesh
+				//@ts-ignore
+				if (child.isMesh) {
+					target = child;
+				}
+			}
+		});
+
+		// 2. 如果没找到特定地面，就计算整体包围盒
+		if (!target) target = mapItem;
+
+		const box = new THREE.Box3().setFromObject(target);
+
+		// 3. 安全检查：如果包围盒无效，回退到物体原点
+		if (box.isEmpty()) return mapItem.position.y;
+
+		return box.max.y;
 	}
 
 	public destroy(): void {
