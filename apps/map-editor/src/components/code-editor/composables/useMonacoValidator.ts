@@ -14,72 +14,57 @@ export interface ValidateResult {
  * 代码类型对应的模板配置
  */
 interface TemplateConfig {
-	/** 模板头代码（import + 参数声明 + 箭头函数开头） */
+	/** 模板头代码（箭头函数开头） */
 	header: string;
 	/** 模板尾（闭合括号） */
 	footer: string;
+	/**
+	 * 动态生成 header 的函数（用于修饰器根据 commandType 生成精确模板）
+	 */
+	dynamicHeader?: (commandType?: string) => string;
 }
 
 /**
  * 各代码类型的模板定义
- * header 行数决定了用户代码的起始行偏移
+ * 所有类型（IPlayer、IGameProcess、MoneyTag 等）由 editor-lib.d.ts 全局声明，无需 import。
+ * header 行数决定了用户代码的起始行偏移。
  */
 const TEMPLATES: Record<string, TemplateConfig> = {
 	"chance-card": {
-		header: `import type { IPlayer, IProperty, IChanceCard, IGameProcess } from "@mine-monopoly/types/interfaces/game/game-process";
-	import { MoneyTag } from "@mine-monopoly/types/enums/money-tag";
-
-	(async (sourcePlayer: IPlayer, target: IPlayer | IProperty | IPlayer[] | IProperty[], gameProcess: IGameProcess) => {
-	`,
+		header: `(async (sourcePlayer: IPlayer, target: IPlayer | IProperty | IPlayer[] | IProperty[], gameProcess: IGameProcess) => {
+`,
 		footer: `});
-	`,
+`,
 	},
 	"map-event": {
-		header: `import type { IPlayer, IGameProcess } from "@mine-monopoly/types/interfaces/game/game-process";
-	import { MoneyTag } from "@mine-monopoly/types/enums/money-tag";
-
-	(async (player: IPlayer, gameProcess: IGameProcess) => {
-	`,
+		header: `(async (player: IPlayer, gameProcess: IGameProcess) => {
+`,
 		footer: `});
-	`,
+`,
 	},
 	"role": {
-		header: `import type { IPlayer, IGameProcess } from "@mine-monopoly/types/interfaces/game/game-process";
-	import { MoneyTag } from "@mine-monopoly/types/enums/money-tag";
-
-	((player: IPlayer, gameProcess: IGameProcess) => {
-	`,
+		header: `((player: IPlayer, gameProcess: IGameProcess) => {
+`,
 		footer: `});
-	`,
+`,
 	},
 	"game-phase": {
-		header: `import type { GameContext, IGameProcess } from "@mine-monopoly/types/interfaces/game/game-process";
-	import { MoneyTag } from "@mine-monopoly/types/enums/money-tag";
-
-	((ctx: GameContext, gameProcess: IGameProcess) => {
-	`,
+		header: `((ctx: GameContext, gameProcess: IGameProcess) => {
+`,
 		footer: `});
-	`,
+`,
 	},
 	"modifier": {
-		header: `import type { IPlayer, IGameProcess } from "@mine-monopoly/types/interfaces/game/game-process";
-	import type { ICommand, ICommandContext, ICommandMap } from "@mine-monopoly/types/interfaces/game/action-system/command";
-	import type { ModifierTemplate } from "@mine-monopoly/types/interfaces/game/action-system/modifier";
-	import { MoneyTag } from "@mine-monopoly/types/enums/money-tag";
-
-	(async (player: IPlayer, gameProcess: IGameProcess, cmd: ICommand<ICommandMap, keyof ICommandMap>, ctx: ICommandContext<ICommandMap, keyof ICommandMap>) => {
-	`,
+		header: "",  // 使用 dynamicHeader 动态生成
+		dynamicHeader: generateModifierHeader,
 		footer: `});
-	`,
+`,
 	},
 	"property": {
-		header: `import type { IPlayer, IProperty, IGameProcess } from "@mine-monopoly/types/interfaces/game/game-process";
-	import { MoneyTag } from "@mine-monopoly/types/enums/money-tag";
-
-	(async (player: IPlayer, property: IProperty, gameProcess: IGameProcess) => {
-	`,
+		header: `(async (player: IPlayer, property: IProperty, gameProcess: IGameProcess) => {
+`,
 		footer: `});
-	`,
+`,
 	},
 	"extra-libs": {
 		header: "",
@@ -88,11 +73,35 @@ const TEMPLATES: Record<string, TemplateConfig> = {
 };
 
 /**
- * 获取模板头的行数（用于偏移错误行号）
+ * 根据命令类型获取对应的 CommandMap 类型和 owner 参数名称
+ * player.* 命令使用 PlayerCommandMap，owner 参数为 player: IPlayer
+ * property.* 命令使用 PropertyCommandMap，owner 参数为 property: IProperty
+ * 其他命令回退到 ICommandMap
  */
-function getHeaderLineCount(codeType: string): number {
-	const header = TEMPLATES[codeType]?.header || "";
-	return header.split("\n").length - 1; // header 末尾有换行，最后一行算第 0 行偏移
+function getCommandMapType(commandType: string): { commandMap: string; ownerName: string; ownerType: string } {
+	if (commandType.startsWith("player.")) {
+		return { commandMap: "PlayerCommandMap", ownerName: "player", ownerType: "IPlayer" };
+	}
+	if (commandType.startsWith("property.")) {
+		return { commandMap: "PropertyCommandMap", ownerName: "property", ownerType: "IProperty" };
+	}
+	return { commandMap: "ICommandMap", ownerName: "owner", ownerType: "any" };
+}
+
+/**
+ * 动态生成修饰器 header 模板
+ * 所有类型由 editor-lib.d.ts 全局声明，无需 import。
+ */
+function generateModifierHeader(commandType?: string): string {
+	// 如果提供了具体的 commandType，使用精确的类型签名
+	if (commandType && commandType.trim()) {
+		const { commandMap, ownerName, ownerType } = getCommandMapType(commandType);
+		return `(async (${ownerName}: ${ownerType}, gameProcess: IGameProcess, cmd: ICommand<${commandMap}, "${commandType}">, ctx: ICommandContext<${commandMap}, "${commandType}">) => {
+`;
+	}
+	// 默认使用泛型签名
+	return `(async (player: IPlayer, gameProcess: IGameProcess, cmd: ICommand<ICommandMap, keyof ICommandMap>, ctx: ICommandContext<ICommandMap, keyof ICommandMap>) => {
+`;
 }
 
 /**
@@ -105,9 +114,10 @@ export function useMonacoValidator() {
 	 * 校验代码
 	 * @param code 用户代码片段（不含模板包装）
 	 * @param codeType 代码类型
+	 * @param commandType 命令类型（仅修饰器需要，用于生成精确模板）
 	 * @returns 校验结果
 	 */
-	async function validate(code: string, codeType: string): Promise<ValidateResult> {
+	async function validate(code: string, codeType: string, commandType?: string): Promise<ValidateResult> {
 		const template = TEMPLATES[codeType];
 		if (!template) {
 			return {
@@ -115,6 +125,11 @@ export function useMonacoValidator() {
 				errors: [{ line: 0, column: 0, message: `Unknown codeType: ${codeType}` }],
 			};
 		}
+
+		// 获取 header（优先使用动态生成）
+		const header = template.dynamicHeader
+			? template.dynamicHeader(commandType)
+			: template.header;
 
 		// 获取全局 Monaco 单例
 		const monacoInstance = await getMonacoInstance();
@@ -125,30 +140,10 @@ export function useMonacoValidator() {
 			};
 		}
 
-		// 获取动态类型声明（修饰器、UI 模板等）
-		// 将它们直接内联到代码中，而不是通过 setExtraLibs（因为 declare global 在 extraLibs 中可能不生效）
-		let dynamicTypeDeclarations = "";
-		try {
-			const dynamicLibs = await mapContentService.getAllTypeLibs();
-			// 提取 declare global 块中的内容
-			const extractGlobalContent = (libContent: string) => {
-				const match = libContent.match(/declare global\s*{([\s\S]*?)}/);
-				return match ? match[1] : "";
-			};
-			if (dynamicLibs.modifierTemplateTypes) {
-				dynamicTypeDeclarations += extractGlobalContent(dynamicLibs.modifierTemplateTypes) + "\n";
-			}
-			if (dynamicLibs.uiTemplateTypes) {
-				dynamicTypeDeclarations += extractGlobalContent(dynamicLibs.uiTemplateTypes) + "\n";
-			}
-		} catch {
-			// 动态类型获取失败，继续使用静态类型
-		}
-
-		// 组装完整代码，将动态类型声明插入到模板 header 之后
-		const fullCode = template.header + dynamicTypeDeclarations + code + "\n" + template.footer;
-		// 计算实际 header 行数（模板 header + 动态类型声明）
-		const headerLines = getHeaderLineCount(codeType) + dynamicTypeDeclarations.split("\n").length;
+		// 组装完整代码：只有 template header + 用户代码 + footer
+		const fullCode = header + code + "\n" + template.footer;
+		// header 行数（仅模板 header，动态类型通过 extraLibs 加载）
+		const headerLines = header.split("\n").length;
 
 		// 注入完整类型库到 Monaco TS 语言服务
 		const tsDefaults = monacoInstance.languages.typescript.typescriptDefaults;
@@ -159,15 +154,20 @@ export function useMonacoValidator() {
 			libs.push({ content: staticEditorLib, filePath: 'file:///static-types.d.ts' });
 		}
 
-		// 额外库代码（用户自定义）
+		// 额外库代码（用户自定义 + 动态类型 + 游戏设置）
 		try {
 			const dynamicLibs = await mapContentService.getAllTypeLibs();
 			if (dynamicLibs.extraLibs) {
 				libs.push({ content: dynamicLibs.extraLibs, filePath: 'file:///extra-libs.d.ts' });
 			}
-			// 游戏设置类型也通过 extraLibs 加载
 			if (dynamicLibs.gameSettingTypes) {
 				libs.push({ content: dynamicLibs.gameSettingTypes, filePath: 'file:///game-settings.d.ts' });
+			}
+			if (dynamicLibs.modifierTemplateTypes) {
+				libs.push({ content: dynamicLibs.modifierTemplateTypes, filePath: 'file:///modifier-templates.d.ts' });
+			}
+			if (dynamicLibs.uiTemplateTypes) {
+				libs.push({ content: dynamicLibs.uiTemplateTypes, filePath: 'file:///ui-templates.d.ts' });
 			}
 		} catch {
 			// extra libs not available, continue with static only
@@ -186,23 +186,30 @@ export function useMonacoValidator() {
 		const model = monacoInstance.editor.createModel(fullCode, "typescript", uri);
 
 		try {
-			// 等待 TS worker 产出诊断
-			const markers = await waitForDiagnostics(monacoInstance, uri, 3000);
+			// 等待 TS worker 产出诊断（使用 debounce 确保分析完成）
+			const markers = await waitForDiagnostics(monacoInstance, uri, 5000);
 
-			// 提取错误（只取 Severity.Error，只保留用户代码行范围）
+			// 提取错误
 			const userCodeLineCount = code.split("\n").length;
 			const errors: ValidateResult["errors"] = [];
 
 			for (const marker of markers) {
 				if (marker.severity !== monacoInstance.MarkerSeverity.Error) continue;
-				// 转换为用户代码内的相对行号
 				const userLine = marker.startLineNumber - headerLines;
-				if (userLine < 1 || userLine > userCodeLineCount) continue;
-				errors.push({
-					line: userLine,
-					column: marker.startColumn,
-					message: marker.message,
-				});
+				// header 区域错误（如类型解析失败）也要报告，因为可能意味着类型推断失效
+				if (userLine <= 0) {
+					errors.push({
+						line: 0,
+						column: marker.startColumn,
+						message: `[初始化错误] ${marker.message}`,
+					});
+				} else if (userLine <= userCodeLineCount) {
+					errors.push({
+						line: userLine,
+						column: marker.startColumn,
+						message: marker.message,
+					});
+				}
 			}
 
 			return { valid: errors.length === 0, errors };
@@ -234,6 +241,9 @@ function getMonacoInstance(): Promise<typeof monaco | null> {
 					module: m.languages.typescript.ModuleKind.CommonJS,
 					noEmit: true,
 					esModuleInterop: true,
+					strict: true,
+					noImplicitAny: true,
+					strictNullChecks: true,
 				});
 			} catch {
 				// compiler options already set
@@ -246,6 +256,10 @@ function getMonacoInstance(): Promise<typeof monaco | null> {
 
 /**
  * 等待 Monaco TS worker 产出指定 URI 的诊断信息
+ *
+ * 使用 debounce 机制确保 TS worker 完成全部分析后再返回结果。
+ * TS worker 可能分多批次产出诊断（语法分析 → 语义分析），
+ * 只有在 markers 稳定后（500ms 内无新事件）才确认完成。
  */
 function waitForDiagnostics(
 	monacoInstance: typeof monaco,
@@ -255,31 +269,32 @@ function waitForDiagnostics(
 	return new Promise((resolve) => {
 		const key = uri.toString();
 		let done = false;
+		let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 		const finish = (markers: monaco.editor.IMarker[]) => {
 			if (done) return;
 			done = true;
+			if (debounceTimer) clearTimeout(debounceTimer);
 			disposable.dispose();
 			resolve(markers);
 		};
 
-		// 监听 markers 变化
+		// 监听 markers 变化，使用 debounce 等待 TS worker 分析完成
 		const disposable = monacoInstance.editor.onDidChangeMarkers((uris) => {
 			if (uris.some((u) => u.toString() === key)) {
-				const markers = monacoInstance.editor.getModelMarkers({ resource: uri });
-				finish(markers);
+				// 每次收到新的 markers，重置 debounce timer
+				// 只有在 markers 稳定后才确认完成
+				if (debounceTimer) clearTimeout(debounceTimer);
+				debounceTimer = setTimeout(() => {
+					const markers = monacoInstance.editor.getModelMarkers({ resource: uri });
+					finish(markers);
+				}, 500);
 			}
 		});
 
-		// 先检查是否已有结果
-		const existing = monacoInstance.editor.getModelMarkers({ resource: uri });
-		if (existing.length > 0) {
-			finish(existing);
-			return;
-		}
-
-		// 超时兜底：无错误时返回空数组
+		// 全局超时兜底
 		setTimeout(() => {
+			if (done) return;
 			const markers = monacoInstance.editor.getModelMarkers({ resource: uri });
 			finish(markers);
 		}, timeoutMs);

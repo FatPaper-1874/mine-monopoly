@@ -1216,9 +1216,9 @@ export class MapContentService {
 	 *
 	 * Uses Monaco TS language service to type-check effectCode.
 	 */
-	async validateEffectCode(data: { code: string; codeType: string }) {
+	async validateEffectCode(data: { code: string; codeType: string; commandType?: string }) {
 		const { validate } = useMonacoValidator();
-		return await validate(data.code, data.codeType);
+		return await validate(data.code, data.codeType, data.commandType);
 	}
 
 }

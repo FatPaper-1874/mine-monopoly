@@ -1,4 +1,14 @@
 /**
+ * 单个命令的类型定义
+ */
+export type ICommandType<P = unknown, R = unknown> = {
+	/** 命令负载数据类型 */
+	payload: P;
+	/** 命令执行结果类型 */
+	result: R;
+};
+
+/**
  * 命令接口，用于封装命令类型和负载数据
  * @template C - 命令映射类型
  * @template K - 命令类型的键
@@ -7,7 +17,7 @@ export type ICommand<C extends ICommandMap, K extends keyof C> = {
 	/** 命令类型 */
 	type: K;
 	/** 命令负载数据 */
-	payload: C[K]["payload"];
+	payload: C[K] extends ICommandType<infer P, any> ? P : never;
 };
 
 /**
@@ -24,11 +34,11 @@ export interface ICommandContext<C extends ICommandMap, K extends keyof C> {
 	 * 取消命令执行
 	 * @param result - 命令取消后的返回值（必须提供）
 	 */
-	cancel(result: C[K]["result"]): void;
+	cancel(result: C[K] extends ICommandType<any, infer R> ? R : never): void;
 	/** 设置命令执行结果 */
-	setResult(result: C[K]["result"]): void;
+	setResult(result: C[K] extends ICommandType<any, infer R> ? R : never): void;
 	/** 命令执行结果（可选） */
-	result?: C[K]["result"];
+	result?: C[K] extends ICommandType<any, infer R> ? R : never;
 
 	/**
 	 * 跳过当前修饰器的触发次数消耗
@@ -54,7 +64,7 @@ export interface ICommandBus<C extends ICommandMap> {
 	 * @param command - 要执行的命令
 	 * @returns 命令执行结果
 	 */
-	execute<K extends keyof C>(command: ICommand<C, K>): Promise<C[K]["result"]>;
+	execute<K extends keyof C>(command: ICommand<C, K>): Promise<C[K] extends ICommandType<any, infer R> ? R : never>;
 
 	/**
 	 * 设置命令处理器
@@ -63,7 +73,7 @@ export interface ICommandBus<C extends ICommandMap> {
 	 */
 	setHandler<K extends keyof C>(
 		type: K,
-		handler: (payload: C[K]["payload"]) => C[K]["result"] | Promise<C[K]["result"]>
+		handler: (payload: C[K] extends ICommandType<infer P, any> ? P : never) => (C[K] extends ICommandType<any, infer R> ? R : never) | Promise<C[K] extends ICommandType<any, infer R> ? R : never>
 	): void;
 }
 
@@ -71,13 +81,7 @@ export interface ICommandBus<C extends ICommandMap> {
  * 命令映射接口
  * 定义所有命令的负载（payload）和结果（result）类型
  * 用作命令总线的类型约束
+ *
+ * 具体命令映射（如 PlayerCommandMap、PropertyCommandMap）应继承此接口并定义具体命令类型。
  */
-export interface ICommandMap {
-	/** 命令类型字符串 */
-	[commandType: string]: {
-		/** 命令负载数据类型 */
-		payload: any;
-		/** 命令执行结果类型 */
-		result: any;
-	};
-}
+export interface ICommandMap {}
