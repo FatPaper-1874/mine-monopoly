@@ -58,6 +58,9 @@ type Events = {
 		message: string;
 		details?: any;
 	};
+
+	// Monaco 类型刷新事件
+	"refresh-monaco-types": void;
 };
 
 export const eventBus = mitt<Events>();

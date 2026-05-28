@@ -244,6 +244,8 @@ export async function handleToolInvocation(toolName: MCPToolName, args: any): Pr
 
 			case "update_extra_libs": {
 				await mapContentService.updateExtraLibs(args.code);
+				// 发送类型刷新事件，通知 Monaco 验证器清除缓存
+				eventBus.emit("refresh-monaco-types");
 				result = { success: true };
 				break;
 			}

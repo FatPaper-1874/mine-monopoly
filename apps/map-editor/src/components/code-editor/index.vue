@@ -110,16 +110,28 @@ onMounted(async () => {
 		editorInstance.setValue(code.value);
 	}
 
-	// 一次性注入类型库
-	if (!props.skipTypeLibs) {
-	refreshTypeLibs({
-		staticTypes: props.staticTypes,
-		extraLibs: mapDataStore.extraLibs || '',
-		uiTemplates: mapDataStore.uiTemplates || [],
-		gameSettingForm: mapDataStore.gameSettingForm || [],
-		modifierTemplates: mapDataStore.modifierTemplates || [],
-	});
-	}
+	// 注入类型库（挂载时 + store 变化时）
+	const refreshTypes = () => {
+		if (props.skipTypeLibs || !monacoInstance.value) return;
+		refreshTypeLibs({
+			staticTypes: props.staticTypes,
+			extraLibs: mapDataStore.extraLibs || '',
+			uiTemplates: mapDataStore.uiTemplates || [],
+			gameSettingForm: mapDataStore.gameSettingForm || [],
+			modifierTemplates: mapDataStore.modifierTemplates || [],
+		});
+	};
+	refreshTypes();
+
+	watch(
+		() => [
+			mapDataStore.extraLibs,
+			mapDataStore.uiTemplates,
+			mapDataStore.gameSettingForm,
+			mapDataStore.modifierTemplates,
+		],
+		() => refreshTypes(),
+	);
 
 	// 监听内容变化
 	editorInstance.onDidChangeModelContent(() => {

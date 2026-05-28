@@ -2,6 +2,7 @@
 import { ref, watch } from "vue";
 import { message } from "ant-design-vue"; // 假设使用了 ant-design-vue 的 message
 import { useMapDataStore } from "@src/stores";
+import { eventBus } from "@src/utils/event-bus";
 import CodeEditor from "@src/components/code-editor/index.vue";
 
 const visible = defineModel({ default: false });
@@ -21,6 +22,7 @@ watch(
 
 function handleSave() {
 	store.extraLibs = localEffectCode.value;
+	eventBus.emit("refresh-monaco-types");
 	message.success("保存成功");
 	visible.value = false;
 }

@@ -1,6 +1,13 @@
 import * as monaco from "monaco-editor";
 import { mapContentService } from "@src/services";
+import { eventBus } from "@src/utils/event-bus";
 import staticEditorLib from "../editor-lib.d.ts?raw";
+
+// 监听类型刷新事件
+eventBus.on("refresh-monaco-types", () => {
+	// 清除 Monaco Promise 缓存，强制重新初始化
+	monacoPromise = null;
+});
 
 /**
  * 验证结果
@@ -179,6 +186,9 @@ export function useMonacoValidator() {
 
 		// 保存当前 extraLibs，校验完成后恢复，避免影响 UI 编辑器
 		const prevLibs = tsDefaults.getExtraLibs();
+		// 强制清除 Monaco 缓存，确保使用最新类型
+		tsDefaults.setExtraLibs([]);
+		await new Promise(resolve => setTimeout(resolve, 0)); // 给 Monaco 处理时间
 		tsDefaults.setExtraLibs(libs);
 
 		// 创建临时 model
