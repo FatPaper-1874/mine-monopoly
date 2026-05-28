@@ -33,11 +33,13 @@
 	//pinia仓库
 	const mapDataStore = useMapData();
 	const userInfoStore = useUserInfo();
+	const gameDataStore = useGameData();
 
 	const windowWidth = computed(() => window.innerWidth);
 	const windowHeight = computed(() => window.innerHeight);
 
 	const currentPlayerId = computed(() => userInfoStore.userId);
+	const gameDataState = computed(() => gameDataStore.$state);
 
 	let socketClient: MonopolyClient;
 	let gameRenderer: GameRenderer | null;
@@ -113,7 +115,7 @@
 				<UiRenderer
 					v-for="ui in mapDataStore.customUIs"
 					:schema="getUiTemplateById(ui.uiSchema)"
-					:context="useGameData().$state"
+					:context="gameDataState"
 					:style="{
 						gridArea: `${ui.layout.y + 1} / ${ui.layout.x + 1} / span ${ui.layout.height} / span ${ui.layout.width}`,
 						zIndex: `var(--z-ui)`,

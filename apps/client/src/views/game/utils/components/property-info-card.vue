@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
 import { PropertyInfo } from "@mine-monopoly/types";
-import { useMapData } from "@src/store/game";
+import { useMapData, useGameData } from "@src/store/game";
 import UiRenderer from "@src/components/utils/ui-renderer/ui-renderer.vue";
 
 const props = defineProps<{ property: PropertyInfo | null }>();
@@ -48,7 +48,7 @@ defineExpose({ updateProperty });
 <template>
 	<div class="property-info felt-card" v-if="_property">
 		<template v-if="_property.customUI">
-			<UiRenderer :schema="getUiTemplateById(_property.customUI)" :context="{ property: _property }" />
+			<UiRenderer :schema="getUiTemplateById(_property.customUI)" :context="{ property: _property, exportData: useGameData().exportData }" />
 		</template>
 
 		<template v-else>

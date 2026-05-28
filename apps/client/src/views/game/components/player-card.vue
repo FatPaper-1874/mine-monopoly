@@ -3,6 +3,7 @@ import { PlayerInfo } from "@mine-monopoly/types";
 import { PropType, computed, ref, watch } from "vue";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { __PROTOCOL__ } from "@src/../global.config";
+import { useGameData } from "@src/store/game";
 import UiRenderer from "@src/components/utils/ui-renderer/ui-renderer.vue";
 import gsap from "gsap";
 
@@ -59,7 +60,7 @@ watch(
 		</div>
 
 		<div class="info" :style="{ color: _userInfo.color }">
-			<UiRenderer :schema="player.infoDisplay" :context="{ player }" />
+			<UiRenderer :schema="player.infoDisplay" :context="{ player, exportData: useGameData().exportData }" />
 		</div>
 	</div>
 </template>
