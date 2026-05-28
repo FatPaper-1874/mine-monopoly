@@ -17,7 +17,7 @@ export type ICommand<C extends ICommandMap, K extends keyof C> = {
 	/** 命令类型 */
 	type: K;
 	/** 命令负载数据 */
-	payload: C[K] extends ICommandType<infer P, any> ? P : never;
+	payload: C[K]["payload"];
 };
 
 /**
@@ -34,11 +34,11 @@ export interface ICommandContext<C extends ICommandMap, K extends keyof C> {
 	 * 取消命令执行
 	 * @param result - 命令取消后的返回值（必须提供）
 	 */
-	cancel(result: C[K] extends ICommandType<any, infer R> ? R : never): void;
+	cancel(result: C[K]["result"]): void;
 	/** 设置命令执行结果 */
-	setResult(result: C[K] extends ICommandType<any, infer R> ? R : never): void;
+	setResult(result: C[K]["result"]): void;
 	/** 命令执行结果（可选） */
-	result?: C[K] extends ICommandType<any, infer R> ? R : never;
+	result?: C[K]["result"];
 
 	/**
 	 * 跳过当前修饰器的触发次数消耗
@@ -64,7 +64,7 @@ export interface ICommandBus<C extends ICommandMap> {
 	 * @param command - 要执行的命令
 	 * @returns 命令执行结果
 	 */
-	execute<K extends keyof C>(command: ICommand<C, K>): Promise<C[K] extends ICommandType<any, infer R> ? R : never>;
+	execute<K extends keyof C>(command: ICommand<C, K>): Promise<C[K]["result"]>;
 
 	/**
 	 * 设置命令处理器
@@ -73,7 +73,7 @@ export interface ICommandBus<C extends ICommandMap> {
 	 */
 	setHandler<K extends keyof C>(
 		type: K,
-		handler: (payload: C[K] extends ICommandType<infer P, any> ? P : never) => (C[K] extends ICommandType<any, infer R> ? R : never) | Promise<C[K] extends ICommandType<any, infer R> ? R : never>
+		handler: (payload: C[K]["payload"]) => C[K]["result"] | Promise<C[K]["result"]>
 	): void;
 }
 
@@ -84,4 +84,6 @@ export interface ICommandBus<C extends ICommandMap> {
  *
  * 具体命令映射（如 PlayerCommandMap、PropertyCommandMap）应继承此接口并定义具体命令类型。
  */
-export interface ICommandMap {}
+export interface ICommandMap {
+	[key: string]: ICommandType;
+}
