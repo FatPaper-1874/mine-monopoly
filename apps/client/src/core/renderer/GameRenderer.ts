@@ -1096,6 +1096,12 @@ export class GameRenderer {
 			this.focusOnSelf();
 		});
 
+		// 监听窗口恢复焦点事件
+		useEventBus().on("window:focus-restored", () => {
+			console.log("[渲染器] 窗口恢复焦点，重新渲染场景");
+			this.reloadScene();
+		});
+
 		useEventBus().on(
 			"player-walk",
 			async (walkPlayerId: string, step: number, walkId: string, totalSteps?: number, startStep?: number) => {
@@ -1148,7 +1154,6 @@ export class GameRenderer {
 							startStep ?? 1, // 向后兼容：如果没有提供 startStep，从第1步开始
 						);
 					} finally {
-						// 无论动画成功还是失败，都要清除标志
 						this.playerPendingWalks.delete(walkPlayerId);
 					}
 
@@ -1750,6 +1755,43 @@ export class GameRenderer {
 				// -------------------
 			}
 		}
+	}
+
+	/**
+	 * 重新加载场景（类似重新初始化渲染器）
+	 * 用于窗口恢复焦点时完全重新渲染
+	 */
+	public async reloadScene() {
+		// 1. 取消所有动画
+		this.playerPendingWalks.clear();
+
+		// 2. 清空场景动态对象
+		this.playerEntities.forEach((player) => this.scene.remove(player.model));
+		this.playerEntities.clear();
+		this.playerPosition.clear();
+
+		this.housesItems.forEach((houseItem) => {
+			this.mapContainer.remove(houseItem.group);
+			houseItem.group.traverse((object) => {
+				// @ts-ignore
+				if (object.isMesh) {
+					const mesh = object as THREE.Mesh;
+					if (Array.isArray(mesh.material)) {
+						mesh.material.forEach((m) => m.dispose());
+					} else {
+						mesh.material?.dispose();
+					}
+					mesh.geometry?.dispose();
+				}
+			});
+		});
+		this.housesItems.clear();
+
+		// 3. 重新初始化玩家
+		await this.initPlayer();
+
+		// 4. 重新初始化建筑
+		await this.initProperties();
 	}
 
 	private updatePlayerPosition(playerInfo: PlayerInfo) {

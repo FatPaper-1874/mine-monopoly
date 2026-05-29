@@ -103,6 +103,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { useDeviceStatus, useSettig } from "@src/store";
 import { isFullScreen as _isFullScreen, isLandscape as _isLandscape, isMobileDevice } from "@src/utils";
+import useEventBus from "@src/utils/event-bus";
 
 library.add(
 	faBolt,
@@ -260,7 +261,13 @@ function initDeviceStatusListener() {
 	});
 
 	document.addEventListener("visibilitychange", () => {
-		deviceStatus.isFocus = document.visibilityState === "visible";
+		const isNowFocus = document.visibilityState === "visible";
+		deviceStatus.isFocus = isNowFocus;
+
+		// 恢复焦点时发送事件，通知渲染器同步状态
+		if (isNowFocus) {
+			useEventBus().emit("window:focus-restored");
+		}
 	});
 }
 
