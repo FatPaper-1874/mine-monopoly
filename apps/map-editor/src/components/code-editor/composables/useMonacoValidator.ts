@@ -56,7 +56,7 @@ const TEMPLATES: Record<string, TemplateConfig> = {
 `,
 	},
 	"game-phase": {
-		header: `((ctx: GameContext, gameProcess: IGameProcess) => {
+		header: `(async (ctx: GameContext, gameProcess: IGameProcess) => {
 `,
 		footer: `});
 `,
