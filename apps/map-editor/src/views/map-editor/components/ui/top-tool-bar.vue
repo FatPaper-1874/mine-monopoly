@@ -4,7 +4,6 @@ import { message } from "ant-design-vue";
 import { useEditorStore, useMapDataStore } from "@src/stores";
 import { computed, ref, defineAsyncComponent, shallowRef } from "vue";
 import { eventBus } from "@src/utils/event-bus";
-import { addNewImage } from "@src/utils/file";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 
 const editorStore = useEditorStore();
@@ -50,13 +49,6 @@ const toolbarItems: ToolbarItem[] = [
 		icon: "fas fa-bezier-curve",
 		type: "modal",
 		component: defineAsyncComponent(() => import("../common/map-index-creator.vue")),
-	},
-	{
-		key: "Background",
-		text: "地图背景",
-		icon: "fas fa-image",
-		type: "action",
-		action: selectMapBackgroundImage, // 特殊逻辑直接引用函数
 	},
 	{
 		key: "Building",
@@ -156,18 +148,6 @@ function handleItemClick(item: ToolbarItem) {
 }
 
 // --- 业务逻辑：设置背景图 ---
-async function selectMapBackgroundImage() {
-	const res = await window.electronAPI.showOpenDialog({
-		title: "选择地图背景",
-		filters: [{ name: "图片", extensions: ["png", "jpg", "jpeg"] }],
-	});
-	if (res.filePaths.length > 0) {
-		const filePath = res.filePaths[0];
-		const id = await addNewImage(filePath, "Background");
-		useMapDataStore().setBackgroundImageId(id);
-		message.success("背景图设置成功");
-	}
-}
 
 // --- 业务逻辑：模式切换 ---
 const operationModeNameMap: Record<OperationMode, string> = {

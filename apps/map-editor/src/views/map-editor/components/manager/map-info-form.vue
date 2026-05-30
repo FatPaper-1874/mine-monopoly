@@ -20,13 +20,26 @@ watch(
 
 async function handleUpdateInfo() {
 	try {
-		useMapDataStore().updateMapInfo({
+		const mapDataStore = useMapDataStore();
+
+		// 处理背景图片
+		if (mapInfoForm.backgroundImageId !== mapDataStore.info.backgroundImageId) {
+			mapDataStore.setBackgroundImageId(mapInfoForm.backgroundImageId);
+		}
+
+		// 处理封面图片
+		if (mapInfoForm.coverImageId !== mapDataStore.info.coverImageId) {
+			mapDataStore.setCoverImageId(mapInfoForm.coverImageId);
+		}
+
+		// 更新其他信息
+		mapDataStore.updateMapInfo({
 			name: mapInfoForm.name,
 			author: mapInfoForm.author,
 			version: mapInfoForm.version,
 			description: mapInfoForm.description,
-			coverImageId: mapInfoForm.coverImageId,
 		});
+
 		message.success(`更新地图信息成功`, 1);
 	} catch (e: any) {
 		message.error(e.message, 1);
@@ -111,6 +124,13 @@ function handleClose() {
 				</div>
 
 				<div class="right-col">
+					<a-form-item label="地图背景" name="background-image" class="cover-item">
+						<ResourcePicker
+							type="image"
+							v-model="mapInfoForm.backgroundImageId"
+						/>
+					</a-form-item>
+
 					<a-form-item label="地图封面" name="cover-image" class="cover-item">
 						<ResourcePicker
 							type="image"
@@ -183,7 +203,7 @@ function handleClose() {
 	}
 
 	.left-col {
-		flex: 1.2;
+		flex: 1;
 		display: flex;
 		flex-direction: column;
 
@@ -197,12 +217,12 @@ function handleClose() {
 	}
 
 	.right-col {
-		flex: 0.8;
-		min-width: 220px;
-
-		.cover-item {
-			height: 100%;
-		}
+		flex: 0.75;
+		// min-width: 280px;
+		display: flex;
+		flex-direction: column;
+		gap: 16px;
+		overflow-y: auto;
 
 		.tip-text {
 			font-size: 12px;
