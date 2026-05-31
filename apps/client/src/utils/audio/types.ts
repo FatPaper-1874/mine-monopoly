@@ -22,6 +22,9 @@ export enum SoundName {
 
 	// 游戏音效
 	DICE_ROLL = "dice-roll",
+	GAIN_MONEY = "gain-money",
+	LOSE_MONEY = "lose-money",
+	PLAYER_STEP = "player-step",
 	// DICE_RESULT = "dice-result",
 	// COIN_COLLECT = "coin-collect",
 	// COIN_SPEND = "coin-spend",

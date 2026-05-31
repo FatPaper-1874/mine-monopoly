@@ -55,6 +55,24 @@ export const audioConfig: AudioManagerConfig = {
 			type: SoundType.GAME,
 			volume: 0.7,
 		},
+		{
+			name: SoundName.GAIN_MONEY,
+			src: ["/sfx/gain-money.mp3"],
+			type: SoundType.GAME,
+			volume: 0.7,
+		},
+		{
+			name: SoundName.LOSE_MONEY,
+			src: ["/sfx/lose-money.mp3"],
+			type: SoundType.GAME,
+			volume: 0.7,
+		},
+		{
+			name: SoundName.PLAYER_STEP,
+			src: ["/sfx/player-step.ogg"],
+			type: SoundType.GAME,
+			volume: 0.5,
+		},
 		// {
 		// 	name: SoundName.DICE_RESULT,
 		// 	src: ["/sfx/dice-result.ogg", "/sfx/dice-result.mp3"],
