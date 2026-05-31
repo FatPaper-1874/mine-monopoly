@@ -119,13 +119,13 @@ const handleDialogClose = () => {
 	line-height: 1.5;
 
 	// 使用 pre-wrap 保留换行符和空格
-	white-space: pre-wrap;
+	// white-space: pre-wrap;
 
 	// 直接针对 UiRenderer 的文本节点设置样式
 	// 使用 :deep() 穿透到子组件，并使用 !important 确保优先级
-	:deep(.ui-text-node) {
-		white-space: pre-wrap !important;
-	}
+	// :deep(.ui-text-node) {
+	// 	white-space: pre-wrap !important;
+	// }
 
 	// 确保所有子元素也继承 white-space
 	:deep(*) {
