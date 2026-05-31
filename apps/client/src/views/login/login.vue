@@ -14,6 +14,7 @@ import FpPopover from "@src/components/utils/fp-popover/fp-popover.vue";
 import LoginExtra from "@src/views/login/components/login-extra.vue";
 import FpDialog from "@src/components/utils/fp-dialog/fp-dialog.vue";
 import LoginForm from "@src/views/login/components/login-form.vue";
+import HeroTitle from "@src/components/hero-title";
 
 let loginCodeRenderer: LoginDiceRenderer | null;
 let diceRotate: boolean = true;
@@ -151,9 +152,7 @@ function toRoomList() {
 
 <template>
 	<div @click.once="handleFirstClick" class="login-page">
-		<div class="title">
-			<span>MineMonopoly</span>
-		</div>
+		<HeroTitle text="MineMonopoly" />
 
 		<div class="front-cover" v-show="!firstClick">
 			<div class="login-code-container">
@@ -434,69 +433,6 @@ function toRoomList() {
 		width: $img_size;
 		height: $img_size;
 		user-select: none;
-	}
-}
-
-.login-page > .title {
-	margin-top: 30px;
-
-	& > span {
-		font-size: 6em;
-		color: #ffffff;
-		letter-spacing: 0.1em;
-		display: block;
-		position: relative;
-		user-select: none;
-
-		&::before,
-		&::after {
-			content: "MineMonopoly";
-		}
-
-		&:before,
-		&:after {
-			position: absolute;
-			left: 0;
-			top: 0;
-		}
-
-		&:before {
-			color: #ff9114;
-			z-index: -1;
-			animation: rotate1 5s ease-in-out infinite;
-		}
-
-		&:after {
-			color: #7e7e7e;
-			z-index: -2;
-			animation: rotate2 5s ease-in-out infinite;
-		}
-	}
-
-	@keyframes rotate1 {
-		0%,
-		100% {
-			-webkit-transform: translate3d(0.2rem, 0.2rem, 0.2rem);
-			transform: translate3d(0.2rem, 0.2rem, 0.2rem);
-		}
-
-		50% {
-			-webkit-transform: translate3d((-0.2rem, 0.2rem, -0.2rem));
-			transform: translate3d((-0.2rem, 0.2rem, -0.2rem));
-		}
-	}
-
-	@keyframes rotate2 {
-		0%,
-		100% {
-			-webkit-transform: translate3d(5px, 5px, 5px);
-			transform: translate3d(5px, 5px, 5px);
-		}
-
-		50% {
-			-webkit-transform: translate3d((-5px, 5px, -5px));
-			transform: translate3d((-5px, 5px, -5px));
-		}
 	}
 }
 </style>
