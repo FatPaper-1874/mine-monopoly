@@ -40,6 +40,8 @@ import { showItemSelector } from "@src/components/utils/item-selector";
 import { FPMessageCard } from "../../components/utils/fp-message-card/index";
 import { logErrorWithOptions } from "@src/utils/log/error-helpers";
 import { ErrorCategory } from "@src/utils/log/index";
+import { useAudioManager } from "@src/utils/audio/AudioManager";
+import { SoundName } from "@src/utils/audio/types";
 
 type ServerMessageHandler<T extends SocketMsgType> = (
 	msg: SocketMessage<T, SocketMsgSource.Server>,

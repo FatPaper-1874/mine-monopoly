@@ -33,6 +33,8 @@ import { TextSprite } from "../three/TextSprite";
 import { ChanceCard3D } from "../three/ChanceCard3D";
 import { ChanceCardTextureGenerator } from "../three/ChanceCardTextureGenerator";
 import { useGameData, useMapData, useResourceStore } from "@src/store/game";
+import { useAudioManager } from "@src/utils/audio/AudioManager";
+import { SoundName } from "@src/utils/audio/types";
 import { getModelById } from "@src/utils/file/game-map";
 import { PlayerModel, AnimationManager } from "@mine-monopoly/utils";
 import { DiceManager } from "./DiceManager";
@@ -1608,6 +1610,9 @@ export class GameRenderer {
 					const nextMapItem = this.getMapItem((((sourceIndex + Math.sign(stepNum) * i) % total) + total) % total);
 
 					if (nextMapItem) {
+					// 播放走路音效
+						useAudioManager().playSound(SoundName.PLAYER_STEP);
+
 						let currentAnimation: gsap.core.Timeline | null = null;
 
 						// 检查是否失焦，如果是则跳到当前步目标位置后继续

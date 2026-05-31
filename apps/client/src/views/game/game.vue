@@ -27,6 +27,9 @@
 	import { useUserInfo } from "@src/store";
 	import { CustomUI, GameMap, UISchema } from "@mine-monopoly/types";
 	import { compileTsToJs } from "@src/utils";
+	import { useAudioManager } from "@src/utils/audio/AudioManager";
+	import { SoundName } from "@src/utils/audio/types";
+	import useEventBus from "@src/utils/event-bus";
 	import { storeToRefs } from "pinia";
 	import UiRenderer from "@src/components/utils/ui-renderer/ui-renderer.vue";
 	import FpErrorBoundary from "@src/components/utils/fp-error-boundary/index.vue";
@@ -81,6 +84,17 @@
 
 			useLoading().showLoading("数据加载完成，等待其他玩家加载...");
 			socketClient.gameInitFinished();
+
+			// 监听玩家金钱变化事件
+			const audioManager = useAudioManager();
+			const eventBus = useEventBus();
+			eventBus.on("player-money", (playerId: string, oldMoney: number, newMoney: number) => {
+				if (newMoney > oldMoney) {
+					audioManager.playSound(SoundName.GAIN_MONEY);
+				} else if (newMoney < oldMoney) {
+					audioManager.playSound(SoundName.LOSE_MONEY);
+				}
+			});
 		} catch (e: any) {
 			// 异常时也要恢复心跳，防止永久暂停
 			socketClient?.resumeHeartBeat();
