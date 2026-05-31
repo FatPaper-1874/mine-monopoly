@@ -51,7 +51,6 @@ defineEmits<{
 
 .panel-title {
 	font-size: 0.9rem;
-	font-weight: 600;
 	color: var(--fp-color-text-secondary);
 	text-align: center;
 	margin-bottom: 0.6rem;

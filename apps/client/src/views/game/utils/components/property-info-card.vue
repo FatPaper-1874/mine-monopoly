@@ -293,7 +293,6 @@ defineExpose({ updateProperty });
 
 			.cost-value {
 				font-size: 0.9rem;
-				font-weight: 600;
 				color: var(--fp-color-secondary);
 				text-shadow: var(--fp-text-shadow-surround-white);
 			}
@@ -316,13 +315,11 @@ defineExpose({ updateProperty });
 			font-size: 0.8rem;
 
 			.toll-level {
-				font-weight: 600;
 				color: var(--fp-color-primary);
 			}
 
 			.toll-amount {
 				color: var(--fp-color-secondary);
-				font-weight: 600;
 			}
 
 			// 当前等级过路费标记

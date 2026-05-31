@@ -34,7 +34,6 @@ const handleClick = () => {
 .dynamic-button {
 	padding: 0.5rem 1rem;
 	font-size: 0.9rem;
-	font-weight: 600;
 	border-radius: .8rem;
 	cursor: pointer;
 	transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
