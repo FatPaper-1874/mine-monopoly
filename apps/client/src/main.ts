@@ -17,6 +17,7 @@ fontStyle.textContent = `
 		src: url("${isPC() ? contentFontAllUrl : contentFontUrl}") format("woff2");
 		font-style: normal;
 		font-weight: normal;
+		ascent-override: 100%;
 	}
 `;
 document.head.appendChild(fontStyle);
