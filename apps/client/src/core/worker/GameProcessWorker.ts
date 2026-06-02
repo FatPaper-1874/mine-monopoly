@@ -824,6 +824,14 @@ export class GameProcess implements IGameProcess {
 	}
 
 	private async initPlayers() {
+		// 打乱玩家顺序，确保房主不总是第一个行动
+		const shuffledList = [...this.userList];
+		for (let i = shuffledList.length - 1; i > 0; i--) {
+			const j = Math.floor(Math.random() * (i + 1));
+			[shuffledList[i], shuffledList[j]] = [shuffledList[j], shuffledList[i]];
+		}
+		this.userList = shuffledList;
+
 		// 步骤1: 创建所有玩家实例并设置 commandBus
 		this.userList.forEach((u) => {
 			const role = this.mapData.roles.find((r) => r.id === u.roleId);
