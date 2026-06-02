@@ -31,15 +31,21 @@ export const useLoading = defineStore("loading", {
 		return {
 			loading: false,
 			text: "",
+			progress: 0, // 新增：进度百分比 0-100
 		};
 	},
 	actions: {
-		showLoading(text: string) {
+		showLoading(text: string, progress: number = 0) {
 			this.text = text;
 			this.loading = true;
+			this.progress = progress;
 		},
 		hideLoading() {
 			this.loading = false;
+			this.progress = 0;
+		},
+		updateProgress(progress: number) {
+			this.progress = Math.max(0, Math.min(100, progress));
 		},
 	},
 });

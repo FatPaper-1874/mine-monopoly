@@ -51,7 +51,12 @@ export const enum SocketMsgType {
 	/** 按钮移除 */
 	ButtonRemove = "ButtonRemove",
 	/** 安全模式操作面板 */
-	SafeModePanel = "SafeModePanel",
+	SafeModePanel = "SafeModePanel", // 安全模式操作面板
+	MapChunkStart = "MapChunkStart", // 开始分块传输地图数据
+	MapChunk = "MapChunk",          // 单个地图数据分块
+	MapChunkEnd = "MapChunkEnd",    // 分块传输完成
+	MapChunkAbort = "MapChunkAbort", // 中止分块传输
+	MapChunkAck = "MapChunkAck",     // 分块接收确认
 }
 
 export enum SocketMsgSource {

@@ -734,6 +734,61 @@ export interface SocketMessageDataType {
 		/** 服务器发送的安全模式信息 */
 		server: SafeModePanelMessage;
 	};
+
+	/**
+	 * 地图分块传输开始
+	 * 主机通知客机开始分块传输
+	 */
+	[SocketMsgType.MapChunkStart]: {
+		/** 客户端发送的数据（不支持） */
+		client: never;
+		/** 服务器发送的分块传输开始信息 */
+		server: MapChunkStartData;
+	};
+
+	/**
+	 * 地图数据分块
+	 * 主机向客机发送单个数据分块
+	 */
+	[SocketMsgType.MapChunk]: {
+		/** 客户端发送的数据（不支持） */
+		client: never;
+		/** 服务器发送的分块数据 */
+		server: MapChunkData;
+	};
+
+	/**
+	 * 地图分块传输结束
+	 * 主机通知客机分块传输完成
+	 */
+	[SocketMsgType.MapChunkEnd]: {
+		/** 客户端发送的数据（不支持） */
+		client: never;
+		/** 服务器发送的传输结束信息 */
+		server: MapChunkEndData;
+	};
+
+	/**
+	 * 地图分块中止
+	 * 主机或客机中止分块传输
+	 */
+	[SocketMsgType.MapChunkAbort]: {
+		/** 客户端发送的中止原因 */
+		client: MapChunkAbortData;
+		/** 服务器发送的中止原因 */
+		server: MapChunkAbortData;
+	};
+
+	/**
+	 * 地图分块接收确认
+	 * 客机向主机发送分块接收确认
+	 */
+	[SocketMsgType.MapChunkAck]: {
+		/** 客户端发送的确认信息 */
+		client: MapChunkAckData;
+		/** 服务器发送的数据（不支持） */
+		server: never;
+	};
 }
 
 /**
@@ -750,6 +805,52 @@ export interface SafeModePanelMessage {
 		type?: string;
 		message?: string;
 	};
+}
+
+/**
+ * 地图分块传输开始消息
+ */
+export interface MapChunkStartData {
+	/** 总块数 */
+	totalChunks: number;
+	/** 每块大小（字节） */
+	chunkSize: number;
+	/** 地图元信息（不含 data） */
+	mapInfo: Omit<RoomMapInfo, "data">;
+}
+
+/**
+ * 地图数据分块消息
+ */
+export interface MapChunkData {
+	/** 当前块索引 (0-based) */
+	chunkIndex: number;
+	/** base64 编码的分块数据 */
+	data: string;
+}
+
+/**
+ * 地图分块传输结束消息
+ */
+export interface MapChunkEndData {
+	/** 是否成功 */
+	success: boolean;
+}
+
+/**
+ * 地图分块接收确认消息
+ */
+export interface MapChunkAckData {
+	/** 已确认的块索引 */
+	chunkIndex: number;
+}
+
+/**
+ * 地图分块中止消息
+ */
+export interface MapChunkAbortData {
+	/** 中止原因 */
+	reason: string;
 }
 
 /**
@@ -898,4 +999,7 @@ export interface PlayerOperationResult {
 
 	/** 安全模式存档并退出 */
 	[OperateType.SafeModeSaveAndExit]: undefined;
+
+	/** 地图分块接收确认 */
+	[OperateType.MapChunkAck]: MapChunkAckData;
 }

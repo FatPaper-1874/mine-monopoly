@@ -66,6 +66,9 @@ export function handleClientSocketMessage(
 		case SocketMsgType.LeaveRoom:
 			handleLeaveRoom(conn, msg, host, clientId);
 			break;
+		case SocketMsgType.MapChunkAck:
+			handleMapChunkAck(conn, msg, host, clientId);
+			break;
 		default:
 			break;
 	}
@@ -154,4 +157,9 @@ const handleLeaveRoom: ClientMessageHandler<SocketMsgType.LeaveRoom> = (conn, ms
 	}
 	conn.close();
 	host.deleteClient(clientId);
+};
+
+const handleMapChunkAck: ClientMessageHandler<SocketMsgType.MapChunkAck> = (conn, msg, host, clientId) => {
+	const { chunkIndex } = msg.data;
+	host.getRoom().handleChunkAck(clientId, chunkIndex);
 };

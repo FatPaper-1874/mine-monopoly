@@ -35,4 +35,6 @@ export enum OperateType {
 	SafeModeAbort = "SafeModeAbort",
 	/** 安全模式存档并退出 */
 	SafeModeSaveAndExit = "SafeModeSaveAndExit",
+	/** 地图分块接收确认 */
+	MapChunkAck = "MapChunkAck",
 }

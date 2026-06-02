@@ -5,9 +5,13 @@ import { computed, watch } from "vue";
 const loadingStore = useLoading();
 const loading = computed(() => loadingStore.loading);
 const loadingText = computed(() => loadingStore.text);
+const progress = computed(() => loadingStore.progress);
 
 watch(loading, (newValue) => {
-	if (!newValue) loadingStore.text = "";
+	if (!newValue) {
+		loadingStore.text = "";
+		loadingStore.progress = 0;
+	}
 });
 </script>
 
@@ -16,15 +20,20 @@ watch(loading, (newValue) => {
 		<div v-if="loading" class="page-loading">
 			<div class="spinner"></div>
 			<span>{{ loadingText }}</span>
+			<!-- 进度条 -->
+			<div v-if="progress > 0" class="progress-container">
+				<div class="progress-bar">
+					<div class="progress-fill" :style="{ width: progress + '%' }"></div>
+				</div>
+				<span class="progress-text">{{ Math.round(progress) }}%</span>
+			</div>
 		</div>
 	</transition>
 </template>
 
 <style lang="scss" scoped>
 .page-loading {
-  /* 建议将 position: absolute 改为 position: fixed，
-     以确保遮罩覆盖整个视口，不只是父元素。 */
-  position: fixed; 
+  position: fixed;
   top: 0;
   left: 0;
   bottom: 0;
@@ -57,18 +66,42 @@ watch(loading, (newValue) => {
   }
 }
 
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.2s ease-in-out; /* 增加 ease-in-out 让过渡更平滑 */
+// 进度条样式
+.progress-container {
+  margin-top: 1em;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5em;
+  width: 200px;
 }
 
-/* 🚀 关键修改：使用 Vue 3 标准的 *-enter-from 类名来定义进场的起始状态 */
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background-color: #ff8f00;
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  color: #eeeeee;
+  font-size: 0.9em;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease-in-out;
+}
+
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
 }
-
-/* 如果你的项目仍然使用 Vue 2，保留下面的旧类名也是可行的 */
-/* .fade-enter { opacity: 0; } */
-
 </style>

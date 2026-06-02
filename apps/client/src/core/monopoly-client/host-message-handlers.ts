@@ -38,6 +38,50 @@ import { base64ToArrayBuffer } from "@mine-monopoly/utils";
 import { showTargetSelector } from "@src/components/common/target-seletor";
 import { showItemSelector } from "@src/components/utils/item-selector";
 import { FPMessageCard } from "../../components/utils/fp-message-card/index";
+import { MapChunkStartData, MapChunkData, MapChunkEndData, MapChunkAbortData, RoomMapInfo } from "@mine-monopoly/types";
+
+/** 地图分块接收状态 */
+interface ChunkReceiveState {
+	totalChunks: number;
+	receivedChunks: Map<number, string>;
+	startTime: number;
+	mapInfo: RoomMapInfo;
+	transferTimeoutId: number | null;
+	chunkTimeoutId: number | null;
+}
+
+/** 当前接收状态 */
+let receiveState: ChunkReceiveState | null = null;
+
+/** 整体传输超时（毫秒） */
+const TRANSFER_TIMEOUT = 30000;
+
+/** 块超时（毫秒） */
+const CHUNK_TIMEOUT = 10000;
+
+function clearReceiveState(): void {
+	if (receiveState) {
+		if (receiveState.transferTimeoutId) clearTimeout(receiveState.transferTimeoutId);
+		if (receiveState.chunkTimeoutId) clearTimeout(receiveState.chunkTimeoutId);
+		receiveState = null;
+	}
+}
+
+function resetChunkTimeout(): void {
+	if (receiveState?.chunkTimeoutId) clearTimeout(receiveState.chunkTimeoutId);
+	if (receiveState) {
+		receiveState.chunkTimeoutId = window.setTimeout(() => {
+			handleTransferTimeout("长时间未收到数据分块");
+		}, CHUNK_TIMEOUT);
+	}
+}
+
+function handleTransferTimeout(reason: string): void {
+	clearReceiveState();
+	useLoading().hideLoading();
+	FPMessage({ type: "error", message: `地图传输失败: ${reason}` });
+}
+
 import { logErrorWithOptions } from "@src/utils/log/error-helpers";
 import { ErrorCategory } from "@src/utils/log/index";
 import { useAudioManager } from "@src/utils/audio/AudioManager";
@@ -164,6 +208,18 @@ export function handleServerSocketMessage(msg: ServerSocketMessage, client: Mono
 		case SocketMsgType.SafeModePanel:
 			handleSafeModePanel(msg, client);
 			break;
+		case SocketMsgType.MapChunkStart:
+			handleMapChunkStart(msg, client);
+			break;
+		case SocketMsgType.MapChunk:
+			handleMapChunk(msg, client);
+			break;
+		case SocketMsgType.MapChunkEnd:
+			handleMapChunkEnd(msg, client);
+			break;
+		case SocketMsgType.MapChunkAbort:
+			handleMapChunkAbort(msg, client);
+			break;
 		default:
 			break;
 	}
@@ -193,6 +249,7 @@ const handleJoinRoomReply: ServerMessageHandler<SocketMsgType.JoinRoom> = (msg) 
 };
 
 const handleLeaveRoomReply: ServerMessageHandler<SocketMsgType.LeaveRoom> = (msg, client) => {
+	clearReceiveState();
 	if (!msg.msg) {
 		FPMessage({ type: "success", message: "退出房间" });
 	}
@@ -205,6 +262,7 @@ const handleLeaveRoomReply: ServerMessageHandler<SocketMsgType.LeaveRoom> = (msg
 };
 
 const handleKickOutReply: ServerMessageHandler<SocketMsgType.KickOut> = (msg, client) => {
+	clearReceiveState();
 	FPMessage({ type: "error", message: "你已被踢出房间" });
 	useRoomInfo().$reset();
 	useChat().$reset();
@@ -221,6 +279,10 @@ const handleRoomInfoReply: ServerMessageHandler<SocketMsgType.RoomInfo> = (msg) 
 };
 
 const handleChangeMap: ServerMessageHandler<SocketMsgType.ChangeMap> = async (msg, client) => {
+	await handleChangeMapInternal(msg, client);
+};
+
+const handleChangeMapInternal: ServerMessageHandler<SocketMsgType.ChangeMap> = async (msg, client) => {
 	try {
 		const data = msg.data;
 		let gameMap, mapInfo;
@@ -717,3 +779,76 @@ function buildDefaultFormData(fields: FormField<string, any>[]): Record<string, 
 	}
 	return result;
 }
+
+const handleMapChunkStart: ServerMessageHandler<SocketMsgType.MapChunkStart> = (msg) => {
+	const data = msg.data;
+	clearReceiveState();
+	receiveState = {
+		totalChunks: data.totalChunks,
+		receivedChunks: new Map(),
+		startTime: Date.now(),
+		mapInfo: data.mapInfo as RoomMapInfo,
+		transferTimeoutId: window.setTimeout(() => {
+			handleTransferTimeout("传输超时");
+		}, TRANSFER_TIMEOUT),
+		chunkTimeoutId: null,
+	};
+	useLoading().showLoading("地图加载中...", 0);
+	console.log(`[MapTransfer] Started receiving ${data.totalChunks} chunks`);
+};
+
+const handleMapChunk: ServerMessageHandler<SocketMsgType.MapChunk> = (msg, client) => {
+	const data = msg.data;
+	if (!receiveState) {
+		console.warn("[MapTransfer] Received chunk without start state");
+		return;
+	}
+	receiveState.receivedChunks.set(data.chunkIndex, data.data);
+	const progress = (receiveState.receivedChunks.size / receiveState.totalChunks) * 100;
+	useLoading().updateProgress(progress);
+	useLoading().showLoading(`地图加载中...`, progress);
+	resetChunkTimeout();
+	client.sendMsg({
+		type: SocketMsgType.MapChunkAck,
+		source: SocketMsgSource.Client,
+		data: { chunkIndex: data.chunkIndex },
+	});
+	console.log(`[MapTransfer] Received chunk ${data.chunkIndex}/${receiveState.totalChunks - 1}, progress: ${progress.toFixed(1)}%`);
+};
+
+const handleMapChunkEnd: ServerMessageHandler<SocketMsgType.MapChunkEnd> = async (msg, client) => {
+	if (!receiveState) {
+		console.warn("[MapTransfer] Received end without start state");
+		return;
+	}
+	const state = receiveState;
+	clearReceiveState();
+	try {
+		const sortedChunks = Array.from({ length: state.totalChunks }, (_, i) =>
+			state.receivedChunks.get(i),
+		);
+		if (sortedChunks.some((chunk) => chunk === undefined)) {
+			throw new Error("缺少数据分块");
+		}
+		const fullData = sortedChunks.join("");
+		const mapInfo: RoomMapInfo = { ...state.mapInfo, data: fullData };
+		await handleChangeMapInternal({ type: SocketMsgType.ChangeMap, source: SocketMsgSource.Server, data: mapInfo } as SocketMessage<SocketMsgType.ChangeMap, SocketMsgSource.Server>, client);
+	} catch (e: any) {
+		logErrorWithOptions({
+			category: ErrorCategory.GAME_RUNTIME,
+			message: `地图组装失败: ${e.message}`,
+			error: e instanceof Error ? e : undefined,
+		});
+		FPMessage({ type: "error", message: `地图加载失败: ${e.message}` });
+		useLoading().hideLoading();
+		client.resumeHeartBeat();
+	}
+};
+
+const handleMapChunkAbort: ServerMessageHandler<SocketMsgType.MapChunkAbort> = (msg) => {
+	clearReceiveState();
+	useLoading().hideLoading();
+	FPMessage({ type: "warning", message: `地图传输已中止: ${msg.data.reason || "未知原因"}` });
+	const client = useMonopolyClient();
+	client.resumeHeartBeat();
+};
