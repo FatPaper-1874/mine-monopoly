@@ -61,9 +61,11 @@ export class MapRenderer {
 	private linkHelperLine: DynamicLine;
 	private boxSelector: BoxSelector;
 	private justCompletedBoxSelect: boolean = false;
+	private gridHelper: THREE.GridHelper;
+	private axesHelper: THREE.AxesHelper;
 
 	constructor(canvasEl: HTMLCanvasElement) {
-		this.renderer = new THREE.WebGLRenderer({ canvas: canvasEl });
+		this.renderer = new THREE.WebGLRenderer({ canvas: canvasEl, preserveDrawingBuffer: true });
 		this.canvasEl = canvasEl;
 		this.scene = new THREE.Scene();
 		this.camera = new THREE.PerspectiveCamera(75, this.canvasEl.clientWidth / this.canvasEl.clientHeight, 0.1, 100);
@@ -87,8 +89,12 @@ export class MapRenderer {
 		this.controls.update();
 
 		// 网格
-		const gridHelper = new THREE.GridHelper(10000, 10000, 0x6666ff);
-		this.scene.add(gridHelper);
+		this.gridHelper = new THREE.GridHelper(10000, 10000, 0x6666ff);
+		this.scene.add(this.gridHelper);
+
+		// 坐标轴
+		this.axesHelper = new THREE.AxesHelper(5);
+		this.scene.add(this.axesHelper);
 
 		const planeGeometry = new THREE.PlaneGeometry(1000, 1000);
 		const planeMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, opacity: 0, transparent: true });
@@ -302,6 +308,15 @@ export class MapRenderer {
 
 		eventBus.on("toggle-box-select-mode", () => {
 			this.handleBoxSelectModeToggle();
+		});
+
+		eventBus.on("toggle-indicators", () => {
+			const visible = !this.gridHelper.visible;
+			this.gridHelper.visible = visible;
+			this.axesHelper.visible = visible;
+			this.mapIndexLineGroup.visible = visible;
+			this.linkLineGroup.visible = visible;
+			this.linkHelperLine.line.visible = visible;
 		});
 
 		eventBus.on("map-item-updated", (id: string) => {

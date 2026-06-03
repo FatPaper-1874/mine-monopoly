@@ -113,6 +113,13 @@ const toolbarItems: ToolbarItem[] = [
 		type: "modal",
 		component: defineAsyncComponent(() => import("../manager/forms/extra-libs-editor/extra-libs-editor.vue")),
 	},
+	{
+		key: "Screenshot",
+		text: "截图",
+		icon: "fas fa-camera",
+		type: "action",
+		action: handleScreenshot,
+	},
 ];
 
 // --- 状态管理 ---
@@ -191,6 +198,47 @@ function handleBoxSelectModeChange() {
 	// 这样可以避免状态在 UI 层被提前改变导致 renderer 逻辑错误
 	eventBus.emit("toggle-box-select-mode");
 }
+
+function handleToggleIndicators() {
+	editorStore.toggleIndicators();
+	eventBus.emit("toggle-indicators");
+	message.success(
+		editorStore.showIndicators ? "已显示所有工具指示器" : "已隐藏所有工具指示器",
+		1
+	);
+}
+
+async function handleScreenshot() {
+	try {
+		const canvas = document.querySelector("#map-editor-canvas-container") as HTMLCanvasElement;
+		if (!canvas) {
+			message.error("找不到编辑器画布", 2);
+			return;
+		}
+
+		const dataUrl = canvas.toDataURL("image/png");
+
+		const result = await window.electronAPI.showSaveDialog({
+			title: "保存截图",
+			defaultPath: `screenshot-${Date.now()}.png`,
+			filters: [{ name: "PNG图片", extensions: ["png"] }],
+		});
+
+		if (!result.filePath) return;
+
+		const base64 = dataUrl.split(",")[1];
+		const binaryString = atob(base64);
+		const bytes = new Uint8Array(binaryString.length);
+		for (let i = 0; i < binaryString.length; i++) {
+			bytes[i] = binaryString.charCodeAt(i);
+		}
+
+		await window.electronAPI.saveFile(result.filePath, bytes as any);
+		message.success("截图已保存", 2);
+	} catch (e: any) {
+		message.error("截图失败: " + e.message, 2);
+	}
+}
 </script>
 
 <template>
@@ -256,6 +304,17 @@ function handleBoxSelectModeChange() {
 						<span v-if="editorStore.isBoxSelectMode">退出框选</span>
 						<span v-else>框选模式</span>
 						<font-awesome-icon :icon="['fas', 'object-group']" />
+					</a-space>
+				</a-button>
+
+				<a-button
+					:type="editorStore.showIndicators ? 'primary' : 'default'"
+					@click="handleToggleIndicators"
+				>
+					<a-space>
+						<span v-if="editorStore.showIndicators">隐藏指示器</span>
+						<span v-else>显示指示器</span>
+						<font-awesome-icon :icon="['fas', 'eye']" />
 					</a-space>
 				</a-button>
 			</div>

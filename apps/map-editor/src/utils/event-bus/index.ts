@@ -61,6 +61,9 @@ type Events = {
 
 	// Monaco 类型刷新事件
 	"refresh-monaco-types": void;
+
+	// 工具指示器显示/隐藏
+	"toggle-indicators": void;
 };
 
 export const eventBus = mitt<Events>();

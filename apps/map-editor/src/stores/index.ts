@@ -530,6 +530,7 @@ type EditorState = {
 		timestamp: number;
 		items: MapItem[];
 	}>;
+	showIndicators: boolean;
 };
 
 type EditorAlert = {
@@ -615,6 +616,7 @@ export const useEditorStore = defineStore("Editor", {
 		boxSelectUpdateCounter: 0,
 		// 撤销删除历史初始值（分批次）
 		deletedMapItemBatches: [],
+		showIndicators: true,
 	}),
 	actions: {
 		setLoading(loading: boolean) {
@@ -693,6 +695,9 @@ export const useEditorStore = defineStore("Editor", {
 		},
 		clearDeletedHistory() {
 			this.deletedMapItemBatches = [];
+		},
+		toggleIndicators() {
+			this.showIndicators = !this.showIndicators;
 		},
 	},
 	getters: {
