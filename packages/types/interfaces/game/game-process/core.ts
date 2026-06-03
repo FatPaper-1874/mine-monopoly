@@ -78,7 +78,7 @@ export interface IGameProcess extends IGameProcessCustomFields {
 	gameRuntimeStack: IGameRuntimeStack<GameContext>;
 
 	/** 游戏结束规则检查函数，返回 false 表示游戏继续，返回玩家ID数组表示游戏结束（数组顺序即为排名） */
-	gameOverRuleFunction: () => Promise<string[] | true | false>;
+	gameOverRuleFunction: (ctx: GameContext, gameProcess: IGameProcess) => Promise<string[] | true | false>;
 
 	/** 动画完成处理器映射表（animationId -> cleanup函数） */
 	animationCompletionHandlers: Map<string, () => void>;

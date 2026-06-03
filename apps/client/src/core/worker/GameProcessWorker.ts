@@ -329,7 +329,7 @@ export class GameProcess implements IGameProcess {
 	/** 心跳间隔（毫秒） */
 	private static readonly HEARTBEAT_INTERVAL = 5000;
 
-	public gameOverRuleFunction = async (): Promise<string[] | true | false> => {
+	public gameOverRuleFunction: (ctx: GameContext, gameProcess: IGameProcess) => Promise<string[] | true | false> = async () => {
 		return false;
 	};
 
@@ -1942,7 +1942,7 @@ export class GameProcess implements IGameProcess {
 	}
 
 	public async checkGameOver(): Promise<void> {
-		const result = await this.gameOverRuleFunction();
+		const result = await this.gameOverRuleFunction({}, this);
 		if (result === true) {
 			// 旧地图兼容: 返回 true/undefined 时按默认顺序（玩家ID列表）结束
 			this.gameOver(Array.from(this.players.keys()));
