@@ -1,9 +1,17 @@
 {
 	"name": "@mine-monopoly/root",
 	"version": "2.0.0",
-	"description": "",
+	"description": "A multiplayer online Monopoly game with custom map editor | 支持自定义地图的多人在线大富翁游戏",
 	"main": "index.js",
 	"type": "module",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/FatPaper-1874/mine-monopoly.git"
+	},
+	"homepage": "https://github.com/FatPaper-1874/mine-monopoly#readme",
+	"bugs": {
+		"url": "https://github.com/FatPaper-1874/mine-monopoly/issues"
+	},
 	"scripts": {
 		"dev-client": "pnpm --filter @mine-monopoly/client run dev",
 		"dev-server": "pnpm --filter @mine-monopoly/server run dev",
@@ -23,9 +31,9 @@
 		"check-editor": "pnpm --filter @mine-monopoly/map-editor run check",
 		"check-all": "pnpm --filter @mine-monopoly/client run check && pnpm --filter @mine-monopoly/map-editor run check"
 	},
-	"keywords": [],
-	"author": "",
-	"license": "ISC",
+	"keywords": ["monopoly", "game", "multiplayer", "webrtc", "vue", "typescript", "electron", "map-editor", "board-game", "p2p"],
+	"author": "Fat_Paper",
+	"license": "GPL-3.0",
 	"packageManager": "pnpm@10.10.0",
 	"dependencies": {
 		"@fortawesome/fontawesome-svg-core": "6.4.2",

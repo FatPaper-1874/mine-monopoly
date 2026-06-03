@@ -6,7 +6,7 @@
 	"imports": {
 		"#src/*": "./src/*"
 	},
-	"license": "MIT",
+	"license": "GPL-3.0",
 	"scripts": {
 		"dev": "nodemon --exec tsx ./app.ts",
 		"build": "tsc",
