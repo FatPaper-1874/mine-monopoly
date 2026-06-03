@@ -17,6 +17,15 @@
 <img src="docs/images/screenshot-3.gif" alt="游戏演示" width="500"/>
 </div>
 
+---
+
+<div align="center">
+  <a href="#特性"><b>✨ 特性</b></a> | <a href="#架构"><b>🏗️ 架构</b></a> | <a href="#文档"><b>📄 文档</b></a> | <a href="#常见问题"><b>❓ 常见问题</b></a> |
+  <a href="#支持"><b style="color:#FFD700">☕ 支持作者</b></a>
+</div>
+
+---
+
 ## 简介
 
 **MineMonopoly** 是一款支持**自定义地图**的多人在线大富翁游戏，内置功能完整的**地图编辑器**。拖拽式可视化界面让你可以自由绘制棋盘、配置地块、编写事件逻辑，用 TypeScript / JavaScript 写**自定义玩法**——每张地图都是独一无二的。
@@ -322,6 +331,24 @@ docker compose -f docker/docker-compose.yml up -d
 
 **Q: 没有 TURN 服务器能玩吗？**
 局域网环境下 WebRTC 通常可以建立直连。跨 NAT 场景需要 TURN 服务器中继。Docker 部署已包含预配置的 coturn。
+
+## ⭐ Star History
+
+<div align="center">
+
+[![Star History](https://api.star-history.com/svg?repos=FatPaper-1874/mine-monopoly&type=Date)](https://star-history.com/#FatPaper-1874/mine-monopoly&Date)
+
+</div>
+
+## 支持
+
+如果觉得 MineMonopoly 好玩或者对你有帮助，欢迎请作者喝杯咖啡 ☕
+
+<div align="center">
+
+<img src="docs/images/reward-qr.png" alt="赞赏码" width="400"/>
+
+</div>
 
 ## 致谢
 
