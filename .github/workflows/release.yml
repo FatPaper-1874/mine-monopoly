@@ -91,6 +91,28 @@ jobs:
             apps/map-editor/dist/electron/*/map-editor.yml
           if-no-files-found: error
 
+      - name: Merge Release Notes
+        shell: bash
+        run: |
+          {
+            echo "## MineMonopoly Client"
+            echo ""
+            cat apps/client/build/release-notes.md
+            echo ""
+            echo "---"
+            echo ""
+            echo "## MineMonopoly Map Editor"
+            echo ""
+            cat apps/map-editor/build/release-notes.md
+          } > release-notes.md
+
+      - name: Upload Release Notes
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-notes
+          path: release-notes.md
+          if-no-files-found: warn
+
   release:
     needs: build
     runs-on: ubuntu-latest
@@ -104,7 +126,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          generate_release_notes: true
+          body_path: artifacts/release-notes.md
           draft: false
           files: |
             artifacts/**/*-Setup.exe
