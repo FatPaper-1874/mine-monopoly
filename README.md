@@ -9,17 +9,13 @@
 
 目前支持 Web 浏览器、Windows平台
 
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
-[![pnpm](https://img.shields.io/badge/pnpm-10.10.0-red)](https://pnpm.io/)
-[![Node.js](https://img.shields.io/badge/Node.js-20%2B-green)](https://nodejs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.9.2-blue)](https://www.typescriptlang.org/)
-[![Vue](https://img.shields.io/badge/Vue-3.5-brightgreen)](https://vuejs.org/)
-[![Release](https://img.shields.io/github/v/release/FatPaper-1874/mine-monopoly)](https://github.com/FatPaper-1874/mine-monopoly/releases)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE) [![pnpm](https://img.shields.io/badge/pnpm-10.10.0-red)](https://pnpm.io/) [![Node.js](https://img.shields.io/badge/Node.js-20%2B-green)](https://nodejs.org/) [![TypeScript](https://img.shields.io/badge/TypeScript-5.9.2-blue)](https://www.typescriptlang.org/) [![Vue](https://img.shields.io/badge/Vue-3.5-brightgreen)](https://vuejs.org/) [![Release](https://img.shields.io/github/v/release/FatPaper-1874/mine-monopoly)](https://github.com/FatPaper-1874/mine-monopoly/releases)
 
 </div>
 
 <div align="center">
-<img src="docs/images/screenshot-3.gif" alt="游戏演示" width="500"/>
+<img src="docs/images/screenshot-3.gif" alt="游戏演示" width="800"/>
+</div>
 
 ## 简介
 
@@ -34,8 +30,10 @@
 ## 截图
 
 <div align="center">
+
 <img src="docs/images/screenshot-1.png" alt="游戏画面" width="800"/>
 <p><em>游戏中</em></p>
+
 <img src="docs/images/screenshot-2.png" alt="地图编辑器" width="800"/>
 <p><em>地图编辑器</em></p>
 
