@@ -14,7 +14,7 @@
 </div>
 
 <div align="center">
-<img src="docs/images/screenshot-3.gif" alt="游戏演示" width="800"/>
+<img src="docs/images/screenshot-3.gif" alt="游戏演示" width="500"/>
 </div>
 
 ## 简介
