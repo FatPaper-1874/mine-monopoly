@@ -75,20 +75,20 @@ jobs:
         with:
           name: client-win
           path: |
-            apps/client/dist/electron/**/*.exe
-            apps/client/dist/electron/**/*.yml
-            apps/client/dist/electron/**/*.blockmap
-          if-no-files-found: warn
+            apps/client/dist/electron/*/*-Setup.exe
+            apps/client/dist/electron/*/*-Setup.exe.blockmap
+            apps/client/dist/electron/*/monopoly-client.yml
+          if-no-files-found: error
 
       - name: Upload Editor Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: editor-win
           path: |
-            apps/map-editor/dist/electron/**/*.exe
-            apps/map-editor/dist/electron/**/*.yml
-            apps/map-editor/dist/electron/**/*.blockmap
-          if-no-files-found: warn
+            apps/map-editor/dist/electron/*/*-Setup.exe
+            apps/map-editor/dist/electron/*/*-Setup.exe.blockmap
+            apps/map-editor/dist/electron/*/map-editor.yml
+          if-no-files-found: error
 
   release:
     needs: build
@@ -106,6 +106,6 @@ jobs:
           generate_release_notes: true
           draft: false
           files: |
-            artifacts/**/*.exe
+            artifacts/**/*-Setup.exe
+            artifacts/**/*-Setup.exe.blockmap
             artifacts/**/*.yml
-            artifacts/**/*.blockmap
