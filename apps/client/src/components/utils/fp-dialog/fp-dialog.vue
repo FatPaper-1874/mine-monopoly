@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { type CSSProperties } from "vue";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
+import gsap from "gsap";
+import { vStagger } from "@src/directives";
 
 /**
  * Props 定义
@@ -44,15 +46,35 @@ function closeDialog() {
 	emits("cancel");
 	visible.value = false;
 }
+
+function onEnter(el: Element, done: () => void) {
+	const modal = el.querySelector(".fp-dialog-modal") as HTMLElement;
+	const main = el.querySelector(".fp-dialog-main") as HTMLElement;
+	const tl = gsap.timeline({ onComplete: done });
+	tl.fromTo(modal, { opacity: 0 }, { opacity: 1, duration: 0.15 });
+	tl.fromTo(
+		main,
+		{ scale: 0, opacity: 0 },
+		{ scale: 1, opacity: 1, duration: 0.3, ease: "back.out(1.2)" },
+		"-=0.08",
+	);
+}
+
+function onLeave(el: Element, done: () => void) {
+	const main = el.querySelector(".fp-dialog-main") as HTMLElement;
+	const tl = gsap.timeline({ onComplete: done });
+	tl.to(el, { opacity: 0, duration: 0.2 });
+	tl.to(main, { scale: 0.9, duration: 0.2 }, "<");
+}
 </script>
 
 <template>
 	<Teleport to="body" :disabled="!appendToBody">
-		<Transition name="dialog-fade">
+		<Transition :css="false" @enter="onEnter" @leave="onLeave">
 			<div class="fp-dialog" v-if="visible">
 				<div class="fp-dialog-modal" @click="closeDialog"></div>
 
-				<div class="fp-dialog-main" :style="props.style">
+				<div class="fp-dialog-main" :style="props.style" v-stagger="300">
 					<div class="fp-dialog-header">
 						<div class="title">
 							<span v-if="title">{{ title }}</span>
@@ -174,22 +196,4 @@ function closeDialog() {
 	}
 }
 
-/* Vue Transition 动画样式 */
-.dialog-fade-enter-active,
-.dialog-fade-leave-active {
-	transition: opacity 0.3s ease;
-
-	.fp-dialog-main {
-		transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-	}
-}
-
-.dialog-fade-enter-from,
-.dialog-fade-leave-to {
-	opacity: 0;
-
-	.fp-dialog-main {
-		transform: scale(0.9) translateY(-20px);
-	}
-}
 </style>

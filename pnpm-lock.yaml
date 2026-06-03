@@ -32,9 +32,6 @@ importers:
       filtrex:
         specifier: ^3.1.0
         version: 3.1.0
-      gsap:
-        specifier: 3.11.4
-        version: 3.11.4
       jsencrypt:
         specifier: 3.5.4
         version: 3.5.4
@@ -178,6 +175,9 @@ importers:
       electron-updater:
         specifier: ^6.6.2
         version: 6.8.3
+      gsap:
+        specifier: 3.11.4
+        version: 3.11.4
     devDependencies:
       '@mine-monopoly/env':
         specifier: workspace:*

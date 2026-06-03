@@ -15,6 +15,7 @@ import LoginExtra from "@src/views/login/components/login-extra.vue";
 import FpDialog from "@src/components/utils/fp-dialog/fp-dialog.vue";
 import LoginForm from "@src/views/login/components/login-form.vue";
 import HeroTitle from "@src/components/hero-title";
+import { vStagger } from "@src/directives";
 
 let loginCodeRenderer: LoginDiceRenderer | null;
 let diceRotate: boolean = true;
@@ -163,7 +164,7 @@ function toRoomList() {
 			<LoginExtra></LoginExtra>
 		</div>
 
-		<div class="login-mode-choose" v-if="showLoginMode">
+		<div class="login-mode-choose" v-if="showLoginMode" v-stagger>
 			<div @click="doLogin" class="login-mode">
 				<span>我(想)有个号</span>
 				<span>注册/登录</span>

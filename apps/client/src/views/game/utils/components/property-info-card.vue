@@ -210,7 +210,7 @@ defineExpose({ updateProperty });
 			}
 
 			.badge-label {
-				font-size: 0.9rem;
+				font-size: 1.1rem;
 			}
 		}
 
@@ -237,7 +237,7 @@ defineExpose({ updateProperty });
 			}
 
 			.badge-label {
-				font-size: 0.9rem;
+				font-size: 1.1rem;
 			}
 		}
 	}

@@ -16,3 +16,5 @@
 
 export { default as vSound } from "./sound";
 export { default as soundDirective } from "./sound";
+export { default as vPress } from "./press";
+export { default as vStagger } from "./stagger";

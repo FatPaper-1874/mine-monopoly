@@ -5,6 +5,7 @@ import Background from "@src/views/background/background.vue";
 import StatusBar from "@src/views/status_bar/status_bar.vue";
 import { computed, nextTick, onBeforeMount, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
+import { pageEnter, pageLeave } from "@src/utils/gsap/page-transition";
 import Chat from "@src/views/chat_log/chat_log.vue";
 import DanmakuContainer from "@src/views/danmaku/danmaku_container.vue";
 import { isFullScreen, isMobileDevice } from "@src/utils";
@@ -160,7 +161,17 @@ const backgroundSvgList: string[] = [
 			<Loading />
 			<StatusBar />
 			<!-- <MusicPlayer v-if="isMusicPlayerVisiable" /> -->
-			<RouterView></RouterView>
+			<RouterView v-slot="{ Component, route }">
+					<Transition
+						:css="false"
+						mode="out-in"
+						@enter="pageEnter"
+						@leave="pageLeave"
+						appear
+					>
+						<component :is="Component" :key="route.path" />
+					</Transition>
+				</RouterView>
 		</div>
 	</div>
 	<Update />

@@ -15,6 +15,7 @@ import { throttle } from "@src/utils";
 import { useResourceStore } from "@src/store/game";
 import FpErrorBoundary from "@src/components/utils/fp-error-boundary/index.vue";
 import HeroTitle from "@src/components/hero-title";
+import { vStagger } from "@src/directives";
 
 const userInfoStore = useUserInfo();
 const userListStore = useUserList();
@@ -122,15 +123,15 @@ async function handleGetRandomPublicRoom(e: Event) {
 		<LoginExtra></LoginExtra>
 		<div class="hall-page">
 			<HeroTitle text="Mine Monopoly" />
-			<div class="room-router">
-				<div class="user-container">
+			<div class="room-router" v-stagger>
+				<div class="user-container" v-stagger="350">
 					<userCard :avatar="user.avatar" :username="user.username" :color="user.color" />
 
 					<div class="side-bar">
 						<button class="quit btn-small" @click="handleLogout">登出</button>
 					</div>
 				</div>
-				<div class="join-room">
+				<div class="join-room" v-stagger="380">
 					<div class="title">Room-Router</div>
 					<div class="describe">
 						·输入房间号可加入房间，第一个使用房间号的将成为主机(房主)<br />

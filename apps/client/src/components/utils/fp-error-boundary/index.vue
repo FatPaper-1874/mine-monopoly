@@ -113,10 +113,9 @@ const formattedStack = computed(() => {
 </script>
 
 <template>
-  <!-- 正常渲染子组件 -->
+  <div class="fp-error-boundary-root">
   <slot v-if="!hasError" />
 
-  <!-- 使用自定义降级组件 -->
   <component
     v-else-if="fallback"
     :is="fallback"
@@ -125,7 +124,6 @@ const formattedStack = computed(() => {
     @retry="handleRetry"
   />
 
-  <!-- 默认降级 UI：使用 fp-dialog -->
   <FpDialog
     v-else
     v-model:visible="showDialog"
@@ -168,11 +166,20 @@ const formattedStack = computed(() => {
       </template>
     </div>
   </FpDialog>
+  </div>
 </template>
 
 <style lang="scss" scoped>
 @use "@src/assets/variables" as *;
 @use "@mine-monopoly/style/variables" as fp;
+
+.fp-error-boundary-root {
+  width: inherit;
+  height: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
 .error-boundary-content {
   display: flex;

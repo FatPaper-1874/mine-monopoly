@@ -22,6 +22,7 @@
 	import { arrayBufferToBase64 } from "@mine-monopoly/utils";
 	import CustomForm from "@src/components/utils/custom-form/index.vue";
 	import FpErrorBoundary from "@src/components/utils/fp-error-boundary/index.vue";
+import { vStagger } from "@src/directives";
 
 	let socketClient: MonopolyClient;
 
@@ -225,8 +226,9 @@
 
 <template>
 	<FpErrorBoundary>
-		<div class="room-page">
+		<div class="room-page" v-stagger>
 			<div class="left-container">
+				<div v-stagger="300" class="left-inner">
 				<div class="room-topbar">
 					<button class="leave-room-button btn-small" @click="handleLeaveRoom">退出房间</button>
 					<div class="room-name">
@@ -299,9 +301,10 @@
 					</button>
 				</div>
 			</div>
+			</div>
 
 			<div class="right-container">
-				<div class="player-list-container">
+				<div class="player-list-container" v-stagger="350">
 					<room-user-card
 						@role-select="handleSelectRole"
 						v-for="player in playerList"
@@ -427,6 +430,14 @@
 		justify-content: space-between;
 		align-items: center;
 		@include felt-patch(#ffedb7);
+			.left-inner {
+				flex: 1;
+				width: 100%;
+				display: flex;
+				flex-direction: column;
+				justify-content: space-between;
+					align-items: center;
+			}
 	}
 
 	& > .right-container {
