@@ -10,7 +10,13 @@ const vStagger: Directive<HTMLElement, number> = {
 		const playSound = binding.modifiers?.sound ?? false;
 
 		const run = () => {
-			gsap.fromTo(
+			gsap.set(items, { willChange: "transform, opacity" });
+			const tl = gsap.timeline({
+				onComplete: () => {
+					gsap.set(items, { clearProps: "willChange" });
+				},
+			});
+			tl.fromTo(
 				items,
 				{ scale: 0, y: 10, opacity: 0 },
 				{

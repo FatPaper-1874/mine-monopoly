@@ -25,6 +25,7 @@ const avatarSrc = computed(() => {
 watch(
 	() => props.player.money,
 	(newValue) => {
+		if (newValue === undefined || newValue === null) return;
 		gsap.to(displayNumber, {
 			duration: 0.5,
 			value: newValue,
@@ -32,6 +33,7 @@ watch(
 			onUpdate: () => {
 				displayNumber.value = Math.round(Number(gsap.getProperty(displayNumber, "value")));
 			},
+			// 数字动画无需 willChange（不涉及布局/绘制属性）
 		});
 	},
 	{ immediate: true },

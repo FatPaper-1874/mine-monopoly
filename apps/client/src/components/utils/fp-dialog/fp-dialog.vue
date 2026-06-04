@@ -50,7 +50,13 @@ function closeDialog() {
 function onEnter(el: Element, done: () => void) {
 	const modal = el.querySelector(".fp-dialog-modal") as HTMLElement;
 	const main = el.querySelector(".fp-dialog-main") as HTMLElement;
-	const tl = gsap.timeline({ onComplete: done });
+	gsap.set([modal, main], { willChange: "transform, opacity" });
+	const tl = gsap.timeline({
+		onComplete: () => {
+			gsap.set([modal, main], { clearProps: "willChange" });
+			done();
+		},
+	});
 	tl.fromTo(modal, { opacity: 0 }, { opacity: 1, duration: 0.06 });
 	tl.fromTo(
 		main,
@@ -61,8 +67,13 @@ function onEnter(el: Element, done: () => void) {
 }
 
 function onLeave(el: Element, done: () => void) {
-	const tl = gsap.timeline({ onComplete: done });
-	tl.to(el, { opacity: 0, duration: 0.08 });
+	const tl = gsap.timeline({
+		onComplete: () => {
+			gsap.set(el, { clearProps: "willChange" });
+			done();
+		},
+	});
+	tl.to(el, { opacity: 0, duration: 0.08, willChange: "opacity" });
 }
 </script>
 

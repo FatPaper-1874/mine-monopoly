@@ -34,10 +34,14 @@ onMounted(() => {
 		y: `${offsetYRem}rem`,
 		scale: 0,
 		opacity: 1,
+		willChange: "transform, opacity",
 	});
 
 	const tl = gsap.timeline({
-		onComplete: () => props.onComplete?.(),
+		onComplete: () => {
+			gsap.set(particleRef.value, { clearProps: "transform,willChange" });
+			props.onComplete?.();
+		},
 	});
 
 	// 放大弹入

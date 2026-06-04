@@ -235,6 +235,16 @@ import soundDirective from "./directives/sound";
 
 gsap.registerPlugin(MotionPathPlugin);
 
+// --- GSAP 全局性能配置 ---
+gsap.config({
+  autoSleep: 60,       // 60帧无操作后自动休眠，减少后台消耗
+  force3D: true,       // 强制 GPU 合成层 (translate3d)
+});
+
+// 平滑帧坠落：阈值33ms（约2帧），目标帧间隔约16.67ms(60fps)
+// 后台切回时优雅追赶，避免动画"瞬移"
+gsap.ticker.lagSmoothing(33, 16.67);
+
 function initDeviceStatusListener() {
 	const deviceStatus = useDeviceStatus();
 	deviceStatus.isFullScreen = _isFullScreen();
