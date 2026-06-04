@@ -176,8 +176,8 @@ importers:
         specifier: ^6.6.2
         version: 6.8.3
       gsap:
-        specifier: 3.11.4
-        version: 3.11.4
+        specifier: ^3.12.7
+        version: 3.15.0
     devDependencies:
       '@mine-monopoly/env':
         specifier: workspace:*
@@ -2771,8 +2771,8 @@ packages:
   graceful-fs@4.2.11:
     resolution: {integrity: sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==}
 
-  gsap@3.11.4:
-    resolution: {integrity: sha512-McHhEguHyExMMnjqKA8G+7TvxmlKQGMbjgwAilnFe1e4id7V/tFveRQ2YMZhTYu0oxHGWvbPltdVYQOu3z1SCA==}
+  gsap@3.15.0:
+    resolution: {integrity: sha512-dMW4CWBTUK1AEEDeZc1g4xpPGIrSf9fJF960qbTZmN/QwZIWY5wgliS6JWl9/25fpTGJrMRtSjGtOmPnfjZB+A==}
 
   har-schema@2.0.0:
     resolution: {integrity: sha512-Oqluz6zhGX8cyRaTQlFMPw80bSJVG2x/cFb8ZPhUILGgHka9SsokCCOQgpveePerqidZOrT14ipqfJb7ILcW5Q==}
@@ -7682,7 +7682,7 @@ snapshots:
 
   graceful-fs@4.2.11: {}
 
-  gsap@3.11.4: {}
+  gsap@3.15.0: {}
 
   har-schema@2.0.0: {}
 
