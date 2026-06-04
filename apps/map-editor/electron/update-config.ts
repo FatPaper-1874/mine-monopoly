@@ -20,13 +20,8 @@ export interface UpdateSource {
 /** 内置默认更新源 — 可通过用户配置或环境变量覆盖 */
 export const DEFAULT_SOURCES: UpdateSource[] = [
     {
-        name: "ghproxy (国内加速)",
-        url: "https://ghproxy.com/https://github.com/FatPaper-1874/mine-monopoly/releases/latest/download/",
-        enabled: true,
-    },
-    {
-        name: "GitHub (直连)",
-        url: "https://github.com/FatPaper-1874/mine-monopoly/releases/latest/download/",
+        name: "Cloudflare R2",
+        url: "https://assets.fatpaper.site/releases/latest/download/",
         enabled: true,
     },
 ];

@@ -130,5 +130,36 @@ jobs:
           draft: false
           files: |
             artifacts/**/*-Setup.exe
-            artifacts/**/*-Setup.exe.blockmap
-            artifacts/**/*.yml
+
+  upload-r2:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Flatten & Upload to Cloudflare R2
+        run: |
+          mkdir -p r2-flat
+
+          # 收集所有 exe / blockmap / yml 文件并展平到同一目录
+          find artifacts -type f \( -name "*.exe" -o -name "*.blockmap" -o -name "*.yml" \) \
+            -exec cp {} r2-flat/ \;
+
+          echo "=== 准备上传到 R2 的文件 ==="
+          ls -lh r2-flat/
+
+          # 同步到 R2 (S3-compatible API)
+          aws s3 sync r2-flat/ "s3://${R2_BUCKET_NAME}/releases/latest/download/" \
+            --endpoint-url "${R2_ENDPOINT_URL}" \
+            --no-progress \
+            --delete
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT_URL }}
