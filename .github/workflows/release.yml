@@ -11,7 +11,7 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
-    environment: release
+    environment: build
 
     steps:
       - uses: actions/checkout@v4

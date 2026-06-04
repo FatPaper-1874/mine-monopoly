@@ -55,6 +55,12 @@ let logFileHealthy = true;
 let lastLogCheck = 0;
 const LOG_CHECK_INTERVAL = 60000; // 每分钟检查一次
 
+// 本地时间格式化（YYYY-MM-DD HH:mm:ss）
+function formatLocalTime(date: Date = new Date()): string {
+	const pad = (n: number) => String(n).padStart(2, "0");
+	return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
 // 检查日志文件是否可写
 async function checkLogFileHealth(): Promise<boolean> {
 	const now = Date.now();
@@ -89,7 +95,7 @@ async function ensureLogsDir() {
 		await fs.mkdir(logsDir, { recursive: true });
 
 		// 初始化日志文件
-		const now = new Date().toISOString();
+		const now = formatLocalTime();
 		const header = `\n${"=".repeat(80)}\n应用启动: ${now}\nElectron 版本: ${process.versions.electron}\nChrome 版本: ${process.versions.chrome}\nNode 版本: ${process.versions.node}\n平台: ${process.platform}\n架构: ${process.arch}\n${"=".repeat(80)}\n\n`;
 
 		await fs.appendFile(mainLogPath, header, "utf-8");
@@ -101,8 +107,7 @@ async function ensureLogsDir() {
 
 // 格式化日志条目（增强版）
 function formatLogEntry(error: LogErrorData): string {
-	const now = new Date();
-	const timestamp = now.toISOString().replace("T", " ").substring(0, 19);
+	const timestamp = formatLocalTime();
 
 	let log = `\n[${timestamp}] [${error.type}]\n`;
 	log += `消息: ${error.message}\n`;
@@ -265,6 +270,7 @@ function createWindow() {
 			nodeIntegration: true,
 			nodeIntegrationInWorker: false,
 			contextIsolation: true,
+			sandbox: false,
 			enableBlinkFeatures: "WebRTC",
 			preload: path.join(__dirname, "preload.mjs"),
 			devTools: isProduction ? false : true,
@@ -286,7 +292,10 @@ function createWindow() {
 		win.loadURL(VITE_DEV_SERVER_URL);
 	} else {
 		// win.loadFile("./dist/index.html");
-		win.loadFile(path.join(RENDERER_DIST, "frontend/index.html"));
+		win.loadFile(path.join(RENDERER_DIST, "frontend/index.html")).catch((err) => {
+			console.error("[加载页面失败]:", err);
+			writeLogEntry(`[${formatLocalTime()}] [FATAL] 加载页面失败: ${err.message}\n`, true);
+		});
 	}
 
 	win.on("enter-full-screen", () => {
@@ -416,9 +425,15 @@ app.whenReady().then(async () => {
 		return net.fetch(url.pathToFileURL(path.join(__dirname, filePath)).toString());
 	});
 
-	await ensureLogsDir();
-	buildAppMenu();
-	createWindow();
+	try {
+		await ensureLogsDir();
+		buildAppMenu();
+		createWindow();
+	} catch (err: any) {
+		console.error("[应用初始化失败]:", err);
+		await writeLogEntry(`[${formatLocalTime()}] [FATAL] 应用初始化失败: ${err.message}\n${err.stack || ""}\n`, true);
+		throw err;
+	}
 });
 
 ipcMain.on("window-minimize", () => {
@@ -571,7 +586,6 @@ process.on("uncaughtException", async (err) => {
 		type: "Runtime",
 		message: err.message,
 		stack: err.stack,
-		timestamp: new Date().toISOString(),
 		additionalData: {
 			process: "main",
 			uncaught: true,
@@ -589,7 +603,6 @@ process.on("unhandledRejection", async (reason) => {
 		type: "Promise",
 		message: errMessage,
 		stack: reason instanceof Error ? reason.stack : undefined,
-		timestamp: new Date().toISOString(),
 		additionalData: {
 			process: "main",
 			unhandledRejection: true,
@@ -599,7 +612,7 @@ process.on("unhandledRejection", async (reason) => {
 
 // 记录控制台输出到文件
 ipcMain.on("log-console", async (_event, data: { level: string; message: string; stack?: string }) => {
-	const timestamp = new Date().toISOString().replace("T", " ").substring(0, 19);
+	const timestamp = formatLocalTime();
 	const logEntry = `[${timestamp}] [Console.${data.level}] ${data.message}\n`;
 
 	if (data.stack) {
@@ -618,7 +631,6 @@ ipcMain.on("log-network", async (_event, data: { url: string; method: string; st
 		url: data.url,
 		method: data.method,
 		status: data.status,
-		timestamp: new Date().toISOString(),
 		additionalData: {
 			process: "renderer",
 		},
