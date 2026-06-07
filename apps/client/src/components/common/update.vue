@@ -13,8 +13,10 @@ const status = ref<UpdateStatus>();
 const version = ref("");
 const releaseNote = ref("");
 const downloadPercent = ref(0);
+const downloadSpeed = ref("");
+const downloadTransferred = ref("");
+const downloadTotal = ref("");
 const errorMsg = ref("");
-const sourceName = ref<string>();
 
 let removeListener: (() => void) | null = null;
 
@@ -33,6 +35,21 @@ const title = computed(() => {
 			return "系统更新";
 	}
 });
+
+// --- 工具函数 ---
+
+function formatBytes(bytes: number): string {
+	if (bytes === 0) return "0 B";
+	const units = ["B", "KB", "MB", "GB"];
+	const i = Math.floor(Math.log(bytes) / Math.log(1024));
+	const val = bytes / Math.pow(1024, i);
+	return `${val.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+}
+
+function formatSpeed(bytesPerSecond: number): string {
+	if (bytesPerSecond === 0) return "-";
+	return `${formatBytes(bytesPerSecond)}/s`;
+}
 
 // --- 核心逻辑 ---
 
@@ -66,13 +83,15 @@ onMounted(() => {
 					status.value = "available";
 					version.value = data.info.version;
 					releaseNote.value = (data.info.releaseNotes as string) || "修复了一些已知问题，优化了游戏体验。";
-					sourceName.value = data.sourceName || undefined;
 					visible.value = true;
 					break;
 
 				case "progress":
 					status.value = "downloading";
 					downloadPercent.value = Math.floor(data.progress.percent);
+					downloadSpeed.value = formatSpeed(data.progress.bytesPerSecond);
+					downloadTransferred.value = formatBytes(data.progress.transferred);
+					downloadTotal.value = formatBytes(data.progress.total);
 					if (!visible.value) visible.value = true;
 					break;
 
@@ -91,7 +110,6 @@ onMounted(() => {
 						// 所有源均失败：在弹窗中展示完整信息
 						status.value = "error";
 						errorMsg.value = errorDetail;
-						sourceName.value = data.sourceName || undefined;
 						visible.value = true;
 					} else {
 						status.value = "error";
@@ -126,191 +144,160 @@ onUnmounted(() => {
 		append-to-body
 		style="width: 400px; max-width: 90vw"
 	>
-		<div class="update-content">
-			<div v-if="status === 'available'" class="scene-box">
-				<div class="version-tag">版本: {{ version }}</div>
-				<div v-if="sourceName" class="source-tag">通过 {{ sourceName }}</div>
-				<div class="note-box">
-					<div class="note-label">更新内容：</div>
-					<div class="note-text" v-html="releaseNote"></div>
+		<div v-if="status === 'available'" class="scene-box">
+			<div class="version-tag">版本: {{ version }}</div>
+			<div class="note-box">
+				<div class="note-label">更新内容：</div>
+				<div class="note-text" v-html="releaseNote"></div>
+			</div>
+		</div>
+
+		<div v-if="status === 'downloading'" class="scene-box centered">
+			<div class="progress-wrapper">
+				<div class="progress-track">
+					<div class="progress-fill" :style="{ width: downloadPercent + '%' }"></div>
 				</div>
+				<span class="progress-text">{{ downloadPercent }}%</span>
 			</div>
+			<p class="info-text">{{ downloadTransferred }} / {{ downloadTotal }} — {{ downloadSpeed }}</p>
+			<p class="sub-text">正在下载资源，请勿关闭游戏...</p>
+		</div>
 
-			<div v-if="status === 'downloading'" class="scene-box centered">
-				<div class="progress-wrapper">
-					<div class="progress-track">
-						<div class="progress-fill" :style="{ width: downloadPercent + '%' }"></div>
-					</div>
-					<span class="progress-text">{{ downloadPercent }}%</span>
-				</div>
-				<p class="sub-text">正在下载资源，请勿关闭游戏...</p>
+		<div v-if="status === 'downloaded'" class="scene-box centered">
+			<div class="icon-success">
+				<FontAwesomeIcon icon="check-circle" />
 			</div>
+			<p class="main-text">更新包已就绪</p>
+			<p class="sub-text">重启游戏即可生效</p>
+		</div>
 
-			<div v-if="status === 'downloaded'" class="scene-box centered">
-				<div class="icon-success">
-					<FontAwesomeIcon icon="check-circle" />
-				</div>
-				<p class="main-text">更新包已就绪</p>
-				<p class="sub-text">重启游戏即可生效</p>
-			</div>
+		<div v-if="status === 'error'" class="scene-box centered">
+			<p class="error-text">{{ errorMsg }}</p>
+		</div>
 
-			<div v-if="status === 'error'" class="scene-box centered">
-				<p class="error-text">{{ errorMsg }}</p>
-			</div>
-
-			<div class="custom-footer">
-				<button v-if="status === 'available'" class="btn-secondary" @click="close">稍后提醒</button>
-
-				<button v-if="status === 'available' || status === 'error'" class="btn-primary" @click="startDownload">
-					{{ status === "error" ? "重试" : "立即更新" }}
-				</button>
-
-				<button v-if="status === 'downloaded'" class="btn-primary" @click="install">立即重启</button>
-			</div>
+		<div v-if="status !== 'downloading'" class="custom-footer" :class="{ 'has-separator': status === 'available' }">
+			<button v-if="status === 'available'" class="btn-gray" @click="close">稍后提醒</button>
+			<button v-if="status === 'available' || status === 'error'" class="btn-theme" @click="startDownload">
+				{{ status === "error" ? "重试" : "立即更新" }}
+			</button>
+			<button v-if="status === 'downloaded'" class="btn-theme" @click="install">立即重启</button>
 		</div>
 	</FpDialog>
 </template>
 
 <style lang="scss" scoped>
-.update-content {
-	display: flex;
-	flex-direction: column;
-	gap: 1.5rem;
-	padding-top: 0.5rem;
-
-	// 通用布局
-	.scene-box {
-		&.centered {
-			text-align: center;
-			padding: 1rem 0;
-		}
+// 通用布局
+.scene-box {
+	&.centered {
+		text-align: center;
+		padding: 1rem 0;
 	}
+}
 
-	// 1. 版本信息样式
-	.version-tag {
-		display: inline-block;
-		background-color: var(--fp-color-tertiary); // 复用你的主题色
-		color: white;
-		padding: 0.2rem 0.6rem;
-		border-radius: 4px;
-		font-size: 0.9rem;
-		margin-bottom: 1rem;
-		box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
-	}
+// 1. 版本信息样式
+.version-tag {
+	display: inline-block;
+	background-color: var(--fp-color-tertiary); // 复用你的主题色
+	color: white;
+	padding: 0.2rem 0.6rem;
+	border-radius: 4px;
+	font-size: 0.9rem;
+	margin-bottom: 1rem;
+	box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
+}
 
-	.source-tag {
-		display: inline-block;
-		color: #888;
-		font-size: 0.75rem;
-		margin-bottom: 0.6rem;
-		margin-left: 0.2rem;
-	}
+.note-box {
+	background-color: rgba(0, 0, 0, 0.03);
+	border-radius: 8px;
+	padding: 1rem;
+	border: 1px solid rgba(0, 0, 0, 0.05);
 
-	.note-box {
-		background-color: rgba(0, 0, 0, 0.03);
-		border-radius: 8px;
-		padding: 1rem;
-		border: 1px solid rgba(0, 0, 0, 0.05);
-
-		.note-label {
-			margin-bottom: 0.5rem;
-			color: #333;
-		}
-		.note-text {
-			font-size: 0.95rem;
-			color: #555;
-			line-height: 1.6;
-			white-space: pre-wrap; // 保留换行符
-			max-height: 150px;
-			overflow-y: auto;
-		}
-	}
-
-	// 2. 进度条样式
-	.progress-wrapper {
-		display: flex;
-		align-items: center;
-		gap: 10px;
+	.note-label {
 		margin-bottom: 0.5rem;
+		color: #333;
+	}
+	.note-text {
+		font-size: 0.95rem;
+		color: #555;
+		line-height: 1.6;
+		white-space: pre-wrap; // 保留换行符
+		max-height: 150px;
+		overflow-y: auto;
+	}
+}
 
-		.progress-track {
-			flex: 1;
-			height: 12px;
-			background-color: #eee;
-			border-radius: 6px;
-			overflow: hidden;
-			box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+// 2. 进度条样式
+.progress-wrapper {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin-bottom: 0.5rem;
 
-			.progress-fill {
-				height: 100%;
-				background-color: var(--fp-color-tertiary); // 保持一致
-				transition: width 0.3s ease;
-			}
+	.progress-track {
+		flex: 1;
+		height: 12px;
+		background-color: #eee;
+		border-radius: 6px;
+		overflow: hidden;
+		box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+
+		.progress-fill {
+			height: 100%;
+			background-color: var(--fp-color-tertiary); // 保持一致
+			transition: width 0.3s ease;
 		}
-		.progress-text {
-			color: var(--fp-color-tertiary);
-			min-width: 3em;
-		}
 	}
+	.progress-text {
+		color: var(--fp-color-tertiary);
+		min-width: 3em;
+	}
+}
 
-	// 3. 状态文本
-	.icon-success {
-		font-size: 3rem;
-		color: #4caf50;
-		margin-bottom: 1rem;
-	}
-	.main-text {
-		font-size: 1.1rem;
-		margin-bottom: 0.2rem;
-	}
-	.sub-text {
-		color: #888;
-		font-size: 0.9rem;
-	}
-	.error-text {
-		color: #ff5252;
-	}
+// 3. 状态文本
+.icon-success {
+	font-size: 3rem;
+	color: #4caf50;
+	margin-bottom: 1rem;
+}
+.main-text {
+	font-size: 1.1rem;
+	margin-bottom: 0.2rem;
+}
+.info-text {
+	color: var(--fp-color-text-secondary);
+	font-size: 0.85rem;
+	margin-top: 0.25rem;
+}
 
-	// 4. 自定义底部按钮栏
-	.custom-footer {
-		display: flex;
-		justify-content: flex-end;
-		gap: 1rem;
-		padding-top: 1rem;
+.sub-text {
+	color: #888;
+	font-size: 0.9rem;
+}
+.error-text {
+	color: #ff5252;
+}
+
+// 4. 自定义底部按钮栏
+.custom-footer {
+	display: flex;
+	justify-content: flex-end;
+	gap: 1rem;
+	padding-top: 1rem;
+
+	&.has-separator {
 		border-top: 1px solid rgba(0, 0, 0, 0.05);
+	}
 
-		button {
-			padding: 0.6em 1.5em;
-			border-radius: 6px;
-			font-size: 1rem;
-			cursor: pointer;
-			border: none;
-			transition: all 0.2s;
-			font-weight: 500;
+	button {
+		border: none;
+	}
 
-			&:hover {
-				filter: brightness(0.95);
-				transform: translateY(-1px);
-			}
-			&:active {
-				transform: translateY(0);
-			}
-		}
+	.btn-gray {
+		--btn-bg: var(--fp-color-info);
+	}
 
-		.btn-primary {
-			background-color: var(--fp-color-tertiary);
-			color: white;
-			box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-		}
-
-		.btn-secondary {
-			background-color: #f0f0f0;
-			color: #555;
-
-			&:hover {
-				background-color: #e0e0e0;
-			}
-		}
+	.btn-theme {
+		--btn-bg: var(--fp-color-tertiary);
 	}
 }
 </style>

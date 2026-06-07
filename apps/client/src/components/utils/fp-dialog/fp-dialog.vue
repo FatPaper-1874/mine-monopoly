@@ -156,6 +156,7 @@ function onLeave(el: Element, done: () => void) {
 		height: 2rem;
 		position: relative;
 		margin-bottom: 0.5rem;
+		z-index: 10;
 
 		.title {
 			@include felt-patch(var(--fp-color-tertiary));

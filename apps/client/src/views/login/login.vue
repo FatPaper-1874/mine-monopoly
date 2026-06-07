@@ -335,12 +335,12 @@ function toRoomList() {
 		border-radius: 1.8rem;
 		background-color: rgba(255, 255, 255, 0.65);
 		cursor: pointer;
-		transition: 0.5s all;
+		transition: 0.5s background-color, 0.5s border, 0.5s border-radius;
 		overflow: hidden;
 		position: relative;
 
 		& > span {
-			transition: 0.2s all;
+			transition: 0.2s font-size, 0.2s color, 0.2s margin-bottom;
 			font-size: 2rem;
 			color: var(--fp-color-primary);
 			text-shadow: var(--fp-text-shadow);
@@ -356,7 +356,7 @@ function toRoomList() {
 		}
 
 		& > .icon {
-			transition: 0.2s all;
+			transition: 0.2s font-size, 0.2s color, 0.2s opacity, 0.2s top, 0.2s left;
 			position: absolute;
 			font-size: 10rem;
 			top: 50%;
