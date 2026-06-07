@@ -2,10 +2,8 @@
 import { ref, onBeforeMount, onBeforeUnmount, reactive, onMounted, nextTick, h } from "vue";
 import router from "@src/router";
 import { __PROTOCOL__ } from "@src/../global.config";
-import { getUserByToken } from "@src/utils/api/user";
 import { exitFullScreen, randomString, setTimeOutAsync } from "@src/utils";
-import { clearAuthAndRedirect } from "@src/utils/auth";
-import { startTokenRefreshTimer, stopTokenRefreshTimer } from "@src/utils/api/index";
+import { startTokenRefreshTimer, stopTokenRefreshTimer, ensureValidAuth } from "@src/utils/api/index";
 import { FPMessage } from "@mine-monopoly/ui";
 import { useUserInfo } from "@src/store";
 import { LoginDiceRenderer } from "@src/core/three/LoginDiceRenderer";
@@ -73,9 +71,10 @@ async function getUserInfoToRoomList() {
 			await loginCodeRenderer.initDice();
 			let token = localStorage.getItem("token") || "";
 			if (token) {
-				//账号登录
-				try {
-					const { id: userId, useraccount, username, avatar, color } = await getUserByToken(token);
+				//账号登录 — 先刷新 token，再获取用户信息
+				const userData = await ensureValidAuth();
+				if (userData) {
+					const { id: userId, useraccount, username, avatar, color } = userData;
 					const userInfoStore = useUserInfo();
 					userInfoStore.$patch({ userId, useraccount, username, avatar, color });
 					startTokenRefreshTimer();
@@ -83,10 +82,10 @@ async function getUserInfoToRoomList() {
 					if (loginCodeRenderer) await loginCodeRenderer.showImage(avatar);
 					await setTimeOutAsync(2000, toRoomList);
 					return;
-				} catch (e: any) {
-					clearAuthAndRedirect();
+				} else {
 					showDice.value = false;
 					showLoginMode.value = true;
+					return;
 				}
 			}
 			let userInfo = localStorage.getItem("user") || "";
@@ -104,7 +103,7 @@ async function getUserInfoToRoomList() {
 	} catch (e: any) {
 		FPMessage({
 			type: "error",
-			message: e || e.message || "在验证身份时发生了未知的错误",
+			message: e.response?.data?.msg || e.message || e || "在验证身份时发生了未知的错误",
 			onClosed: () => {
 				localStorage.removeItem("token");
 				localStorage.removeItem("user");
@@ -153,7 +152,7 @@ function toRoomList() {
 
 <template>
 	<div @click.once="handleFirstClick" class="login-page">
-		<HeroTitle text="MineMonopoly" />
+		<HeroTitle text="Mine Monopoly" />
 
 		<div class="front-cover" v-show="!firstClick">
 			<div class="login-code-container">

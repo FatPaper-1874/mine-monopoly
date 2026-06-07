@@ -3,7 +3,7 @@ const props = withDefaults(
 	defineProps<{
 		text?: string;
 	}>(),
-	{ text: "MineMonopoly" },
+	{ text: "Mine Monopoly" },
 );
 </script>
 
@@ -20,8 +20,9 @@ const props = withDefaults(
 
 	& > span {
 		font-size: 6em;
+		font-weight: 600;
 		color: #ffffff;
-		letter-spacing: 0.1em;
+		letter-spacing: 0.4rem;
 		display: block;
 		position: relative;
 		user-select: none;

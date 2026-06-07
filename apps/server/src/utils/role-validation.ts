@@ -77,7 +77,17 @@ export const roleValidation: RequestHandler = async (req, res, next) => {
 		};
 		res.status(401).json(resContent);
 	} else {
-		const tokenInfo = await verToken(token);
+		let tokenInfo;
+		try {
+			tokenInfo = await verToken(token);
+		} catch {
+			const resContent: ResInterface = {
+				status: 401,
+				msg: "token过期，请重新登录",
+			};
+			res.status(401).json(resContent);
+			return;
+		}
 		if (!tokenInfo) {
 			const resContent: ResInterface = {
 				status: 401,

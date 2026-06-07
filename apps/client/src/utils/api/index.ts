@@ -38,7 +38,7 @@ let refreshPromise: Promise<boolean> | null = null;
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 const REFRESH_BEFORE_EXPIRY_MS = 5 * 60 * 1000; // 过期前 5 分钟刷新
 
-function doRefresh(): Promise<boolean> {
+export function doRefresh(): Promise<boolean> {
 	if (refreshPromise) return refreshPromise;
 
 	const refreshToken = getRefreshToken();
@@ -81,6 +81,38 @@ export function stopTokenRefreshTimer() {
 	if (refreshTimer) {
 		clearTimeout(refreshTimer);
 		refreshTimer = null;
+	}
+}
+
+/**
+ * 确保用户凭证有效，先尝试刷新 token，成功后再获取用户信息。
+ * 适用于登录页和房间列表页等需要验明身份的场景。
+ *
+ * @returns 用户信息对象，若凭证无效则返回 null（已自动跳转登录页）
+ */
+export async function ensureValidAuth(): Promise<{
+	id: string;
+	useraccount: string;
+	username: string;
+	avatar: string;
+	color: string;
+} | null> {
+	const token = localStorage.getItem("token");
+	if (!token) return null;
+
+	const refreshed = await doRefresh();
+	if (!refreshed) {
+		FPMessage({ type: "error", message: "登录凭证已过期，请重新登录" });
+		clearAuthAndRedirect();
+		return null;
+	}
+
+	try {
+		const { getUserByToken } = await import("@src/utils/api/user");
+		return await getUserByToken(token);
+	} catch {
+		clearAuthAndRedirect();
+		return null;
 	}
 }
 
@@ -158,6 +190,7 @@ apiClient.interceptors.response.use(
 				case 401: {
 					errorCategory = ErrorCategory.AUTH;
 					errorLevel = ErrorLevel.FATAL;
+					message = (data as any)?.msg || "登录凭证已过期，请重新登录";
 					// 刷新请求本身失败，直接跳登录
 					if (originalConfig?.url?.includes("/user/refresh-token")) {
 						clearAuthAndRedirect();
@@ -170,9 +203,9 @@ apiClient.interceptors.response.use(
 						originalConfig.headers["Authorization"] = localStorage.getItem("token");
 						return apiClient.request(originalConfig);
 					}
-					// 刷新失败，跳登录
-					clearAuthAndRedirect();
+					// 刷新失败，跳登录（不在此提示，由调用层负责）
 					showErrorMessage = false;
+					clearAuthAndRedirect();
 					break;
 				}
 				case 403:

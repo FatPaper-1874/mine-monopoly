@@ -4,13 +4,13 @@ import { useUserInfo, useUserList, useRoomList, useRoomInfo, useLoading } from "
 import { useMonopolyClient } from "@src/core/monopoly-client/MonopolyClient";
 import userCard from "@src/components/common/user-card.vue";
 import router from "@src/router";
-import { getUserByToken } from "@src/utils/api/user";
 import { FPMessage } from "@mine-monopoly/ui";
 import { __FATPAPER_HOST__, __ICE_SERVER_PORT__ } from "@src/../global.config";
 import LoginExtra from "@src/views/login/components/login-extra.vue";
 import FpPopover from "@src/components/utils/fp-popover/fp-popover.vue";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { getRandomPublicRoom } from "@src/utils/api/room-router";
+import { ensureValidAuth } from "@src/utils/api";
 import { throttle } from "@src/utils";
 import { useResourceStore } from "@src/store/game";
 import FpErrorBoundary from "@src/components/utils/fp-error-boundary/index.vue";
@@ -32,16 +32,18 @@ onMounted(async () => {
 		useLoading().showLoading("读取用户信息中");
 		let token = localStorage.getItem("token") || "";
 		if (token) {
-			//账号登录
-			try {
-				const { id: userId, useraccount, username, avatar, color } = await getUserByToken(token);
+			//账号登录 先尝试刷新 token，避免过期导致 401 重复提示
+			const userData = await ensureValidAuth();
+			if (userData) {
+				const { id: userId, useraccount, username, avatar, color } = userData;
 				const userInfoStore = useUserInfo();
 				userInfoStore.$patch({ userId, useraccount, username, avatar, color });
 				useLoading().hideLoading();
 				return;
-			} catch (e: any) {
-				FPMessage({ type: "error", message: e.message || e });
+			} else {
+				useLoading().hideLoading();
 				handleLogout();
+				return;
 			}
 		}
 		let userInfo = localStorage.getItem("user") || "";
@@ -132,7 +134,7 @@ async function handleGetRandomPublicRoom(e: Event) {
 					</div>
 				</div>
 				<div class="join-room" v-stagger.sound="380">
-					<div class="title">Room-Router</div>
+					<div class="title">游戏大厅</div>
 					<div class="describe">
 						·输入房间号可加入房间，第一个使用房间号的将成为主机(房主)<br />
 						·建议使用稍微复杂的房间号(防止误入别人的房间)<br />
