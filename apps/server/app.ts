@@ -123,9 +123,9 @@ async function bootstrap() {
 			}
 			if (adminBasePrefix) {
 				const prefixed = adminIndexHtml
-					.replace(/(src|href)="\/(assets\/)/g, `$1="${adminBasePrefix}/$2`)
-					.replace('src="/env.js"', `src="${adminBasePrefix}/env.js"`)
-					.replace('href="/logo.ico"', `href="${adminBasePrefix}/logo.ico"`);
+					.replace(/(src|href)="\.?\/(assets\/)/g, `$1="${adminBasePrefix}/$2`)
+					.replace(/(src|href)="\.?\/env\.js"/g, `$1="${adminBasePrefix}/env.js"`)
+					.replace(/(src|href)="\.?\/logo\.ico"/g, `$1="${adminBasePrefix}/logo.ico"`);
 				res.send(prefixed);
 			} else {
 				res.send(adminIndexHtml);

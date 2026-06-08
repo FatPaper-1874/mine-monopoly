@@ -63,6 +63,19 @@ export function envPlugin(options: EnvPluginOptions = {}): Plugin {
         console.warn(`[vite-plugin-universal-env] .env file not found at ${envFilePath}`);
       }
 
+      // 合并 process.env 中的变量作为覆盖（支持 Docker build args / CI 环境变量注入）
+      const processEnvOverrides = filterEnvVars(
+        Object.fromEntries(
+          Object.entries(process.env).filter(([, v]) => v !== undefined)
+        ) as Record<string, string>,
+        { exclude }
+      );
+      const overriddenKeys = Object.keys(processEnvOverrides);
+      if (overriddenKeys.length > 0) {
+        envVars = { ...envVars, ...processEnvOverrides };
+        console.log(`[vite-plugin-universal-env] Merged ${overriddenKeys.length} override(s) from process.env: ${overriddenKeys.join(', ')}`);
+      }
+
       return {
         define: {
           '__ENV_VARS__': JSON.stringify(envVars),

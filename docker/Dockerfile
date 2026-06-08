@@ -35,6 +35,20 @@ RUN npm install -g esbuild && \
   --outfile=/app/deploy/server.js
 
 # Build admin frontend (separate install to avoid pulling in client-only deps into server deploy)
+# Admin build-time env vars — pass via --build-arg or docker-compose build args
+ARG MAP_ENCRYPT_KEY
+ARG PROTOCOL
+ARG MONOPOLY_DOMAIN
+ARG SERVER_PORT
+ARG API_BASE_PREFIX
+ARG ADMIN_BASE_PREFIX
+ENV MAP_ENCRYPT_KEY=${MAP_ENCRYPT_KEY} \
+    PROTOCOL=${PROTOCOL} \
+    MONOPOLY_DOMAIN=${MONOPOLY_DOMAIN} \
+    SERVER_PORT=${SERVER_PORT} \
+    API_BASE_PREFIX=${API_BASE_PREFIX} \
+    ADMIN_BASE_PREFIX=${ADMIN_BASE_PREFIX}
+
 COPY packages/utils/package.json ./packages/utils/
 COPY apps/admin/package.json ./apps/admin/
 RUN pnpm install --frozen-lockfile

@@ -3,6 +3,13 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
+      args:
+        - MAP_ENCRYPT_KEY=${MAP_ENCRYPT_KEY:-changeme16chkey!}
+        - PROTOCOL=${PROTOCOL:-http}
+        - MONOPOLY_DOMAIN=${MONOPOLY_DOMAIN:-localhost}
+        - SERVER_PORT=${SERVER_PORT:-81}
+        - API_BASE_PREFIX=${API_BASE_PREFIX:-}
+        - ADMIN_BASE_PREFIX=${ADMIN_BASE_PREFIX:-}
     image: monopoly-server
     container_name: monopoly-server
     restart: unless-stopped

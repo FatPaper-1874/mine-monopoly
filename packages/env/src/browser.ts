@@ -18,9 +18,13 @@ declare global {
  */
 export function env<T = string>(key: string, defaultValue?: T): T {
   const upperKey = key.toUpperCase();
-  const value = typeof __RUNTIME_ENV__ !== 'undefined'
-    ? __RUNTIME_ENV__[upperKey]
-    : typeof __ENV_VARS__ !== 'undefined' ? __ENV_VARS__[upperKey] : undefined;
+
+  // 运行时注入优先，但空值不覆盖构建时变量
+  const runtimeVal = typeof __RUNTIME_ENV__ !== 'undefined' ? __RUNTIME_ENV__[upperKey] : undefined;
+  const buildVal = typeof __ENV_VARS__ !== 'undefined' ? __ENV_VARS__[upperKey] : undefined;
+
+  // 优先取运行时非空值，否则取构建时值
+  const value = (runtimeVal !== undefined && runtimeVal !== '') ? runtimeVal : buildVal;
 
   if (value === undefined || value === '') {
     if (defaultValue !== undefined) {

@@ -1,5 +1,5 @@
 import { GameMap } from "@mine-monopoly/types";
-import { loadFromProto, decodeProductMap } from "@mine-monopoly/utils";
+import { loadFromProto, decodeProductMap, gzipDecompress } from "@mine-monopoly/utils";
 import { isProductFile, decrypt } from "@mine-monopoly/utils/crypto";
 import { env } from "@mine-monopoly/env";
 
@@ -22,7 +22,16 @@ export async function readMapFile(file: File) {
 async function readMmmapFile(bytes: Uint8Array) {
 	const key = env("MAP_ENCRYPT_KEY", "");
 	const decrypted = await decrypt(bytes, key);
-	const productMap = decodeProductMap(decrypted);
+
+	// 尝试 gzip 解压，失败则直接解析（向后兼容旧格式）
+	let productData: Uint8Array;
+	try {
+		productData = await gzipDecompress(decrypted);
+	} catch {
+		productData = decrypted;
+	}
+
+	const productMap = decodeProductMap(productData);
 	const mapData = JSON.parse(productMap.payload) as GameMap;
 
 	const modelFiles = productMap.resources
