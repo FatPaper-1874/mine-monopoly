@@ -13,6 +13,7 @@ const APP_VERSION_SHORT = pkg.version.split(".").slice(0, 2).join(".");
 // https://vitejs.dev/config/
 export default defineConfig(({ command, mode }) => {
 	const isCheck = mode === 'check';
+	const isCapacitor = mode === 'capacitor';
 
 	return {
 		base: "./",
@@ -26,14 +27,16 @@ export default defineConfig(({ command, mode }) => {
 		plugins: [
 			vue(),
 			generateMonacoDTS(),
-			viteCompression({
-					threshold: 10240, // 只压缩大于 10KB 的文件
-				}),
+			// Capacitor 不需要 gzip（Android 会把 .gz 当重复资源报错）
+			!isCapacitor && viteCompression({
+				threshold: 10240, // 只压缩大于 10KB 的文件
+			}),
 			envPlugin({
 				exclude: ['MYSQL_PASSWORD', 'TC_KEY'],
 				envPath: '../../.env',
 			}),
-			electron({
+			// Electron 插件仅在非 check / 非 capacitor 模式下启用
+			(!isCheck && !isCapacitor) && electron({
 				main: {
 					entry: "electron/main.ts",
 				},
@@ -51,6 +54,8 @@ export default defineConfig(({ command, mode }) => {
 		].filter(Boolean),
 		build: {
 			outDir: isCheck ? "dist/check" : "dist/frontend",
+			// Capacitor Android WebView 支持 top-level await (Chrome 89+)
+			target: isCapacitor ? "es2022" : undefined,
 			minify: isCheck ? false : 'terser',
 			sourcemap: isCheck ? 'inline' : false,
 			rollupOptions: {

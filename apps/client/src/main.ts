@@ -177,14 +177,35 @@ library.add(
 	faBoxOpen,
 	faTrashCan
 );
-// 在创建 Pinia / App 之前初始化平台 API，
-// 避免 top-level await 打断 app.mount → Pinia 安装时序
 await initPlatform();
 
 const pinia = createPinia();
 const app = createApp(App);
 
 app.use(pinia).use(router).component("font-awesome-icon", FontAwesomeIcon).directive("sound", soundDirective).mount("#app");
+
+// Capacitor 全屏：状态栏透明覆盖 + 自动收回
+if (getPlatformType() === "capacitor") {
+	Promise.all([
+		import("@capacitor/status-bar"),
+		import("@capacitor/core"),
+	]).then(([{ StatusBar }, { SystemBars }]) => {
+		// 状态栏透明覆盖到游戏内容上（消除摄像头黑边）
+		StatusBar.setOverlaysWebView({ overlay: true }).catch(() => {});
+		// 初始隐藏
+		StatusBar.hide().catch(() => {});
+		SystemBars.hide().catch(() => {});
+
+		// 用户下滑唤出状态栏后，自动收回
+		StatusBar.addListener("statusBarVisibilityChanged", (info: { visible: boolean }) => {
+			if (info.visible) {
+				setTimeout(() => {
+					StatusBar.hide().catch(() => {});
+				}, 2000); // 2秒后自动隐藏
+			}
+		});
+	});
+}
 
 // 初始化 console 拦截器（在开发环境中也启用）
 interceptConsole();

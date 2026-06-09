@@ -16,6 +16,8 @@ function componentLoadedInterceptor(promise: Promise<any>) {
 	};
 }
 
+import { getPlatformType } from "@src/utils/platform";
+
 const routes = [
 	{ path: "/", name: "login", component: componentLoadedInterceptor(import("@src/views/login/login.vue")) },
 	{
@@ -27,13 +29,11 @@ const routes = [
 	{ path: "/game", name: "game", component: componentLoadedInterceptor(import("@src/views/game/game.vue")) },
 ];
 
-const isElectron = navigator.userAgent.toLowerCase().includes('electron');
-
 const router = createRouter({
-  // 2. 根据环境动态选择 History 模式
-  history: isElectron
-    ? createWebHashHistory() // Electron 必须用 Hash (因为是 file:// 协议)
-    : createWebHistory(),    // Web 端用 History (URL好看，SEO友好)
+  // Electron 必须用 Hash (file:// 协议)，其他平台用 History
+  history: getPlatformType() === "electron"
+    ? createWebHashHistory()
+    : createWebHistory(),
   routes
 });
 

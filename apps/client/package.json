@@ -9,16 +9,27 @@
 	"scripts": {
 		"dev": "vite",
 		"build": "node ./scripts/extract-changelog.js && vite build && electron-builder",
+		"build:capacitor": "vite build --mode capacitor",
+		"dev:capacitor": "vite --host 0.0.0.0",
+		"cap:sync": "npx cap sync",
+		"cap:copy": "npx cap copy",
+		"cap:open": "npx cap open android",
+		"cap:android": "npm run build:capacitor && npx cap copy && npx cap sync",
+		"cap:dev": "npx cap copy && npx cap sync && npm run dev:capacitor",
 		"check": "vue-tsc --noEmit",
 		"electron": "electron .",
 		"preview": "vite preview"
 	},
 	"dependencies": {
+		"@capacitor/core": "^8.4.0",
+		"@capacitor/status-bar": "^8.0.2",
 		"electron-log": "^5.4.3",
 		"electron-updater": "^6.6.2",
 		"gsap": "^3.12.7"
 	},
 	"devDependencies": {
+		"@capacitor/android": "^8.4.0",
+		"@capacitor/cli": "^8.4.0",
 		"@mine-monopoly/env": "workspace:*",
 		"@mine-monopoly/types": "workspace:*",
 		"@mine-monopoly/ui": "workspace:*",

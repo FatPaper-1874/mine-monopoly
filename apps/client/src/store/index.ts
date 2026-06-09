@@ -13,6 +13,7 @@ import {
 } from "@mine-monopoly/types";
 import { isFullScreen, isLandscape, setTimeOutAsync } from "@src/utils";
 import { getUserByToken } from "@src/utils/api/user";
+import { getPlatformType } from "@src/utils/platform";
 import { useGameData } from "./game";
 
 /**
@@ -278,6 +279,15 @@ export const useSettig = defineStore("setting", {
 	actions: {
 		// 初始化画质设置（从 localStorage 读取或自动检测）
 		initGraphicQuality() {
+			// 移动端 / Capacitor 强制低画质，关闭阴影
+			const platform = getPlatformType();
+			if (platform === "capacitor" || platform === "mobile") {
+				this.graphicQuality = "low";
+				this.enableShadow = false;
+				console.log("[画质设置] 移动端强制 low，关闭阴影");
+				return;
+			}
+
 			try {
 				const saved = localStorage.getItem("graphicQuality");
 				if (saved && (saved === "low" || saved === "medium" || saved === "high")) {
