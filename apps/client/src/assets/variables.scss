@@ -14,6 +14,6 @@
   @include fp-mixins.fp-felt-cutout;
 }
 
-@mixin inner-stitch($color: var(--fp-stitch-color-light), $offset: 4px) {
+@mixin inner-stitch($color: var(--fp-stitch-color-light), $offset: 0.25rem) {
   @include fp-mixins.fp-inner-stitch($color, $offset);
 }

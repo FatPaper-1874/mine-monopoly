@@ -4,19 +4,19 @@
 // =============================================================================
 
 // ---- 基础阴影 ----
-$fp-shadow-sm: 0px 0px 0.4rem rgba(0, 0, 0, 0.08);
-$fp-shadow-md: 0px 0px 0.8rem rgba(0, 0, 0, 0.12);
-$fp-shadow-lg: 0px 0px 1.2rem rgba(0, 0, 0, 0.18);
-$fp-shadow-dark: 0px 0px 0.8rem rgba(0, 0, 0, 0.22);
+$fp-shadow-sm: 0 0 0.4rem rgba(0, 0, 0, 0.08);
+$fp-shadow-md: 0 0 0.8rem rgba(0, 0, 0, 0.12);
+$fp-shadow-lg: 0 0 1.2rem rgba(0, 0, 0, 0.18);
+$fp-shadow-dark: 0 0 0.8rem rgba(0, 0, 0, 0.22);
 
 // ---- 文字阴影 ----
 $fp-text-shadow: 0.2rem 0.2rem 0.13rem rgba(0, 0, 0, 0.15);
 $fp-text-shadow-light: 0.2rem 0.2rem 0.13rem rgba(255, 255, 255, 1);
-$fp-text-shadow-surround-white: #fff -1px 0 0, #fff 1px 0 0, #fff 0 1px 0, #fff 0 -1px 0;
-$fp-text-shadow-embroider: 0 1px 1px rgba(255, 255, 255, 0.4);
-$fp-text-shadow-pressed: 0 -1px 0 rgba(0, 0, 0, 0.2);
+$fp-text-shadow-surround-white: #fff -0.1rem 0 0, #fff 0.1rem 0 0, #fff 0 0.1rem 0, #fff 0 -0.1rem 0;
+$fp-text-shadow-embroider: 0 0.1rem 0.1rem rgba(255, 255, 255, 0.4);
+$fp-text-shadow-pressed: 0 -0.1rem 0 rgba(0, 0, 0, 0.2);
 
 // ---- 毛毡风格阴影 ----
 $fp-shadow-depth: 0 0.25rem 0 rgba(0, 0, 0, 0.15);
 $fp-shadow-inset: inset 0 0.15rem 0.1rem rgba(0, 0, 0, 0.15);
-$fp-shadow-card: $fp-shadow-depth, 0 0 0 3px rgba(0, 0, 0, 0.05);
+$fp-shadow-card: $fp-shadow-depth, 0 0 0 0.1875rem rgba(0, 0, 0, 0.05);

@@ -9,14 +9,14 @@ $fp-texture-knit: repeating-linear-gradient(45deg,
   transparent 4px,
   rgba(0, 0, 0, 0.02) 4px,
   rgba(0, 0, 0, 0.02) 8px),
-  repeating-linear-gradient(-45deg,
-    transparent,
-    transparent 4px,
-    rgba(0, 0, 0, 0.01) 4px,
-    rgba(0, 0, 0, 0.01) 8px);
+repeating-linear-gradient(-45deg,
+  transparent,
+  transparent 4px,
+  rgba(0, 0, 0, 0.01) 4px,
+  rgba(0, 0, 0, 0.01) 8px);
 
 $fp-texture-felt: radial-gradient(circle at 50% 50%, transparent 0%, rgba(0, 0, 0, 0.05) 100%),
-  repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 0, 0, 0.02) 2px, rgba(0, 0, 0, 0.02) 4px);
+repeating-linear-gradient(0deg, transparent, transparent 0.15rem, rgba(0, 0, 0, 0.02) 0.15rem, rgba(0, 0, 0, 0.02) 0.4rem);
 
 // ---- 缝线颜色 ----
 $fp-stitch-color-light: rgba(255, 255, 255, 0.5);

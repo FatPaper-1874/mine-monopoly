@@ -21,7 +21,7 @@
     left: $offset;
     right: $offset;
     bottom: $offset;
-    border: 2px dashed rgba(0, 0, 0, 0.08);
+    border: 0.2rem dashed rgba(0, 0, 0, 0.08);
     border-radius: inherit;
     pointer-events: none;
     z-index: 1;
@@ -33,11 +33,11 @@
   background-color: rgba(255, 255, 255, 0.85);
   border: none;
   border-radius: 0.6rem;
-  box-shadow: var(--fp-shadow-inset), 0 1px 0 rgba(255, 255, 255, 0.6);
+  box-shadow: var(--fp-shadow-inset), 0 0.1rem 0 rgba(255, 255, 255, 0.6);
 }
 
 // 内侧缝线装饰
-@mixin fp-inner-stitch($color: var(--fp-stitch-color-light), $offset: 4px) {
+@mixin fp-inner-stitch($color: var(--fp-stitch-color-light), $offset: 0.25rem) {
   position: relative;
 
   &::after {
@@ -47,7 +47,7 @@
     left: $offset;
     right: $offset;
     bottom: $offset;
-    border: 1.5px dashed $color;
+    border: 0.2rem dashed $color;
     border-radius: inherit;
     pointer-events: none;
     z-index: 1;
