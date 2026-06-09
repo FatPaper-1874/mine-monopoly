@@ -5,6 +5,7 @@ import { computed, ref } from "vue";
 import { useRoute } from "vue-router";
 import { useMapData } from "@src/store/game";
 import { useRoomInfo } from "@src/store";
+import { marked } from "marked";
 
 const mapInfoVisible = ref(false);
 const router = useRoute();
@@ -66,6 +67,16 @@ const mapDescription = computed(() => {
 	}
 	return desc || "暂无说明";
 });
+
+// Markdown 渲染的地图说明
+const mapDescriptionHtml = computed(() => {
+	let desc = displayMapInfo.value?.description;
+	if (!desc?.trim() && router.name === "room") {
+		desc = mapData.info?.description;
+	}
+	if (!desc?.trim()) return "<p>暂无说明</p>";
+	return marked.parse(desc) as string;
+});
 </script>
 
 <template>
@@ -83,13 +94,13 @@ const mapDescription = computed(() => {
 		:cancel-text="undefined"
 		confirm-text="关闭"
 	>
-		<template #title>“{{ mapName }}”地图说明</template>
+		<template #title>"{{ mapName }}"地图说明</template>
 		<div class="map-info-container">
 			<div class="map-meta">
 				<span>作者: {{ mapAuthor }}</span>
 				<span>版本: {{ mapVersion }}</span>
 			</div>
-			<div class="map-description">{{ mapDescription }}</div>
+			<div class="map-description markdown-content" v-html="mapDescriptionHtml"></div>
 		</div>
 	</FpDialog>
 </template>
@@ -126,10 +137,88 @@ const mapDescription = computed(() => {
 	}
 
 	.map-description {
-		line-height: 1.8;
 		color: #3e3e3e;
-		white-space: pre-wrap;
-		word-wrap: break-word;
+		line-height: 1.8;
+	}
+
+	// Markdown 内容样式（参考 help.vue）
+	.markdown-content {
+		:deep(h2),
+		:deep(h3) {
+			color: var(--fp-color-primary);
+			margin-top: 1rem;
+			margin-bottom: 0.5rem;
+
+			&:first-child {
+				margin-top: 0;
+			}
+		}
+
+		:deep(p) {
+			margin-bottom: 0.8rem;
+		}
+
+		:deep(ul) {
+			list-style: none;
+			padding-left: 0;
+			margin-bottom: 0.8rem;
+		}
+
+		:deep(li) {
+			line-height: 1.6;
+			margin-bottom: 0.3rem;
+			padding-left: 1em;
+			text-indent: -1em;
+
+			&::before {
+				content: "- ";
+				color: var(--fp-color-secondary);
+			}
+		}
+
+		:deep(strong) {
+			color: var(--fp-color-text-secondary);
+			font-weight: 600;
+		}
+
+		:deep(code) {
+			background-color: rgba(0, 0, 0, 0.05);
+			padding: 0.1em 0.3em;
+			border-radius: 3px;
+			font-family: monospace;
+			font-size: 0.9em;
+		}
+
+		:deep(a) {
+			color: var(--fp-color-primary);
+			text-decoration: underline;
+
+			&:hover {
+				opacity: 0.8;
+			}
+		}
+
+		:deep(table) {
+			border-collapse: collapse;
+			width: 100%;
+			margin-bottom: 1rem;
+		}
+
+		:deep(th),
+		:deep(td) {
+			border: 1px solid #ddd;
+			padding: 0.5rem 0.8rem;
+			text-align: left;
+		}
+
+		:deep(th) {
+			background-color: rgba(0, 0, 0, 0.05);
+			font-weight: 600;
+		}
+
+		:deep(tr:nth-child(even)) {
+			background-color: rgba(0, 0, 0, 0.02);
+		}
 	}
 }
 </style>

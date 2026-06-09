@@ -153,7 +153,7 @@ function onLeave(el: Element, done: () => void) {
 	}
 
 	.fp-dialog-header {
-		height: 2rem;
+		min-height: 2rem;
 		position: relative;
 		margin-bottom: 0.5rem;
 		z-index: 10;

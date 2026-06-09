@@ -112,13 +112,11 @@ function handleClose() {
 					<a-form-item label="地图说明" name="description" :rules="[{ required: true, message: '请输入地图说明' }]">
 						<a-textarea
 							v-model:value="mapInfoForm.description"
-							:auto-size="{ minRows: 5, maxRows: 8 }"
+							:auto-size="{ minRows: 5, maxRows: 10 }"
 							placeholder="请输入地图说明..."
-							show-count
-							:maxlength="200"
 						/>
 						<a-typography-paragraph type="secondary" style="font-size: 12px; margin-top: 4px;">
-							支持 \n 进行换行
+							支持 Markdown 语法（# 标题、**加粗**、- 列表等）
 						</a-typography-paragraph>
 					</a-form-item>
 				</div>
