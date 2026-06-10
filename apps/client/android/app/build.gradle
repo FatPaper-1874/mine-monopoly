@@ -15,19 +15,28 @@ if (hasKeystoreProps) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 }
 
-// 判断是否为 CI 环境（通过环境变量传入）
-def hasCIKeystore = System.getenv("RELEASE_KEYSTORE_BASE64") != null
+// 判断是否为 CI 环境（通过环境变量传入，确保非空）
+def ciKeystoreB64 = System.getenv("RELEASE_KEYSTORE_BASE64")
+def hasCIKeystore = ciKeystoreB64 != null && !ciKeystoreB64.trim().isEmpty()
 def keystorePath = null
 
 if (hasCIKeystore) {
     // CI 模式：从环境变量 base64 解码生成临时 keystore 文件
-    def keystoreBytes = System.getenv("RELEASE_KEYSTORE_BASE64").decodeBase64()
+    def keystoreBytes = ciKeystoreB64.decodeBase64()
     keystorePath = rootProject.file("ci-release.keystore")
     keystorePath.withOutputStream { it.write(keystoreBytes) }
     logger.info("CI signing: keystore decoded to ${keystorePath}")
+    println("CI signing: keystore decoded (${keystoreBytes.length} bytes)")
 }
 
 def hasSigningConfig = hasKeystoreProps || hasCIKeystore
+
+// 打印签名诊断信息
+if (hasSigningConfig) {
+    println("Signing config: ENABLED (${hasCIKeystore ? 'CI' : 'local'})")
+} else {
+    println("Signing config: DISABLED — APK will be unsigned or debug-signed")
+}
 
 android {
     namespace = "com.fatpaper.minemonopoly"
