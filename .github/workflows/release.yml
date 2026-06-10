@@ -178,7 +178,7 @@ jobs:
           cat > dist/capacitor/ota/update.json << JSON
           {
             "version": "$VERSION",
-            "url": "https://assets.fatpaper.site/releases/client/capacitor/dist.zip",
+            "url": "https://assets.fatpaper.site/releases/client/download/apk/dist.zip",
             "releaseNotes": "$NOTES"
           }
           JSON
@@ -292,14 +292,16 @@ jobs:
         run: |
           TAG="${{ github.ref_name }}"
           PKG_NAME=$(echo "$TAG" | sed -E 's/@mine-monopoly\/(.+)@.+/\1/')
+          VERSION=$(echo "$TAG" | sed -E 's/@mine-monopoly\/.+@(.+)/\1/')
           echo "pkg_name=$PKG_NAME" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
           merge-multiple: true
 
-      # Electron 安装包 → releases/client/download/
+      # Electron 安装包 → releases/client/download/windows/
       - name: Upload Electron to R2
         if: steps.tag.outputs.pkg_name == 'client'
         run: |
@@ -307,7 +309,7 @@ jobs:
           find artifacts -type f \( -name "*.exe" -o -name "*.blockmap" -o -name "*.yml" \) \
             -exec cp {} r2-flat/ \;
           echo "=== Electron files ===" && ls -lh r2-flat/
-          aws s3 sync r2-flat/ "s3://${R2_BUCKET_NAME}/releases/client/download/" \
+          aws s3 sync r2-flat/ "s3://${R2_BUCKET_NAME}/releases/client/download/windows/" \
             --endpoint-url "${R2_ENDPOINT_URL}" --no-progress --delete
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
@@ -316,12 +318,24 @@ jobs:
           R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
           R2_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT_URL }}
 
-      # Android APK → releases/client/download/
+      # Android APK → releases/client/download/apk/
       - name: Upload APK to R2
         if: steps.tag.outputs.pkg_name == 'client'
         run: |
-          find artifacts -name "*.apk" -exec aws s3 cp {} "s3://${R2_BUCKET_NAME}/releases/client/download/" \
+          VERSION="${{ steps.tag.outputs.version }}"
+          APK_NAME="MineMonopoly-Android-${VERSION}.apk"
+          APK=$(find artifacts -name "*.apk" | head -1)
+          aws s3 cp "$APK" "s3://${R2_BUCKET_NAME}/releases/client/download/apk/${APK_NAME}" \
+            --endpoint-url "${R2_ENDPOINT_URL}" --no-progress
+          echo "path: ${APK_NAME}" > /tmp/latest.yml
+          aws s3 cp /tmp/latest.yml "s3://${R2_BUCKET_NAME}/releases/client/download/apk/latest.yml" \
+            --endpoint-url "${R2_ENDPOINT_URL}" --no-progress
+          # 同时上传 OTA 更新包（dist.zip + update.json）
+          find artifacts -name "dist.zip" -exec aws s3 cp {} "s3://${R2_BUCKET_NAME}/releases/client/download/apk/dist.zip" \
             --endpoint-url "${R2_ENDPOINT_URL}" --no-progress \;
+          find artifacts -name "update.json" -exec aws s3 cp {} "s3://${R2_BUCKET_NAME}/releases/client/download/apk/update.json" \
+            --endpoint-url "${R2_ENDPOINT_URL}" --no-progress \;
+          echo "APK + OTA uploaded"
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
@@ -329,33 +343,14 @@ jobs:
           R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
           R2_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT_URL }}
 
-      # OTA 更新包 → releases/client/capacitor/
-      - name: Upload OTA to R2
-        if: steps.tag.outputs.pkg_name == 'client'
-        run: |
-          mkdir -p r2-ota
-          find artifacts -name "dist.zip" -exec cp {} r2-ota/ \;
-          find artifacts -name "update.json" -exec cp {} r2-ota/ \;
-          echo "=== OTA files ===" && ls -lh r2-ota/
-          aws s3 cp r2-ota/dist.zip "s3://${R2_BUCKET_NAME}/releases/client/capacitor/" \
-            --endpoint-url "${R2_ENDPOINT_URL}" --no-progress
-          aws s3 cp r2-ota/update.json "s3://${R2_BUCKET_NAME}/releases/client/capacitor/" \
-            --endpoint-url "${R2_ENDPOINT_URL}" --no-progress
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: auto
-          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
-          R2_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT_URL }}
-
-      # Map Editor 安装包 → releases/map-editor/download/
+      # Map Editor 安装包 → releases/map-editor/download/windows/
       - name: Upload Editor to R2
         if: steps.tag.outputs.pkg_name == 'map-editor'
         run: |
           mkdir -p r2-flat
           find artifacts -type f \( -name "*.exe" -o -name "*.blockmap" -o -name "*.yml" \) \
             -exec cp {} r2-flat/ \;
-          aws s3 sync r2-flat/ "s3://${R2_BUCKET_NAME}/releases/map-editor/download/" \
+          aws s3 sync r2-flat/ "s3://${R2_BUCKET_NAME}/releases/map-editor/download/windows/" \
             --endpoint-url "${R2_ENDPOINT_URL}" --no-progress --delete
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}

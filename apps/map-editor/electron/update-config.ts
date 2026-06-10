@@ -21,7 +21,7 @@ export interface UpdateSource {
 export const DEFAULT_SOURCES: UpdateSource[] = [
     {
         name: "Cloudflare R2",
-        url: "https://assets.fatpaper.site/releases/map-editor/download/",
+        url: "https://assets.fatpaper.site/releases/map-editor/download/windows/",
         enabled: true,
     },
 ];

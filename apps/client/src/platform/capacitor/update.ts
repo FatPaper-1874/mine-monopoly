@@ -28,7 +28,7 @@ let downloadedBundle: { id: string; version: string } | null = null;
 let statusCallback: ((data: any) => void) | null = null;
 let appReadyCalled = false;
 
-const DEFAULT_UPDATE_URL = "https://assets.fatpaper.site/releases/client/capacitor/update.json";
+const DEFAULT_UPDATE_URL = "https://assets.fatpaper.site/releases/client/download/apk/update.json";
 
 function getUpdateCheckUrl(): string {
 	if ((window as any).__CAPACITOR_UPDATE_URL__) return (window as any).__CAPACITOR_UPDATE_URL__;
