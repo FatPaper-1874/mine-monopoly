@@ -184,6 +184,12 @@ jobs:
           JSON
           echo "OTA dist.zip + update.json ready (v$VERSION)"
 
+      - name: Capacitor Sync
+        shell: bash
+        run: |
+          cd apps/client
+          npx cap sync android
+
       # ── Android APK 构建 ──
       - uses: actions/setup-java@v4
         with:
