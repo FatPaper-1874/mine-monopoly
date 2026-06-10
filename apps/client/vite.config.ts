@@ -54,8 +54,8 @@ export default defineConfig(({ command, mode }) => {
 		].filter(Boolean),
 		build: {
 			outDir: isCheck ? "dist/check" : "dist/frontend",
-			// Capacitor Android WebView 支持 top-level await (Chrome 89+)
-			target: isCapacitor ? "es2022" : undefined,
+			// Electon 37 (Chrome 130+) 和 Capacitor Android WebView (Chrome 89+) 都支持 top-level await
+			target: "es2022",
 			minify: isCheck ? false : 'terser',
 			sourcemap: isCheck ? 'inline' : false,
 			rollupOptions: {
