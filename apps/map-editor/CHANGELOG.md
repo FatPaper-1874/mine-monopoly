@@ -1,5 +1,11 @@
 # @mine-monopoly/map-editor
 
+## 1.1.1
+
+### Patch Changes
+
+- - 修复顶部栏窗口控制按钮（最小化/最大化/关闭）失效的问题
+
 ## 1.1.0
 
 ### Minor Changes
