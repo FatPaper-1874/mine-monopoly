@@ -1,5 +1,11 @@
 # @mine-monopoly/client
 
+## 1.1.1
+
+### Patch Changes
+
+- - 修复 Android 端检查更新时因 update.json 包含换行符导致 JSON 解析失败的问题
+
 ## 1.1.0
 
 ### Minor Changes
