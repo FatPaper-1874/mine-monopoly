@@ -33,6 +33,9 @@ interface Window {
 
 	// 更新 API（平台无关接口）
 	updateAPI: import("../src/platform/types").UpdateAPI;
+
+	// Capacitor 更新源 URL（运行时动态设置）
+	__CAPACITOR_UPDATE_URL__?: string;
 }
 
 // 扩展 Performance 接口以支持 Chrome 特定的 memory API

@@ -10,6 +10,7 @@
 		"dev": "vite",
 		"build": "node ./scripts/extract-changelog.js && vite build && electron-builder",
 		"build:capacitor": "vite build --mode capacitor",
+		"build:capacitor:ota": "node ./scripts/build-capacitor-ota.js",
 		"dev:capacitor": "vite --host 0.0.0.0",
 		"cap:sync": "npx cap sync",
 		"cap:copy": "npx cap copy",
@@ -23,6 +24,7 @@
 	"dependencies": {
 		"@capacitor/core": "^8.4.0",
 		"@capacitor/status-bar": "^8.0.2",
+		"@capgo/capacitor-updater": "^8.49.0",
 		"electron-log": "^5.4.3",
 		"electron-updater": "^6.6.2",
 		"gsap": "^3.12.7"

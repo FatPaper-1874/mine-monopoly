@@ -30,6 +30,9 @@ const config: CapacitorConfig = {
 			// 不注入 safe-area CSS 变量：游戏需要铺满全屏
 			insetsHandling: "disable",
 		},
+		CapacitorUpdater: {
+			autoUpdate: false,
+		},
 	},
 };
 

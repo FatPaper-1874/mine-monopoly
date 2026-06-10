@@ -10,7 +10,8 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  # ── Electron 构建（Windows） ──
+  build-electron:
     runs-on: windows-latest
     environment: build
 
@@ -99,7 +100,6 @@ jobs:
         run: |
           PKG_NAME="${{ steps.tag.outputs.pkg_name }}"
           NOTES_FILE="apps/${PKG_NAME}/build/release-notes.md"
-
           if [ -f "$NOTES_FILE" ]; then
             cp "$NOTES_FILE" release-notes.md
             echo "has_notes=true" >> $GITHUB_OUTPUT
@@ -115,8 +115,136 @@ jobs:
           path: release-notes.md
           if-no-files-found: warn
 
+  # ── Android APK + OTA 更新包 ──
+  build-android:
+    if: startsWith(github.ref_name, '@mine-monopoly/client@')
+    runs-on: ubuntu-latest
+    environment: build
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse Tag
+        id: tag
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION=$(echo "$TAG" | sed -E 's/@mine-monopoly\/.+@(.+)/\1/')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version_code=$(echo $VERSION | tr -d '.')" >> $GITHUB_OUTPUT
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+        shell: bash
+
+      - run: pnpm --filter @mine-monopoly/env run build
+        shell: bash
+
+      - name: Create .env
+        shell: bash
+        run: |
+          cat > .env << EOF
+          MONOPOLY_DOMAIN=${{ vars.MONOPOLY_DOMAIN }}
+          PROTOCOL=${{ vars.PROTOCOL }}
+          SERVER_PORT=${{ vars.SERVER_PORT }}
+          ICE_SERVER_PORT=${{ vars.ICE_SERVER_PORT }}
+          NODE_ENV=production
+          MAP_ENCRYPT_KEY=${{ secrets.MAP_ENCRYPT_KEY }}
+          EOF
+
+      # ── 前端构建 + OTA 打包 ──
+      - name: Build Web & Package OTA
+        shell: bash
+        run: |
+          cd apps/client
+          npx vite build --mode capacitor
+
+          # 提取更新日志
+          NOTES="修复了一些已知问题，优化了游戏体验。"
+          if [ -f CHANGELOG.md ]; then
+            NOTES=$(grep -A100 '^## ' CHANGELOG.md | tail -n +2 | sed '/^## /q' | grep -v '^### ' | sed '/^$/d' | head -20)
+            [ -z "$NOTES" ] && NOTES="修复了一些已知问题，优化了游戏体验。"
+          fi
+
+          # 打包 OTA
+          mkdir -p dist/capacitor/ota
+          VERSION="${{ steps.tag.outputs.version }}"
+          cd dist/frontend && zip -r ../capacitor/ota/dist.zip . && cd ../..
+          cat > dist/capacitor/ota/update.json << JSON
+          {
+            "version": "$VERSION",
+            "url": "https://assets.fatpaper.site/releases/client/capacitor/dist.zip",
+            "releaseNotes": "$NOTES"
+          }
+          JSON
+          echo "OTA dist.zip + update.json ready (v$VERSION)"
+
+      # ── Android APK 构建 ──
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platforms;android-36 build-tools;36.0.0'
+
+      - name: Decode Keystore
+        if: env.ANDROID_KEYSTORE_BASE64
+        run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > apps/client/android/release.keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+
+      - name: Build APK
+        working-directory: apps/client/android
+        run: |
+          VERSION="${{ steps.tag.outputs.version }}"
+          VERSION_CODE="${{ steps.tag.outputs.version_code }}"
+          echo "Building APK version=$VERSION code=$VERSION_CODE"
+
+          # 注入版本号
+          sed -i "s/versionCode .*/versionCode $VERSION_CODE/" app/build.gradle
+          sed -i "s/versionName .*/versionName \"$VERSION\"/" app/build.gradle
+
+          # 签名配置（如果提供了 keystore）
+          if [ -f release.keystore ]; then
+            echo "android { signingConfigs { release { storeFile file('release.keystore') storePassword '${KEYSTORE_PASS}' keyAlias '${KEY_ALIAS}' keyPassword '${KEY_PASS}' } } buildTypes { release { signingConfig signingConfigs.release } } }" > signed-config.gradle
+            echo "apply from: 'signed-config.gradle'" >> app/build.gradle
+          fi
+
+          ./gradlew assembleRelease --no-daemon -q
+        env:
+          KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+
+      - name: Copy APK
+        run: |
+          mkdir -p apps/client/dist/android
+          APK=$(find apps/client/android/app/build/outputs -name "*.apk" | head -1)
+          VERSION="${{ steps.tag.outputs.version }}"
+          cp "$APK" "apps/client/dist/android/MineMonopoly-Android-${VERSION}.apk"
+          ls -lh "apps/client/dist/android/MineMonopoly-Android-${VERSION}.apk"
+
+      - name: Upload Android Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-android
+          path: |
+            apps/client/dist/android/*.apk
+            apps/client/dist/capacitor/ota/dist.zip
+            apps/client/dist/capacitor/ota/update.json
+          if-no-files-found: error
+
+  # ── GitHub Release ──
   release:
-    needs: build
+    needs: [build-electron, build-android]
     runs-on: ubuntu-latest
 
     steps:
@@ -142,9 +270,11 @@ jobs:
           draft: false
           files: |
             artifacts/**/*-Setup.exe
+            artifacts/**/*.apk
 
+  # ── R2 上传（Electron 安装包 + Android APK + OTA 更新包） ──
   upload-r2:
-    needs: build
+    needs: [build-electron, build-android]
     runs-on: ubuntu-latest
     environment: build
 
@@ -161,21 +291,64 @@ jobs:
           path: artifacts
           merge-multiple: true
 
-      - name: Flatten & Upload to Cloudflare R2
+      # Electron 安装包 → releases/client/download/
+      - name: Upload Electron to R2
+        if: steps.tag.outputs.pkg_name == 'client'
         run: |
           mkdir -p r2-flat
-          PKG_NAME="${{ steps.tag.outputs.pkg_name }}"
-
           find artifacts -type f \( -name "*.exe" -o -name "*.blockmap" -o -name "*.yml" \) \
             -exec cp {} r2-flat/ \;
+          echo "=== Electron files ===" && ls -lh r2-flat/
+          aws s3 sync r2-flat/ "s3://${R2_BUCKET_NAME}/releases/client/download/" \
+            --endpoint-url "${R2_ENDPOINT_URL}" --no-progress --delete
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT_URL }}
 
-          echo "=== 准备上传到 R2 的文件（${PKG_NAME}） ==="
-          ls -lh r2-flat/
+      # Android APK → releases/client/download/
+      - name: Upload APK to R2
+        if: steps.tag.outputs.pkg_name == 'client'
+        run: |
+          find artifacts -name "*.apk" -exec aws s3 cp {} "s3://${R2_BUCKET_NAME}/releases/client/download/" \
+            --endpoint-url "${R2_ENDPOINT_URL}" --no-progress \;
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT_URL }}
 
-          aws s3 sync r2-flat/ "s3://${R2_BUCKET_NAME}/releases/${PKG_NAME}/download/" \
-            --endpoint-url "${R2_ENDPOINT_URL}" \
-            --no-progress \
-            --delete
+      # OTA 更新包 → releases/client/capacitor/
+      - name: Upload OTA to R2
+        if: steps.tag.outputs.pkg_name == 'client'
+        run: |
+          mkdir -p r2-ota
+          find artifacts -name "dist.zip" -exec cp {} r2-ota/ \;
+          find artifacts -name "update.json" -exec cp {} r2-ota/ \;
+          echo "=== OTA files ===" && ls -lh r2-ota/
+          aws s3 cp r2-ota/dist.zip "s3://${R2_BUCKET_NAME}/releases/client/capacitor/" \
+            --endpoint-url "${R2_ENDPOINT_URL}" --no-progress
+          aws s3 cp r2-ota/update.json "s3://${R2_BUCKET_NAME}/releases/client/capacitor/" \
+            --endpoint-url "${R2_ENDPOINT_URL}" --no-progress
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT_URL }}
+
+      # Map Editor 安装包 → releases/map-editor/download/
+      - name: Upload Editor to R2
+        if: steps.tag.outputs.pkg_name == 'map-editor'
+        run: |
+          mkdir -p r2-flat
+          find artifacts -type f \( -name "*.exe" -o -name "*.blockmap" -o -name "*.yml" \) \
+            -exec cp {} r2-flat/ \;
+          aws s3 sync r2-flat/ "s3://${R2_BUCKET_NAME}/releases/map-editor/download/" \
+            --endpoint-url "${R2_ENDPOINT_URL}" --no-progress --delete
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}

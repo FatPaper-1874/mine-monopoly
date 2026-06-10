@@ -1,26 +1,16 @@
 /**
  * Capacitor 平台实现（Android / iOS）
  *
- * 当前复用 Web 平台实现。随着 Capacitor 原生插件的集成，
- * 可逐步添加原生能力（如文件系统、推送、应用更新等）。
+ * 基于 @capgo/capacitor-updater 原生插件提供 OTA 自动更新。
+ * 注意：不使用 @capgo/capacitor-updater JS SDK（其 history.js 会导致白屏），
+ * 直接通过 @capacitor/core 的 registerPlugin 注册原生插件。
  */
-import type { PlatformAPI, UpdateAPI } from "../types";
+import type { PlatformAPI } from "../types";
 import { createWebPlatform } from "../web";
-import { createWebUpdateAPI } from "../web/update";
+import { createCapUpdateAPI } from "./update";
 
-/**
- * 创建 Capacitor 平台的 PlatformAPI 实现
- *
- * 目前完全复用 Web 平台能力。
- */
 export function createCapacitorPlatform(): PlatformAPI {
 	return createWebPlatform();
 }
 
-/**
- * Capacitor 平台更新 API
- * 可扩展为使用 @capacitor/app-update 或跳转应用商店
- */
-export function createCapacitorUpdateAPI(): UpdateAPI {
-	return createWebUpdateAPI();
-}
+export { createCapUpdateAPI as createCapacitorUpdateAPI };

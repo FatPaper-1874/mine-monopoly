@@ -373,19 +373,35 @@ function interceptConsole() {
 	const originalWarn = console.warn;
 	const originalInfo = console.info;
 
+	// 防重入标记：logConsoleToPlatform → platformAPI.logConsole → console.error
+	// → 再次进入拦截器时跳过，避免死循环
+	let inLogToPlatform = false;
+
 	console.error = (...args) => {
 		originalError.apply(console, args);
-		logConsoleToPlatform("error", ...args);
+		if (!inLogToPlatform) {
+			inLogToPlatform = true;
+			try { logConsoleToPlatform("error", ...args); }
+			finally { inLogToPlatform = false; }
+		}
 	};
 
 	console.warn = (...args) => {
 		originalWarn.apply(console, args);
-		logConsoleToPlatform("warn", ...args);
+		if (!inLogToPlatform) {
+			inLogToPlatform = true;
+			try { logConsoleToPlatform("warn", ...args); }
+			finally { inLogToPlatform = false; }
+		}
 	};
 
 	console.info = (...args) => {
 		originalInfo.apply(console, args);
-		logConsoleToPlatform("info", ...args);
+		if (!inLogToPlatform) {
+			inLogToPlatform = true;
+			try { logConsoleToPlatform("info", ...args); }
+			finally { inLogToPlatform = false; }
+		}
 	};
 }
 

@@ -22,8 +22,6 @@ export async function initPlatform(): Promise<void> {
 	try {
 		switch (type) {
 		case "electron": {
-			// Electron — preload 已通过 contextBridge 暴露了 updateAPI（只读），
-			// 我们只需设置 platformAPI 即可
 			const { createElectronPlatform } = await import("./electron");
 			window.platformAPI = createElectronPlatform();
 			break;
@@ -37,7 +35,6 @@ export async function initPlatform(): Promise<void> {
 		}
 
 		default: {
-			// Web (及 UA 检测为 mobile 的非 Capacitor 浏览器)
 			const { createWebPlatform } = await import("./web");
 			const { createWebUpdateAPI } = await import("./web/update");
 			window.platformAPI = createWebPlatform();
@@ -47,7 +44,6 @@ export async function initPlatform(): Promise<void> {
 		}
 	} catch (err) {
 		console.error(`[Platform] 初始化失败 (${type}):`, err);
-		// 降级为 Web 平台避免应用无法启动
 		if (type !== "web") {
 			const { createWebPlatform } = await import("./web");
 			window.platformAPI = createWebPlatform();

@@ -106,6 +106,12 @@ export default defineConfig(({ command, mode }) => {
 		server: {
 			port: 5173,
 		},
+		optimizeDeps: {
+			// @capgo/capacitor-updater 顶层调用 Capacitor registerPlugin()，
+			// Vite dev 预打包时无 native bridge 会失败。生产构建通过
+			// 动态 import() 自动代码分割，不需要 exclude。
+			exclude: ['@capgo/capacitor-updater'],
+		},
 		esbuild: {
 			// 只在生产构建（非 check）时删除 console 和 debugger
 			drop: (command === 'build' && !isCheck) ? ['console', 'debugger'] : [],
