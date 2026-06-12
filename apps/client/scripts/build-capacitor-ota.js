@@ -53,7 +53,7 @@ console.log(`[Capacitor OTA] ✅ dist.zip + update.json (v${pkg.version})`);
 // 5. upload (optional)
 if (shouldUpload) {
 	const bk = process.env.R2_BUCKET_NAME, ep = process.env.R2_ENDPOINT_URL;
-	const tgt = `s3://${bk}/releases/client/capacitor/`;
+	const tgt = `s3://${bk}/releases/client/download/apk/`;
 	for (const f of [ZIP, UPDATE_JSON]) {
 		execSync(`aws s3 cp "${f}" "${tgt}" --endpoint-url "${ep}" --no-progress`, {
 			stdio: "inherit",
