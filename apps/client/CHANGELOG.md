@@ -1,5 +1,11 @@
 # @mine-monopoly/client
 
+## 1.1.3
+
+### Patch Changes
+
+- 修复安卓端更新检查失败时无提示的问题
+
 ## 1.1.2
 
 ### Patch Changes
