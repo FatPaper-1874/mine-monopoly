@@ -32,7 +32,8 @@ const DEFAULT_UPDATE_URL = "https://assets.fatpaper.site/releases/client/downloa
 
 function getUpdateCheckUrl(): string {
 	if ((window as any).__CAPACITOR_UPDATE_URL__) return (window as any).__CAPACITOR_UPDATE_URL__;
-	return DEFAULT_UPDATE_URL;
+	// 加时间戳绕过 CDN 缓存
+	return DEFAULT_UPDATE_URL + "?t=" + Date.now();
 }
 
 function compareVersions(a: string, b: string): number {
