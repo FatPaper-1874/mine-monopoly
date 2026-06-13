@@ -1,5 +1,11 @@
 # @mine-monopoly/map-editor
 
+## 1.1.3
+
+### Patch Changes
+
+- - **游戏设置**：新增回合倒计时配置项，内置非法参数保护与旧地图兼容逻辑
+
 ## 1.1.2
 
 ### Patch Changes
