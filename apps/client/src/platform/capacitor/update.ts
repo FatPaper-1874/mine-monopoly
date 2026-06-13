@@ -27,6 +27,9 @@ let pendingUrl: string | null = null;
 let downloadedBundle: { id: string; version: string } | null = null;
 let statusCallback: ((data: any) => void) | null = null;
 let appReadyCalled = false;
+let downloadTotalSize = 0;       // 下载文件总大小（字节），预先通过 HEAD 获取
+let lastTransferred = 0;         // 上次已下载字节数，用于计算速度
+let lastSpeedTime = 0;           // 上次速度采样时间戳
 
 const DEFAULT_UPDATE_URL = "https://assets.fatpaper.site/releases/client/download/apk/update.json";
 
@@ -84,6 +87,16 @@ export function createCapUpdateAPI(): UpdateAPI {
 				return;
 			}
 			try {
+				// 预先通过 HEAD 请求获取总大小，用于推算下载进度
+				downloadTotalSize = 0;
+				lastTransferred = 0;
+				lastSpeedTime = 0;
+				try {
+					const headResp = await fetch(pendingUrl, { method: "HEAD" });
+					const cl = headResp.headers.get("Content-Length");
+					if (cl) downloadTotalSize = parseInt(cl, 10);
+				} catch { /* HEAD 失败不影响下载 */ }
+
 				const bundle = await CapacitorUpdater.download({ version: pendingVersion, url: pendingUrl });
 				downloadedBundle = bundle;
 				await CapacitorUpdater.next({ id: bundle.id });
@@ -103,7 +116,34 @@ export function createCapUpdateAPI(): UpdateAPI {
 			statusCallback = callback;
 			const fns: (() => void)[] = [];
 			CapacitorUpdater.addListener("download", (e: any) => {
-				if (typeof e?.percent === "number") statusCallback?.({ status: "progress", progress: { percent: e.percent, bytesPerSecond: 0, transferred: 0, total: 0 } });
+				if (typeof e?.percent === "number") {
+					// 文档写 0–100，但原生可能返回 0–1（用户反馈始终 0 推测）
+					const pct = e.percent < 1 ? e.percent * 100 : e.percent;
+
+					// 从总大小和百分比推算已下载量
+					const transferred = downloadTotalSize > 0 ? Math.round((pct / 100) * downloadTotalSize) : 0;
+
+					// 计算下载速度（字节/秒）
+					const now = Date.now();
+					let bytesPerSecond = 0;
+					if (transferred > 0 && lastTransferred > 0 && lastSpeedTime > 0) {
+						const dt = (now - lastSpeedTime) / 1000;
+						const dBytes = transferred - lastTransferred;
+						if (dt > 0 && dBytes >= 0) bytesPerSecond = Math.round(dBytes / dt);
+					}
+					lastTransferred = transferred;
+					lastSpeedTime = now;
+
+					statusCallback?.({
+						status: "progress",
+						progress: {
+							percent: pct,          // 保留浮点，update.vue 侧 Math.floor 取整
+							bytesPerSecond,
+							transferred,
+							total: downloadTotalSize,
+						},
+					});
+				}
 			}).then((h: any) => fns.push(() => h.remove()));
 			CapacitorUpdater.addListener("downloadComplete", () => statusCallback?.({ status: "downloaded" })).then((h: any) => fns.push(() => h.remove()));
 			CapacitorUpdater.addListener("downloadFailed", () => statusCallback?.({ status: "error", error: "下载失败" })).then((h: any) => fns.push(() => h.remove()));
