@@ -919,6 +919,9 @@ export class MapContentService {
 		if (!existing) {
 			throw new Error(`游戏参数不存在: ${settingId}`);
 		}
+		if (existing.builtIn) {
+			throw new Error(`内置参数 "${existing.label}" 不可删除`);
+		}
 
 		const list = mapDataStore.gameSettingForm.filter(s => s.id !== settingId);
 		mapDataStore.updateGameSettingFrom(list);

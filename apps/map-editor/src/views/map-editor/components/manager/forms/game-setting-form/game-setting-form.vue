@@ -24,6 +24,8 @@ const addField = (type: "number-input" | "select") => {
 
 // 删除字段
 const removeField = (index: number) => {
+	const field = schemaList.value[index];
+	if (field?.builtIn) return; // 内置参数不可删除
 	schemaList.value.splice(index, 1);
 };
 
@@ -72,11 +74,26 @@ function save() {
 							{{ field.type === "number-input" ? "数字" : "下拉" }}
 						</span>
 						{{ field.key }}
+						<span v-if="field.builtIn" class="built-in-tag">内置</span>
 					</span>
 				</template>
 
 				<template #extra>
-					<a-button type="link" danger size="small" @click="removeField(index)"> 删除字段 </a-button>
+					<a-popconfirm
+						v-if="field.builtIn"
+						title="内置参数不可删除"
+						placement="left"
+					>
+						<a-button type="link" danger size="small" disabled> 删除字段 </a-button>
+					</a-popconfirm>
+					<a-popconfirm
+						v-else
+						title="确定删除此字段？"
+						placement="left"
+						@confirm="removeField(index)"
+					>
+						<a-button type="link" danger size="small"> 删除字段 </a-button>
+					</a-popconfirm>
 				</template>
 
 				<a-form layout="vertical">
@@ -204,6 +221,17 @@ function save() {
 
 .tag.select {
 	background-color: #52c41a; /* Ant Green */
+}
+
+.built-in-tag {
+	font-size: 11px;
+	padding: 1px 6px;
+	border-radius: 3px;
+	background-color: #e6f7ff;
+	color: #1677ff;
+	border: 1px solid #91caff;
+	margin-left: 4px;
+	font-weight: normal;
 }
 
 /* 选项区域样式 */

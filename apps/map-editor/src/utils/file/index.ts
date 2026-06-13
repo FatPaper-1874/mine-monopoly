@@ -1,4 +1,4 @@
-import { GameMap } from "@mine-monopoly/types";
+import { FormSchema, GameMap } from "@mine-monopoly/types";
 import { dataToProtoBuffer, loadFromProto, ProtoFileType, encodeProductMap } from "@mine-monopoly/utils/protos";
 import { encrypt } from "@mine-monopoly/utils/crypto";
 import { gzipCompress } from "@mine-monopoly/utils";
@@ -78,6 +78,8 @@ export async function loadMapDataFromPath(path: string) {
 	const resourceStore = useResourceStore();
 	const data = await parseGameMapFromProtoFile(path);
 	if (data) {
+		// 补全旧地图缺少的内置游戏参数（如 turnTimeout）
+		data.mapData.gameSettingForm = ensureBuiltInGameSettings(data.mapData.gameSettingForm);
 		mapDataStore.$patch(data.mapData);
 		editorStore.setCurrentFilePath(path);
 
@@ -117,6 +119,39 @@ export async function loadMapDataFromPath(path: string) {
 	useEditorStore().setLoading(false);
 }
 
+/** 内置游戏参数字段定义（不含 id，由使用处生成） */
+const BUILT_IN_GAME_SETTINGS: Omit<FormSchema, "id">[] = [
+	{ key: "initMoney", type: "number-input", label: "初始金钱", defaultValue: 10000, builtIn: true },
+	{ key: "turnTimeout", type: "number-input", label: "回合倒计时(秒)", defaultValue: 15, min: 5, max: 120, builtIn: true },
+];
+
+/**
+ * 补全/标记内置游戏参数
+ * - 缺失的内置项 → 追加（含 builtIn: true）
+ * - 已有的同名参数 → 标记 builtIn: true（以内置参数为准）
+ */
+function ensureBuiltInGameSettings(form: FormSchema[]): FormSchema[] {
+	const builtInKeys = new Set(BUILT_IN_GAME_SETTINGS.map((s) => s.key));
+	const result = form.map((s) => {
+		if (builtInKeys.has(s.key) && !s.builtIn) {
+			return { ...s, builtIn: true };
+		}
+		return s;
+	});
+	for (const def of BUILT_IN_GAME_SETTINGS) {
+		if (!result.some((s) => s.key === def.key)) {
+			result.push({ id: generateShortId("gs"), ...def });
+		}
+	}
+	// 内置参数排前面，保持内置之间的相对顺序；用户自定义的保持原顺序
+	result.sort((a, b) => {
+		if (a.builtIn && !b.builtIn) return -1;
+		if (!a.builtIn && b.builtIn) return 1;
+		return 0;
+	});
+	return result;
+}
+
 export function createDefaultMapData(): GameMap {
 	return {
 		id: generateShortId("map", 12),
@@ -141,9 +176,7 @@ export function createDefaultMapData(): GameMap {
 		uiTemplates: [],
 		modifierTemplates: [],
 		customUIs: [],
-		gameSettingForm: [
-			{ id: "initMoney", key: "initMoney", type: "number-input", label: "初始金钱", defaultValue: 10000 },
-		],
+		gameSettingForm: BUILT_IN_GAME_SETTINGS.map((s) => ({ id: generateShortId("gs"), ...s })),
 		extraLibs: "",
 	} as GameMap;
 }

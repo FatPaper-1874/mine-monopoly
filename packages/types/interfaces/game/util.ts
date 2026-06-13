@@ -90,6 +90,9 @@ export interface FormSchema {
 	/** 标题 */
 	label: string;
 
+	/** 是否为内置参数（不可删除） */
+	builtIn?: boolean;
+
 	/** 占位符文本（可选） */
 	placeholder?: string;
 

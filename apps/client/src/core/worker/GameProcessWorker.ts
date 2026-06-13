@@ -398,6 +398,12 @@ export class GameProcess implements IGameProcess {
 
 	private pendingSaveData: { snapshot: SaveSnapshot; aiPlayerIds: string[] } | null = null;
 
+	/** 从游戏设置中获取回合默认超时（毫秒），取不到时回退 15000ms */
+	private get defaultTimeoutMs(): number {
+		const seconds = this.gameSetting.turnTimeout?.value;
+		return typeof seconds === "number" && seconds > 0 ? seconds * 1000 : 15000;
+	}
+
 	public mapData: GameMap;
 	public gameSetting: GameSetting;
 
@@ -1652,7 +1658,7 @@ export class GameProcess implements IGameProcess {
 
 		// 真实玩家，使用带超时的方法
 		return await operationListener.onceAsyncWithTimeout(playerId, operationType, {
-			timeout: options?.timeout ?? 15000,
+			timeout: options?.timeout ?? this.defaultTimeoutMs,
 			defaultValue: options?.defaultValue ?? (undefined as any),
 		});
 	}
@@ -1841,7 +1847,7 @@ export class GameProcess implements IGameProcess {
 
 		// 使用带超时的方法
 		return (await operationListener.onceAsyncWithTimeout(playerId, OperateType.ConfirmDialogResult, {
-			timeout: config?.timeout,
+			timeout: config?.timeout ?? this.defaultTimeoutMs,
 			defaultValue: config?.defaultValue ?? { id: playerId, confirm: false },
 		})) as ConfirmDialogResult;
 	}
@@ -1873,7 +1879,7 @@ export class GameProcess implements IGameProcess {
 		});
 
 		return (await operationListener.onceAsyncWithTimeout(playerId, OperateType.TargetSelectDialogResult, {
-			timeout: config?.timeout,
+			timeout: config?.timeout ?? this.defaultTimeoutMs,
 			defaultValue: config?.defaultValue ?? { target: [] },
 		})) as TargetSelectDialogResult<I>;
 	}
@@ -1905,7 +1911,7 @@ export class GameProcess implements IGameProcess {
 		});
 
 		return (await operationListener.onceAsyncWithTimeout(playerId, OperateType.ItemSelectDialogResult, {
-			timeout: config?.timeout,
+			timeout: config?.timeout ?? this.defaultTimeoutMs,
 			defaultValue: config?.defaultValue ?? { selected: [] },
 		})) as ItemSelectDialogResult;
 	}
@@ -1941,7 +1947,7 @@ export class GameProcess implements IGameProcess {
 
 		// 使用带超时的方法等待响应
 		return (await operationListener.onceAsyncWithTimeout(playerId, OperateType.FormDialogResult, {
-			timeout: config?.timeout,
+			timeout: config?.timeout ?? this.defaultTimeoutMs,
 			defaultValue: config?.defaultValue ?? this.buildDefaultFormResult(option.fields),
 		})) as FormDialogResult<F>;
 	}
