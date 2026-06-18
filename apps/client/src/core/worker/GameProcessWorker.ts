@@ -1,5 +1,13 @@
 import { OperateListener } from "./class/OperateListener";
-import { WorkerCommMsg, type GameProcessDebugState, GMAction, GMActionResponseData, SetMoneyAction, AddChanceCardAction, SetPropertyOwnerAction } from "@src/interfaces/worker";
+import {
+	WorkerCommMsg,
+	type GameProcessDebugState,
+	GMAction,
+	GMActionResponseData,
+	SetMoneyAction,
+	AddChanceCardAction,
+	SetPropertyOwnerAction,
+} from "@src/interfaces/worker";
 import { WorkerCommType } from "@src/enums/worker";
 import {
 	ChanceCardInfo,
@@ -172,7 +180,10 @@ async function handleGMAction(action: GMAction, gameProcess: GameProcess | null)
 	}
 }
 
-async function handleSetMoney(action: SetMoneyAction & { type: 'setMoney' }, gameProcess: GameProcess): Promise<GMActionResponseData> {
+async function handleSetMoney(
+	action: SetMoneyAction & { type: "setMoney" },
+	gameProcess: GameProcess,
+): Promise<GMActionResponseData> {
 	const { playerId, operation, amount } = action.payload;
 	const player = gameProcess.players.get(playerId);
 
@@ -180,7 +191,7 @@ async function handleSetMoney(action: SetMoneyAction & { type: 'setMoney' }, gam
 		return { success: false, error: "玩家不存在" };
 	}
 
-	if (typeof amount !== 'number' || isNaN(amount)) {
+	if (typeof amount !== "number" || isNaN(amount)) {
 		return { success: false, error: "金额无效" };
 	}
 
@@ -205,7 +216,10 @@ async function handleSetMoney(action: SetMoneyAction & { type: 'setMoney' }, gam
 	};
 }
 
-async function handleAddChanceCard(action: AddChanceCardAction & { type: 'addChanceCard' }, gameProcess: GameProcess): Promise<GMActionResponseData> {
+async function handleAddChanceCard(
+	action: AddChanceCardAction & { type: "addChanceCard" },
+	gameProcess: GameProcess,
+): Promise<GMActionResponseData> {
 	const { cardId, targetPlayerId } = action.payload;
 	const player = gameProcess.players.get(targetPlayerId);
 
@@ -233,7 +247,10 @@ async function handleAddChanceCard(action: AddChanceCardAction & { type: 'addCha
 	};
 }
 
-async function handleSetPropertyOwner(action: SetPropertyOwnerAction & { type: 'setPropertyOwner' }, gameProcess: GameProcess): Promise<GMActionResponseData> {
+async function handleSetPropertyOwner(
+	action: SetPropertyOwnerAction & { type: "setPropertyOwner" },
+	gameProcess: GameProcess,
+): Promise<GMActionResponseData> {
 	const { propertyId, newOwnerId } = action.payload;
 	const property = gameProcess.properties.get(propertyId);
 
@@ -466,9 +483,10 @@ export class GameProcess implements IGameProcess {
 	/** 心跳间隔（毫秒） */
 	private static readonly HEARTBEAT_INTERVAL = 5000;
 
-	public gameOverRuleFunction: (ctx: GameContext, gameProcess: IGameProcess) => Promise<string[] | true | false> = async () => {
-		return false;
-	};
+	public gameOverRuleFunction: (ctx: GameContext, gameProcess: IGameProcess) => Promise<string[] | true | false> =
+		async () => {
+			return false;
+		};
 
 	constructor(mapData: GameMap, gameSetting: GameSetting, userList: UserInRoomInfo[], roomOwnerId: string) {
 		this.mapData = mapData;
@@ -481,7 +499,6 @@ export class GameProcess implements IGameProcess {
 		for (const [name, value] of Object.entries(allRuntimeEnums)) {
 			(globalThis as any)[name] = value;
 		}
-
 
 		console.dir(gameSetting);
 		console.dir(gameSetting.initMoney.value);
@@ -568,11 +585,7 @@ export class GameProcess implements IGameProcess {
 	 * @param callback 点击回调函数
 	 * @returns ButtonController 按钮控制实例
 	 */
-	public registerPlayerButton(
-		playerId: string,
-		text: string,
-		callback: () => Promise<void> | void
-	): ButtonController {
+	public registerPlayerButton(playerId: string, text: string, callback: () => Promise<void> | void): ButtonController {
 		// 验证玩家ID
 		if (!this.players.has(playerId)) {
 			throw new Error(`玩家不存在: ${playerId}`);
@@ -582,8 +595,8 @@ export class GameProcess implements IGameProcess {
 		const buttonText = text.trim() || "按钮";
 
 		// 验证回调
-		if (typeof callback !== 'function') {
-			throw new TypeError('callback must be a function');
+		if (typeof callback !== "function") {
+			throw new TypeError("callback must be a function");
 		}
 
 		// 生成唯一buttonId
@@ -596,7 +609,7 @@ export class GameProcess implements IGameProcess {
 			text: buttonText,
 			enabled: true,
 			visible: true,
-			callback
+			callback,
 		};
 
 		// 存储配置
@@ -616,7 +629,7 @@ export class GameProcess implements IGameProcess {
 				OperateType.DynamicButtonClick,
 				async (data: PlayerOperationResult[OperateType.DynamicButtonClick]) => {
 					await this.handleDynamicButtonClick(playerId, data.buttonId);
-				}
+				},
 			);
 		}
 
@@ -625,13 +638,13 @@ export class GameProcess implements IGameProcess {
 			buttonId,
 			text: buttonText,
 			enabled: true,
-			visible: true
+			visible: true,
 		};
 
 		this.sendToPlayer(playerId, {
 			type: SocketMsgType.ButtonRegister,
 			source: SocketMsgSource.Server,
-			data: registerMessage
+			data: registerMessage,
 		});
 
 		return controller;
@@ -654,13 +667,13 @@ export class GameProcess implements IGameProcess {
 
 		const stateMessage: ButtonStateChangedMessage = {
 			buttonId,
-			enabled
+			enabled,
 		};
 
 		this.sendToPlayer(playerId, {
 			type: SocketMsgType.ButtonStateChanged,
 			source: SocketMsgSource.Server,
-			data: stateMessage
+			data: stateMessage,
 		});
 	}
 
@@ -681,13 +694,13 @@ export class GameProcess implements IGameProcess {
 
 		const stateMessage: ButtonStateChangedMessage = {
 			buttonId,
-			visible
+			visible,
 		};
 
 		this.sendToPlayer(playerId, {
 			type: SocketMsgType.ButtonStateChanged,
 			source: SocketMsgSource.Server,
-			data: stateMessage
+			data: stateMessage,
 		});
 	}
 
@@ -708,13 +721,13 @@ export class GameProcess implements IGameProcess {
 
 		const stateMessage: ButtonStateChangedMessage = {
 			buttonId,
-			text: config.text
+			text: config.text,
 		};
 
 		this.sendToPlayer(playerId, {
 			type: SocketMsgType.ButtonStateChanged,
 			source: SocketMsgSource.Server,
-			data: stateMessage
+			data: stateMessage,
 		});
 	}
 
@@ -734,13 +747,13 @@ export class GameProcess implements IGameProcess {
 
 		// 通知客户端
 		const removeMessage: ButtonRemoveMessage = {
-			buttonId
+			buttonId,
 		};
 
 		this.sendToPlayer(playerId, {
 			type: SocketMsgType.ButtonRemove,
 			source: SocketMsgSource.Server,
-			data: removeMessage
+			data: removeMessage,
 		});
 	}
 
@@ -764,7 +777,7 @@ export class GameProcess implements IGameProcess {
 	 */
 	private async handleDynamicButtonClick(playerId: string, buttonId: string): Promise<void> {
 		// 特殊处理：同步按钮请求
-		if (buttonId === '__sync__') {
+		if (buttonId === "__sync__") {
 			const playerButtons = this.playerButtons.get(playerId);
 			if (playerButtons) {
 				for (const [id, config] of playerButtons) {
@@ -772,13 +785,13 @@ export class GameProcess implements IGameProcess {
 						buttonId: id,
 						text: config.text,
 						enabled: config.enabled,
-						visible: config.visible
+						visible: config.visible,
 					};
 
 					this.sendToPlayer(playerId, {
 						type: SocketMsgType.ButtonRegister,
 						source: SocketMsgSource.Server,
-						data: registerMessage
+						data: registerMessage,
 					});
 				}
 			}
@@ -811,7 +824,7 @@ export class GameProcess implements IGameProcess {
 			// 发送失败通知
 			this.messageNotify([playerId], {
 				type: "error",
-				content: error instanceof Error ? error.message : '操作失败'
+				content: error instanceof Error ? error.message : "操作失败",
 			});
 		} finally {
 			// 重新启用按钮
@@ -1278,7 +1291,10 @@ export class GameProcess implements IGameProcess {
 				};
 				const playerRoundPhases = player.getRoundPhases();
 				for (const phase of playerRoundPhases) {
-					await this.runLongOperation(() => this.runGamePhase(phase, context), `${player.name} 回合阶段: ${phase.name}`);
+					await this.runLongOperation(
+						() => this.runGamePhase(phase, context),
+						`${player.name} 回合阶段: ${phase.name}`,
+					);
 				}
 				this.currentRoundPlayer = null;
 				await player.commandBus.execute({ type: "player.round.end", payload: { player } });
@@ -1431,7 +1447,12 @@ export class GameProcess implements IGameProcess {
 				case TargetSelectType.ToMapItem: {
 					const targetPlayers = targetIdList.map((id) => this.players.get(id)).filter((p): p is Player => !!p);
 					if (targetPlayers.length === 0) throw new Error("选中的玩家不存在");
-					await this.executeChanceCardWithAnimation(sourcePlayer, chanceCard, targetPlayers, targetPlayers.map(t => t.id));
+					await this.executeChanceCardWithAnimation(
+						sourcePlayer,
+						chanceCard,
+						targetPlayers,
+						targetPlayers.map((t) => t.id),
+					);
 					break;
 				}
 
@@ -1718,7 +1739,7 @@ export class GameProcess implements IGameProcess {
 		sourcePlayer: IPlayer,
 		chanceCard: IChanceCard,
 		target: IPlayer | IProperty | IPlayer[] | IProperty[],
-		targetIdListForAnim: string[]
+		targetIdListForAnim: string[],
 	) {
 		const animationId = randomString(16);
 		const chanceCardInfo = chanceCard.getChanceCardInfo();
@@ -1731,8 +1752,8 @@ export class GameProcess implements IGameProcess {
 				animationId,
 				chanceCard: chanceCardInfo,
 				sourcePlayerId: sourcePlayer.id,
-				targetIdList: targetIdListForAnim
-			}
+				targetIdList: targetIdListForAnim,
+			},
 		});
 
 		this.setCurrentEventName(`${sourcePlayer.name} 使用机会卡中`);
@@ -1787,10 +1808,7 @@ export class GameProcess implements IGameProcess {
 	 * @param timeout - 超时时间（毫秒）
 	 * @returns Promise，动画完成或超时时resolve
 	 */
-	private waitForAnimationComplete(
-		animationId: string,
-		timeout: number
-	): Promise<void> {
+	private waitForAnimationComplete(animationId: string, timeout: number): Promise<void> {
 		return new Promise((resolve) => {
 			const timer = setTimeout(() => {
 				console.warn(`[GameProcess] 动画超时: ${animationId}`);
@@ -1988,9 +2006,9 @@ export class GameProcess implements IGameProcess {
 					currentRound: this.currentRound,
 					currentPlayerId: this.currentRoundPlayer?.id,
 					isGameOver: this.isGameOver,
-					isBusy: this.isProcessingLongOperation
-				}
-			}
+					isBusy: this.isProcessingLongOperation,
+				},
+			},
 		});
 	}
 
@@ -2010,10 +2028,7 @@ export class GameProcess implements IGameProcess {
 	 * @param operationName 操作名称（用于显示）
 	 * @returns 函数执行结果
 	 */
-	private async runLongOperation<T>(
-		fn: () => Promise<T>,
-		operationName: string
-	): Promise<T> {
+	private async runLongOperation<T>(fn: () => Promise<T>, operationName: string): Promise<T> {
 		this.isProcessingLongOperation = true;
 		this.setCurrentEventName(operationName);
 		try {
@@ -2095,7 +2110,7 @@ export class GameProcess implements IGameProcess {
 		this.gameBroadcast({
 			type: SocketMsgType.GameOver,
 			source: SocketMsgSource.Server,
-			data: undefined,
+			data: { returnToRoom: false },
 			msg: { content: "游戏结束", type: "info" },
 		});
 		self.postMessage(<WorkerCommMsg>{
@@ -2134,8 +2149,10 @@ export class GameProcess implements IGameProcess {
 		const raw = {
 			currentRound: this.currentRound,
 			currentMultiplier: this.currentMultiplier,
-			currentRoundPlayer: this.currentRoundPlayer ? `${this.currentRoundPlayer.name} (${this.currentRoundPlayer.id})` : null,
-			currentGamePhase: this.currentGamePhase ? this.currentGamePhase.name ?? "(unnamed)" : null,
+			currentRoundPlayer: this.currentRoundPlayer
+				? `${this.currentRoundPlayer.name} (${this.currentRoundPlayer.id})`
+				: null,
+			currentGamePhase: this.currentGamePhase ? (this.currentGamePhase.name ?? "(unnamed)") : null,
 			currentEventName: this.currentEventName,
 			isGameOver: this.isGameOver,
 			gameRuntimeStack: {
@@ -2151,9 +2168,10 @@ export class GameProcess implements IGameProcess {
 			exportData: { ...this.exportData },
 			customData: { ...this.customData },
 			gameSetting: this.gameSetting,
-			playerButtons: Array.from(this.playerButtons.entries()).map(
-				([playerId, buttons]) => [playerId, Array.from(buttons.entries())]
-			),
+			playerButtons: Array.from(this.playerButtons.entries()).map(([playerId, buttons]) => [
+				playerId,
+				Array.from(buttons.entries()),
+			]),
 			animationCompletionHandlers: Array.from(this.animationCompletionHandlers.keys()),
 			rankedPlayerIds: [...this.rankedPlayerIds],
 		};
@@ -2228,13 +2246,13 @@ export class GameProcess implements IGameProcess {
 		// 通知客户端移除所有按钮
 		for (const buttonId of playerButtons.keys()) {
 			const removeMessage: ButtonRemoveMessage = {
-				buttonId
+				buttonId,
 			};
 
 			sendToUsers([playerId], {
 				type: SocketMsgType.ButtonRemove,
 				source: SocketMsgSource.Server,
-				data: removeMessage
+				data: removeMessage,
 			});
 		}
 

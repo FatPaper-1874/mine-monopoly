@@ -133,7 +133,7 @@ const displayDices = computed(() => {
 	z-index: var(--z-ui);
 
 	// 尺寸与布局
-	width: 10rem;
+	min-width: 10rem;
 	height: 8rem;
 	padding: 0;
 	border-radius: 1.5rem;
@@ -181,10 +181,11 @@ const displayDices = computed(() => {
 }
 
 .dice-list {
+	width: max-content;
 	display: flex;
-	flex-wrap: wrap;
 	justify-content: center;
 	gap: 0.8rem;
+	padding: 0 1rem;
 }
 
 .dice-item {

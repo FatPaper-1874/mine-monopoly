@@ -209,9 +209,12 @@ export class Player implements IPlayer {
 
 		this.commandBus.setHandler("player.dice.remove", (payload) => {
 			const { diceId } = payload;
-			const removeDice = this.dices.find((d) => d.id === diceId);
-			if (removeDice) return { removeDice };
-			else return { removeDice: undefined };
+			const idx = this.dices.findIndex((d) => d.id === diceId);
+			if (idx !== -1) {
+				const [removeDice] = this.dices.splice(idx, 1);
+				return { removeDice };
+			}
+			return { removeDice: undefined };
 		});
 	}
 
