@@ -8,7 +8,17 @@ export class LocalStorageProvider implements StorageProvider {
 	readonly name = "local";
 
 	private get baseUrl(): string {
-		return `${env("PROTOCOL")}://${env("MONOPOLY_DOMAIN")}:${env<number>("SERVER_PORT")}`;
+		const protocol = env("PROTOCOL");
+		const domain = env("MONOPOLY_DOMAIN");
+		const prefix = env("API_BASE_PREFIX", "");
+
+		if (prefix) {
+			// 路径反代模式（如 nginx）：使用标准端口，URL 中包含前缀
+			return `${protocol}://${domain}${prefix}`;
+		}
+
+		// 端口模式（开发/直连）：使用 SERVER_PORT，无前缀
+		return `${protocol}://${domain}:${env<number>("SERVER_PORT")}`;
 	}
 
 	async upload(input: UploadInput): Promise<UploadResult> {
