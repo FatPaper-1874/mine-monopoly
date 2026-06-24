@@ -68,6 +68,10 @@ import mitt from "mitt";
 import { aiManager } from "./ai/AIStrategy";
 import type { Emitter } from "mitt";
 import { SaveSnapshot, PlayerSnapshot, PropertySnapshot } from "@src/core/save/types";
+import { applyWorkerSandbox } from "./security";
+
+// ⚠️ 必须在任何游戏代码执行前调用，切断危险 API
+applyWorkerSandbox();
 
 const operationListener = new OperateListener();
 let gameProcess: GameProcess | null = null;
@@ -492,12 +496,22 @@ export class GameProcess implements IGameProcess {
 		this.mapData = mapData;
 		this.gameSetting = gameSetting;
 		this.userList = userList;
-		(globalThis as any).gameProcess = this;
+		// 暴露 gameProcess 给自定义代码，但不可被覆盖
+		Object.defineProperty(globalThis, "gameProcess", {
+			value: this,
+			writable: false,
+			configurable: false,
+		});
 
 		// 设置运行时可用的枚举（用于动态执行的代码）
 		// 从 runtime-enums.ts 统一加载，确保新增枚举时不会遗漏
+		// 暴露运行时枚举给自定义代码，浅拷贝后冻结，防止篡改
 		for (const [name, value] of Object.entries(allRuntimeEnums)) {
-			(globalThis as any)[name] = value;
+			Object.defineProperty(globalThis, name, {
+				value: Object.freeze({ ...value }),
+				writable: false,
+				configurable: false,
+			});
 		}
 
 		console.dir(gameSetting);
