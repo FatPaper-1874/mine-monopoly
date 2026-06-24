@@ -1,5 +1,11 @@
 # @mine-monopoly/client
 
+## 1.1.6
+
+### Patch Changes
+
+- - 增强游戏安全性，防止自定义地图执行危险操作
+
 ## 1.1.5
 
 ### Patch Changes

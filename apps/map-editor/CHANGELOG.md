@@ -1,5 +1,20 @@
 # @mine-monopoly/map-editor
 
+## 1.1.4
+
+### Patch Changes
+
+- - **版本管理**
+    - 新增 Git 版本管理（基于 isomorphic-git），支持 init/commit/log/checkout/diff
+    - 新增 VersionPanel 版本历史面板，支持提交浏览、差异对比和版本回退
+  - **地图存储**
+    - 新增目录格式地图：GameMap 序列化为结构化目录，代码与数据分离
+    - 支持旧版 .fpmap 文件升级为目录格式项目
+    - 地图加载统一入口 loadMapAuto，自动识别格式
+  - **编辑器核心**
+    - 重构文件菜单：打开项目 / 打开 .fpmap / 保存为项目 / 导出 .fpmap
+    - Ctrl+S 保存改为 eventBus 事件驱动，解耦 renderer 与 file 模块
+
 ## 1.1.3
 
 ### Patch Changes
