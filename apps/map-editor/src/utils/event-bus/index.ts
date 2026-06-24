@@ -64,6 +64,9 @@ type Events = {
 
 	// 工具指示器显示/隐藏
 	"toggle-indicators": void;
+
+	// 保存请求（Ctrl+S 快捷键）
+	"request-save": void;
 };
 
 export const eventBus = mitt<Events>();

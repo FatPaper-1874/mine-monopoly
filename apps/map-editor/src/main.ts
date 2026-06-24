@@ -69,7 +69,8 @@ import {
 	faChevronDown,
 } from "@fortawesome/free-solid-svg-icons";
 import { eventBus } from "./utils/event-bus";
-import { loadMapDataFromPath } from "@src/utils/file";
+import { loadMapAuto } from "@src/services/map-serializer";
+import { useEditorStore, useMapDataStore, useResourceStore, useVersionStore } from "@src/stores";
 
 library.add(
 	faWindowRestore,
@@ -116,10 +117,25 @@ library.add(
 	faChevronDown,
 );
 
-eventBus.on("renderer-ready", () => {
+eventBus.on("renderer-ready", async () => {
 	const platformKey = `last-time-file-path-${navigator.platform}`;
 	const lastTimeFilePath = localStorage.getItem(platformKey);
-	if (lastTimeFilePath) loadMapDataFromPath(lastTimeFilePath);
+	if (lastTimeFilePath) {
+		try {
+			await window.electronAPI.clearTempDir();
+
+			const result = await loadMapAuto(lastTimeFilePath);
+
+			useMapDataStore().$patch(result.mapData);
+			useResourceStore().$patch({ models: result.models, images: result.images });
+			useEditorStore().setCurrentFilePath(lastTimeFilePath);
+			await useVersionStore().detectAndInit(lastTimeFilePath);
+
+			eventBus.emit("map-loaded", result.mapData);
+		} catch (e) {
+			console.error("自动恢复上次地图失败:", e);
+		}
+	}
 	eventBus.off("renderer-ready");
 });
 

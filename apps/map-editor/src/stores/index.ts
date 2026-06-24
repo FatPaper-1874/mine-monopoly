@@ -15,6 +15,8 @@ import { createDefaultMapData } from "../utils/file/index";
 import { generateShortId } from "../utils/short-id";
 import { cloneDeep } from "lodash";
 
+export { useVersionStore } from "./version-store";
+
 export const useMapDataStore = defineStore("MapData", {
 	state: createDefaultMapData,
 	actions: {

@@ -1,7 +1,7 @@
 import { app, ipcMain, BrowserWindow, Menu, dialog, OpenDialogOptions, SaveDialogOptions, protocol, net } from "electron";
 import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { readFile, writeFile, copyFile, mkdir } from "fs/promises";
+import { readFile, writeFile, copyFile, mkdir, readdir, stat, unlink, rm, rename } from "fs/promises";
 import path from "node:path";
 import fs from "node:fs";
 import url from "node:url";
@@ -10,6 +10,17 @@ import log from "electron-log";
 import { loadUpdateSources, type UpdateSource } from "./update-config.js";
 import { startHTTPMCPServer, type HTTPMCPServer } from "../src/mcp/http-server.js";
 import { setBridge, type IPCBridge } from "../src/mcp/bridge.js";
+import {
+	gitInit,
+	gitCommitAll,
+	gitLog,
+	gitCheckout,
+	gitDiff,
+	gitReadFile,
+	gitCurrentOid,
+	gitCreateTag,
+	gitHasChanges,
+} from "./git-service.js";
 
 const tempDir = path.join(app.getPath("userData"), "temp");
 
@@ -403,6 +414,88 @@ ipcMain.handle("get-image-base64", async (event, filePath) => {
 
 ipcMain.handle("clear-temp-dir", async (event) => {
 	await cleanTempDir();
+});
+
+// ─── 目录操作 (地图版本管理用) ───
+ipcMain.handle("mkdir-dir", async (_event, dirPath: string) => {
+	await mkdir(dirPath, { recursive: true });
+});
+
+ipcMain.handle("read-dir", async (_event, dirPath: string) => {
+	const entries = await readdir(dirPath, { withFileTypes: true });
+	return entries.map((e) => ({
+		name: e.name,
+		isDirectory: e.isDirectory(),
+		isFile: e.isFile(),
+	}));
+});
+
+ipcMain.handle("exists-path", async (_event, p: string) => {
+	try {
+		await stat(p);
+		return true;
+	} catch {
+		return false;
+	}
+});
+
+ipcMain.handle("stat-path", async (_event, p: string) => {
+	const s = await stat(p);
+	return {
+		isDirectory: s.isDirectory(),
+		isFile: s.isFile(),
+		size: s.size,
+		mtimeMs: s.mtimeMs,
+	};
+});
+
+ipcMain.handle("unlink-path", async (_event, p: string) => {
+	await unlink(p);
+});
+
+ipcMain.handle("rmdir-dir", async (_event, dirPath: string) => {
+	await rm(dirPath, { recursive: true, force: true });
+});
+
+ipcMain.handle("rename-path", async (_event, oldPath: string, newPath: string) => {
+	await rename(oldPath, newPath);
+});
+
+// ─── Git 操作 ───
+ipcMain.handle("git-init", async (_event, dir: string) => {
+	await gitInit(dir);
+});
+
+ipcMain.handle("git-commit-all", async (_event, dir: string, message: string, author?: string) => {
+	return await gitCommitAll(dir, message, author);
+});
+
+ipcMain.handle("git-log", async (_event, dir: string, depth?: number) => {
+	return await gitLog(dir, depth);
+});
+
+ipcMain.handle("git-checkout", async (_event, dir: string, oid: string) => {
+	await gitCheckout(dir, oid);
+});
+
+ipcMain.handle("git-diff", async (_event, dir: string, oidA: string, oidB: string) => {
+	return await gitDiff(dir, oidA, oidB);
+});
+
+ipcMain.handle("git-read-file", async (_event, dir: string, oid: string, filePath: string) => {
+	return await gitReadFile(dir, oid, filePath);
+});
+
+ipcMain.handle("git-current-oid", async (_event, dir: string) => {
+	return await gitCurrentOid(dir);
+});
+
+ipcMain.handle("git-create-tag", async (_event, dir: string, name: string, message?: string) => {
+	await gitCreateTag(dir, name, message);
+});
+
+ipcMain.handle("git-has-changes", async (_event, dir: string) => {
+	return await gitHasChanges(dir);
 });
 
 ipcMain.handle("open-load-dialog", async (event, options: OpenDialogOptions) => {

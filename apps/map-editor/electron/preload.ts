@@ -34,6 +34,17 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	showSaveDialog: async (options: SaveDialogOptions): Promise<SaveDialogReturnValue> =>
 		ipcRenderer.invoke("open-save-dialog", options),
 
+	// ─── 目录操作 (地图版本管理用) ───
+	mkdir: async (dirPath: string) => ipcRenderer.invoke("mkdir-dir", dirPath),
+	readDir: async (dirPath: string): Promise<{ name: string; isDirectory: boolean; isFile: boolean }[]> =>
+		ipcRenderer.invoke("read-dir", dirPath),
+	exists: async (p: string): Promise<boolean> => ipcRenderer.invoke("exists-path", p),
+	statPath: async (p: string): Promise<{ isDirectory: boolean; isFile: boolean; size: number; mtimeMs: number }> =>
+		ipcRenderer.invoke("stat-path", p),
+	unlink: async (p: string) => ipcRenderer.invoke("unlink-path", p),
+	rmdir: async (dirPath: string) => ipcRenderer.invoke("rmdir-dir", dirPath),
+	rename: async (oldPath: string, newPath: string) => ipcRenderer.invoke("rename-path", oldPath, newPath),
+
 	getVersion: () => version,
 	getImageBase64: async (filePath: string): Promise<string> => ipcRenderer.invoke("get-image-base64", filePath),
 
@@ -117,4 +128,24 @@ contextBridge.exposeInMainWorld("mcpAPI", {
 		// Store in preload's global scope
 		(globalThis as any).mcpToolHandler = handler;
 	},
+});
+
+// ─── Git 版本管理 API ───
+contextBridge.exposeInMainWorld("gitAPI", {
+	init: async (dir: string) => ipcRenderer.invoke("git-init", dir),
+	commitAll: async (dir: string, message: string, author?: string): Promise<string> =>
+		ipcRenderer.invoke("git-commit-all", dir, message, author),
+	log: async (dir: string, depth?: number): Promise<{ oid: string; message: string; timestamp: number }[]> =>
+		ipcRenderer.invoke("git-log", dir, depth),
+	checkout: async (dir: string, oid: string) => ipcRenderer.invoke("git-checkout", dir, oid),
+	diff: async (dir: string, oidA: string, oidB: string): Promise<{ filePath: string; status: string }[]> =>
+		ipcRenderer.invoke("git-diff", dir, oidA, oidB),
+	readFile: async (dir: string, oid: string, filePath: string): Promise<string> =>
+		ipcRenderer.invoke("git-read-file", dir, oid, filePath),
+	currentOid: async (dir: string): Promise<string | null> =>
+		ipcRenderer.invoke("git-current-oid", dir),
+	createTag: async (dir: string, name: string, message?: string) =>
+		ipcRenderer.invoke("git-create-tag", dir, name, message),
+	hasChanges: async (dir: string): Promise<boolean> =>
+		ipcRenderer.invoke("git-has-changes", dir),
 });

@@ -10,7 +10,6 @@ import gsap from "gsap";
 import { MapItem, MapItemType } from "@mine-monopoly/types/interfaces/game/item";
 import { applyOpacityToObject, createDynamicLine, createMultiLine, DynamicLine, getModelById } from "@src/utils/three";
 import { render } from "vue";
-import { handleSaveProtoFile } from "@src/utils/file";
 import { SolidOutlinePass } from "@src/utils/three/passes/SolidOutLinePass";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass";
@@ -617,14 +616,14 @@ export class MapRenderer {
 		if (isInputFocused) {
 			if (this.isModKey(event) && event.code === "KeyS") {
 				event.preventDefault();
-				await handleSaveProtoFile();
+				eventBus.emit("request-save");
 			}
 			return;
 		}
 
 		if (this.isModKey(event) && event.code === "KeyS") {
 			event.preventDefault();
-			await handleSaveProtoFile();
+			eventBus.emit("request-save");
 		}
 
 		// Ctrl+Z 撤销删除

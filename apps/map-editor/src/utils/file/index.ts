@@ -8,6 +8,7 @@ import { getInitPhase } from "@src/views/map-editor/components/manager/process-m
 import { message } from "ant-design-vue";
 import { generateShortId } from "@src/utils/short-id";
 import { __MAP_ENCRYPT_KEY__ } from "@src/global.config";
+import { getFsApi } from "@src/services/fs-api";
 
 export function getFileName(path: string): string {
 	return path.split(/[/\\]/).pop() || "";
@@ -34,6 +35,17 @@ export async function parseGameMapFromProtoFile(filePath: string) {
 }
 
 export async function saveGameMapToBinFile(mapId: string, filePath: string, mapData: GameMap): Promise<void> {
+	// 防御：禁止写入目录
+	try {
+		const s = await getFsApi().statPath(filePath);
+		if (s.isDirectory) {
+			throw new Error(`目标路径是目录而非文件: ${filePath}`);
+		}
+	} catch (e: any) {
+		if (e.message?.includes("目录而非文件")) throw e;
+		// statPath 失败（文件不存在等）继续执行
+	}
+
 	const fetchBuffer = async (url: string): Promise<Uint8Array> => {
 		const response = await fetch(url);
 		if (!response.ok) throw new Error(`资源加载失败: ${url}`);
@@ -68,7 +80,6 @@ export async function saveGameMapToBinFile(mapId: string, filePath: string, mapD
 	const dataStr = JSON.stringify(mapData);
 	const buffer = dataToProtoBuffer(mapId, dataStr, modelsList, imagesList);
 	await window.electronAPI.saveFile(filePath, buffer);
-	useEditorStore().setCurrentFilePath(filePath);
 }
 
 export async function loadMapDataFromPath(path: string) {
@@ -246,7 +257,8 @@ export async function handleSaveAsOtherProtoFile() {
 	const path = res.filePath;
 	console.log("🚀 ~ handleSaveAsOtherProtoFile ~ path:", path);
 	if (path) {
-		saveGameMapToBinFile(mapDataStore.id, path, mapDataStore.$state);
+		await saveGameMapToBinFile(mapDataStore.id, path, mapDataStore.$state);
+		useEditorStore().setCurrentFilePath(path);
 		message.success("保存成功", 1);
 	}
 	useEditorStore().setLoading(false);
