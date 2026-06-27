@@ -1,5 +1,12 @@
 # @mine-monopoly/client
 
+## 1.1.7
+
+### Patch Changes
+
+- - 修复 TURN 加密通信问题，提升弱网络环境下的连接稳定性
+  - 增强连接诊断能力，便于快速排查网络异常
+
 ## 1.1.6
 
 ### Patch Changes
