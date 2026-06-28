@@ -11,9 +11,15 @@ function getStunUrl(): string {
 	return `stun:${env<string>("TURN_URL")}:${env<number>("STUN_PORT")}`;
 }
 
-function getTurnUrl(): string {
-	// 3G 网络下 UDP 可能被运营商限速/丢包，用 turns: (TLS over TCP) 更可靠
-	return `turns:${env<string>("TURN_URL")}:${env<number>("TURN_PORT")}`;
+function getTurnUrls(): string[] {
+	const baseUrl = env<string>("TURN_URL");
+	const tlsPort = env<number>("TURN_PORT");
+	const udpPort = env<number>("STUN_PORT"); // 3478
+	// 同时返回 TCP (TLS) 和 UDP TURN，让 ICE 自动选择最佳路径
+	return [
+		`turns:${baseUrl}:${tlsPort}?transport=tcp`,  // TCP over TLS（移动网络友好）
+		`turn:${baseUrl}:${udpPort}?transport=udp`,    // UDP（低延迟，局域网友好）
+	];
 }
 
 function generateTurnCredentials(userId: string): { username: string; credential: string } {
@@ -36,7 +42,11 @@ export function generateIceServers(userId?: string): IceServer[] {
 	const servers: IceServer[] = [{ urls: getStunUrl() }];
 	if (userId) {
 		const { username, credential } = generateTurnCredentials(userId);
-		servers.push({ urls: getTurnUrl(), username, credential });
+		// 同时添加 TCP (TLS) 和 UDP TURN，让 ICE 自动选择最佳路径
+		const turnUrls = getTurnUrls();
+		for (const url of turnUrls) {
+			servers.push({ urls: url, username, credential });
+		}
 	}
 	return servers;
 }

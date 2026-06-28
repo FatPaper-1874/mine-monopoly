@@ -381,30 +381,9 @@ function logErrorToPlatform(errorData: {
 	});
 }
 
-// 记录控制台输出
+// 记录控制台输出（仅转发到平台，不持久化——持久化由 logErrorToPlatform 负责）
 function logConsoleToPlatform(level: "error" | "warn" | "info", ...args: any[]) {
-	// error 级别的控制台输出也写入持久存储
-	if (level === "error") {
-		const message = args
-			.map(arg => {
-				if (typeof arg === "object") {
-					try { return JSON.stringify(arg, null, 2); }
-					catch { return String(arg); }
-				}
-				return String(arg);
-			})
-			.join(" ");
-		const errorObj = args.find(arg => arg instanceof Error);
-		logService.error({
-			level: ErrorLevel.ERROR,
-			category: ErrorCategory.UNKNOWN,
-			type: "Console",
-			message,
-			stack: errorObj?.stack,
-		}).catch(() => {});
-	}
-
-	// 发送到 Electron 平台（如果可用）
+	// 发送到平台（Electron 主进程 / Capacitor 等）
 	if (window.platformAPI?.logConsole) {
 		const message = args
 			.map(arg => {

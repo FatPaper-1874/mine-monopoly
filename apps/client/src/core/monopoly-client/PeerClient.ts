@@ -25,7 +25,7 @@ export class PeerClient {
 
 		const conn = await new Promise<DataConnection>((resolve, reject) => {
 			const timeOutId = setTimeout(() => {
-				const reason = "连接主机超时 (15s)";
+				const reason = "连接主机超时 (10s)";
 				connectionDiagnostics.stageFail("DataConnection", reason, {
 					hostId,
 					peerId: this.peer.id,
@@ -33,10 +33,11 @@ export class PeerClient {
 				});
 				connectionDiagnostics.checkRelayCandidates();
 				reject(reason + ", 连不上主机捏😣");
-			}, 15000);
+			}, 10000);
 
 			const conn = this.peer.connect(hostId, {
-				reliable: true,
+				reliable: false,
+				serialization: "json",
 			});
 
 			conn.on("open", () => {
@@ -75,6 +76,8 @@ export class PeerClient {
 			!!__ICE_USE_PREFIX__,
 		);
 		connectionDiagnostics.captureNetworkInfo();
+		// 检测本地网络接口（不阻塞主流程）
+		connectionDiagnostics.detectLocalInterfaces();
 
 		// 向 PeerJS 信令服务器获取自己的 peerId
 		const peer = await new Promise<Peer>((resolve, reject) => {
@@ -83,9 +86,10 @@ export class PeerClient {
 						host: __FATPAPER_HOST__,
 						path: __ICE_SERVER_PATH__,
 						secure: true,
+						debug: 3,
 						config: { iceServers },
 					}
-				: { host, port, config: { iceServers } };
+				: { host, port, debug: 3, config: { iceServers } };
 
 			connectionDiagnostics.logPeerEvent("Peer.constructor", JSON.stringify({
 				mode: __ICE_USE_PREFIX__ ? "prefix" : "port",
@@ -184,12 +188,37 @@ export class PeerClient {
 
 	private static logExistingIceCandidates(pc: RTCPeerConnection) {
 		try {
-			// 注册 onicecandidate 来收集后续候选
-			pc.onicecandidate = (event) => {
-				if (event.candidate) {
-					connectionDiagnostics.logIceCandidate(event.candidate);
-				}
-			};
+			// 拦截原始的 RTCPeerConnection 来过滤 ICE 候选
+			const origOnIceCandidate = pc.onicecandidate;
+
+			// 覆盖 onicecandidate 属性以过滤候选
+			Object.defineProperty(pc, "onicecandidate", {
+				set: (value: ((this: RTCPeerConnection, ev: RTCPeerConnectionIceEvent) => any) | null) => {
+					origOnIceCandidate = value;
+				},
+				get: () => {
+					return (event: RTCPeerConnectionIceEvent) => {
+						if (event.candidate) {
+							const parts = event.candidate.candidate?.split(" ") || [];
+							const ip = parts[4];
+
+							// 过滤 WSL/Docker 虚拟网卡候选 (172.27.x.x)
+							if (ip && ip.startsWith("172.27.")) {
+								// 不调用原始处理函数，该候选被丢弃
+								return;
+							}
+
+							connectionDiagnostics.logIceCandidate(event.candidate);
+						}
+
+						// 调用原始处理函数（PeerJS 内部处理）
+						if (origOnIceCandidate) {
+							origOnIceCandidate.call(pc, event);
+						}
+					};
+				},
+				configurable: true,
+			});
 			pc.oniceconnectionstatechange = () => {
 				connectionDiagnostics.logPeerEvent("ICE.connectionStateChange", pc.iceConnectionState);
 				if (pc.iceConnectionState === "failed") {
@@ -198,6 +227,9 @@ export class PeerClient {
 			};
 			pc.onicegatheringstatechange = () => {
 				connectionDiagnostics.logPeerEvent("ICE.gatheringState", pc.iceGatheringState);
+			};
+			pc.onicecandidateerror = (event) => {
+				connectionDiagnostics.error(`ICE candidate error: ${event.errorText} (code: ${event.errorCode})`);
 			};
 		} catch (e) {
 			// 静默失败

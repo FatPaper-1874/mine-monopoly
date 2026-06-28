@@ -57,6 +57,8 @@ export interface ConnectionReport {
 		rtt?: number;
 		type?: string;
 	};
+	/** 检测到的本地网络接口 */
+	localIps?: string[];
 }
 
 // ============ 单例管理器 ============
@@ -139,18 +141,15 @@ class ConnectionDiagnostics {
 	// ----- 基础配置 -----
 
 	setIceServers(servers: RTCIceServer[]) {
-		// 脱敏：只记录 URL，不记录凭证
 		this.report.iceServers = servers.map((s) => {
 			if (typeof s === "string") return s;
 			if (Array.isArray(s.urls)) return s.urls.join(",");
 			return s.urls || "unknown";
 		});
-		// 输出到 Console 便于即时确认
-		const urlList = this.report.iceServers.join(", ");
 		const hasTurn = this.report.iceServers.some((u) => u.includes("turn"));
-		console.log(
-			`[ConnectionDiagnostics] 🧊 ICE服务器 (${servers.length}个): ${urlList}${hasTurn ? "" : " ⚠️ 无TURN!"}`,
-		);
+		if (!hasTurn) {
+			this.warn("ICE 配置中没有 TURN 服务器，跨设备连接可能失败");
+		}
 	}
 
 	setSignalingInfo(host: string, usePrefix: boolean) {
@@ -164,7 +163,6 @@ class ConnectionDiagnostics {
 	stageStart(stage: string) {
 		if (!this.enabled) return;
 		this.stageStack.push({ stage, startTime: performance.now() });
-		console.log(`[ConnectionDiagnostics] ⏱️  阶段开始: ${stage}`);
 	}
 
 	/** 结束一个阶段（成功） */
@@ -186,7 +184,6 @@ class ConnectionDiagnostics {
 			detail,
 		});
 		this.stageStack = this.stageStack.filter((s) => s.stage !== stage);
-		console.log(`[ConnectionDiagnostics] ✅ 阶段完成: ${stage} (${Math.round(duration)}ms)`);
 	}
 
 	/** 结束一个阶段（失败） */
@@ -206,7 +203,6 @@ class ConnectionDiagnostics {
 		});
 		this.stageStack = this.stageStack.filter((s) => s.stage !== stage);
 		this.errors.push(`[${stage}] ${error}`);
-		console.error(`[ConnectionDiagnostics] ❌ 阶段失败: ${stage} (${Math.round(duration)}ms) — ${error}`);
 	}
 
 	// ----- PeerJS 事件 -----
@@ -215,7 +211,6 @@ class ConnectionDiagnostics {
 		if (!this.enabled) return;
 		const entry = { time: performance.now(), event, detail };
 		this.peerEventLog.push(entry);
-		console.log(`[ConnectionDiagnostics] 📡 Peer事件: ${event}${detail ? ` — ${detail}` : ""}`);
 	}
 
 	// ----- ICE 候选 -----
@@ -246,14 +241,6 @@ class ConnectionDiagnostics {
 			port,
 			transport: protocol,
 		});
-		console.log(
-			`[ConnectionDiagnostics] 🧊 ICE候选#${typeCount + 1}: type=${type} ${address}:${port} (${protocol})`,
-		);
-
-		// relay 候选检测
-		if (type === "relay") {
-			console.log(`[ConnectionDiagnostics] ✅ 已收集到 TURN relay 候选 — TURN 服务器正常工作`);
-		}
 	}
 
 	/** 检查是否收集到 relay 候选，没有则警告 */
@@ -263,7 +250,7 @@ class ConnectionDiagnostics {
 		const hasSrflx = this.iceCandidates.some((c) => c.type === "srflx");
 		if (!hasRelay) {
 			if (hasSrflx) {
-				this.warn("未收集到 TURN relay 候选（仅有 STUN srflx）— TURN 服务器可能不可达或配置错误。在对称 NAT（如3G/4G热点）下可能无法连接");
+				this.warn("未收集到 TURN relay 候选（仅有 STUN srflx）— TURN 服务器可能不可达或配置错误");
 			} else {
 				this.warn("未收集到 TURN relay 候选，也未见 STUN srflx — ICE 服务器可能完全不可达");
 			}
@@ -275,13 +262,13 @@ class ConnectionDiagnostics {
 	error(msg: string) {
 		if (!this.enabled) return;
 		this.errors.push(msg);
-		console.error(`[ConnectionDiagnostics] ❌ ${msg}`);
+		console.error(`[ConnectionDiagnostics] ${msg}`);
 	}
 
 	warn(msg: string) {
 		if (!this.enabled) return;
 		this.warnings.push(msg);
-		console.warn(`[ConnectionDiagnostics] ⚠️ ${msg}`);
+		console.warn(`[ConnectionDiagnostics] ${msg}`);
 	}
 
 	// ----- 网络信息 -----
@@ -295,8 +282,105 @@ class ConnectionDiagnostics {
 				rtt: conn.rtt,
 				type: conn.effectiveType || conn.type,
 			};
-			console.log(`[ConnectionDiagnostics] 🌐 网络: type=${conn.effectiveType || conn.type} downlink=${conn.downlink}Mbps rtt=${conn.rtt}ms`);
 		}
+	}
+
+	/** 检测本地网络接口 IP 地址 */
+	async detectLocalInterfaces(): Promise<string[]> {
+		if (!this.enabled) return [];
+
+		const localIps: string[] = [];
+
+		try {
+			// 创建一个仅使用 STUN 的 RTCPeerConnection 来获取本地 IP
+			const pc = new RTCPeerConnection({
+				iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+			});
+
+			const ips = await new Promise<string[]>((resolve) => {
+				const seenIps = new Set<string>();
+				const timeout = setTimeout(() => {
+					pc.close();
+					resolve(Array.from(seenIps));
+				}, 3000);
+
+				pc.onicecandidate = (event) => {
+					if (event.candidate) {
+						const parts = event.candidate.candidate?.split(" ") || [];
+						const type = parts[7]; // typ
+						const ip = parts[4]; // IP address
+
+						if (type === "host" && ip && !seenIps.has(ip)) {
+							seenIps.add(ip);
+							localIps.push(ip);
+						}
+					} else if (pc.iceGatheringState === "complete") {
+						clearTimeout(timeout);
+						pc.close();
+						resolve(Array.from(seenIps));
+					}
+				};
+
+				pc.onicegatheringstatechange = () => {
+					if (pc.iceGatheringState === "complete") {
+						clearTimeout(timeout);
+						pc.close();
+						resolve(Array.from(seenIps));
+					}
+				};
+
+				// 触发 ICE 收集
+				pc.createDataChannel("test");
+				pc.createOffer().then((offer) => pc.setLocalDescription(offer));
+			});
+
+			this.report.localIps = localIps;
+
+			// 分析接口类型
+			const hasPrivate = localIps.some(ip => ip.startsWith("192.168.") || ip.startsWith("10.") || ip.startsWith("172."));
+			const hasPublic = localIps.some(ip => !ip.startsWith("192.168.") && !ip.startsWith("10.") && !ip.startsWith("172.") && !ip.startsWith("127."));
+			const hasLoopback = localIps.some(ip => ip.startsWith("127."));
+
+			if (hasPrivate && hasPublic) {
+				this.warn("同时检测到私有 IP 和公网 IP，可能导致路由混乱");
+			}
+			if (hasLoopback) {
+				this.warn("检测到 loopback 接口 (127.x)，可能干扰候选选择");
+			}
+
+			return localIps;
+		} catch (e) {
+			this.error(`本地接口检测失败: ${e}`);
+			return [];
+		}
+	}
+
+	/** 筛选 ICE 候选 - 优先选择局域网 IP，过滤虚拟网卡 */
+	filterCandidate(candidate: RTCIceCandidate): boolean {
+		if (!this.enabled || !candidate.candidate) return true;
+
+		const parts = candidate.candidate.split(" ");
+		const type = parts[7]; // typ: host/srflx/relay
+		const ip = parts[4]; // IP address
+		const networkId = parts[11]; // network-id
+
+		// 对于 host 候选，优先选择 192.168.x.x (WiFi 局域网)
+		if (type === "host") {
+			// 跳过 loopback
+			if (ip?.startsWith("127.")) {
+				return false;
+			}
+			// 跳过 WSL/Docker 虚拟网卡 (172.x.x.x 且非宿主机网络)
+			if (ip?.startsWith("172.27.") || ip?.startsWith("172.28.") || ip?.startsWith("172.29.")) {
+				return false;
+			}
+			// 优先 WiFi 局域网
+			if (ip?.startsWith("192.168.")) {
+				return true;
+			}
+		}
+
+		return true;
 	}
 
 	// ----- TURN/STUN 连通性测试 -----
@@ -304,7 +388,6 @@ class ConnectionDiagnostics {
 	async testTurnServer(turnUrl: string, username: string, credential: string): Promise<boolean> {
 		if (!this.enabled) return false;
 
-		console.log(`[ConnectionDiagnostics] 🔄 测试 TURN 服务器: ${turnUrl}`);
 		const pc = new RTCPeerConnection({
 			iceServers: [{ urls: turnUrl, username, credential }],
 			iceTransportPolicy: "relay", // 强制 relay 来测试 TURN
@@ -312,7 +395,6 @@ class ConnectionDiagnostics {
 
 		return new Promise((resolve) => {
 			const timeout = setTimeout(() => {
-				console.warn(`[ConnectionDiagnostics] ⚠️ TURN 连接测试超时 (8s)`);
 				pc.close();
 				resolve(false);
 			}, 8000);
@@ -322,7 +404,6 @@ class ConnectionDiagnostics {
 					const candidateStr = event.candidate.candidate || "";
 					if (candidateStr.includes(" relay ")) {
 						clearTimeout(timeout);
-						console.log(`[ConnectionDiagnostics] ✅ TURN relay 候选成功: ${candidateStr}`);
 						pc.close();
 						resolve(true);
 					}
@@ -332,14 +413,13 @@ class ConnectionDiagnostics {
 			pc.onicegatheringstatechange = () => {
 				if (pc.iceGatheringState === "complete") {
 					clearTimeout(timeout);
-					console.warn(`[ConnectionDiagnostics] ⚠️ ICE 收集完成但无 relay 候选`);
 					pc.close();
 					resolve(false);
 				}
 			};
 
 			pc.oniceconnectionstatechange = () => {
-				console.log(`[ConnectionDiagnostics] TURN测试 ICE状态: ${pc.iceConnectionState}`);
+				// 状态变化，无需日志
 			};
 
 			// 创建一个 offer 来触发 ICE 收集

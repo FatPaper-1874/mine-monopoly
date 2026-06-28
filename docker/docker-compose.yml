@@ -3,13 +3,6 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
-      args:
-        - MAP_ENCRYPT_KEY=${MAP_ENCRYPT_KEY:-changeme16chkey!}
-        - PROTOCOL=${PROTOCOL:-http}
-        - MONOPOLY_DOMAIN=${MONOPOLY_DOMAIN:-localhost}
-        - SERVER_PORT=${SERVER_PORT:-81}
-        - API_BASE_PREFIX=${API_BASE_PREFIX:-}
-        - ADMIN_BASE_PREFIX=${ADMIN_BASE_PREFIX:-}
     image: monopoly-server
     container_name: monopoly-server
     restart: unless-stopped
@@ -19,6 +12,8 @@ services:
       - "${MONOPOLY_ADMIN_PORT:-8083}:${MONOPOLY_ADMIN_PORT:-8083}"  # Admin 管理面板
     env_file:
       - .env
+    extra_hosts:
+      - "monopoly-coturn:172.19.0.1"
     volumes:
       # Persist user-uploaded files (avatars, game maps, logs)
       - server-public:/app/apps/server/public
@@ -29,25 +24,20 @@ services:
     image: coturn/coturn:debian
     container_name: monopoly-coturn
     restart: unless-stopped
-    ports:
-      - "${STUN_PORT:-3478}:3478"     # STUN
-      - "${STUN_PORT:-3478}:3478/udp" # STUN UDP
-      - "${TURN_PORT:-5349}:5349"     # TURN TLS
-      - "${TURN_PORT:-5349}:5349/udp" # TURN TLS UDP
+    network_mode: host
     volumes:
-      - ./coturn/turnserver.conf:/etc/coturn/turnserver.conf:ro
-      - ${COTURN_CERTS_PATH:-./coturn/certs}:/etc/coturn/certs:ro
+      - /www/wwwroot/monopoly/coturn/turnserver.conf:/etc/coturn/turnserver.conf:ro
+      - ${COTURN_CERTS_PATH:-/www/wwwroot/monopoly/coturn/certs}:/etc/coturn/certs:ro
     env_file:
       - .env
     command:
       - "-c"
       - "/etc/coturn/turnserver.conf"
       - "--external-ip=${EXTERNAL_IP}"
+      - "--static-auth-secret=${TURN_SECRET}"
       - "--prometheus"
       - "--prometheus-port=9641"
       - "--log-file=stdout"
-    networks:
-      - monopoly-network
 
 networks:
   monopoly-network:
