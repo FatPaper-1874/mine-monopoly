@@ -1,5 +1,13 @@
 # @mine-monopoly/client
 
+## 1.1.8
+
+### Patch Changes
+
+- - 修复虚拟网卡干扰导致的跨网络连接失败
+  - 优化跨网络连接稳定性，同时支持 TCP 和 UDP 传输
+  - 缩短连接超时，更快反馈连接状态
+
 ## 1.1.7
 
 ### Patch Changes
