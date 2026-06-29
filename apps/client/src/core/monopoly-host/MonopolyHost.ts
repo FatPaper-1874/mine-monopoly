@@ -228,10 +228,10 @@ export class MonopolyHost {
 						host: __FATPAPER_HOST__,
 						path: __ICE_SERVER_PATH__,
 						secure: true,
-						debug: 3,
+						debug: 0,
 						config: { iceServers },
 					}
-				: { host, port, debug: 3, config: { iceServers } };
+				: { host, port, debug: 0, config: { iceServers } };
 
 			connectionDiagnostics.logPeerEvent("Host.Peer.constructor", JSON.stringify({
 				mode: __ICE_USE_PREFIX__ ? "prefix" : "port",

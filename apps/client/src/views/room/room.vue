@@ -219,7 +219,10 @@ import { vStagger } from "@src/directives";
 		if (!file) return;
 		if (!socketClient) return;
 		//传输需要将地图从ArrayBuffer编码为Base64字符串
-		socketClient.changeGameMap({ from: "custom", data: arrayBufferToBase64(file) });
+		const mapData = { from: "custom" as const, data: arrayBufferToBase64(file) };
+		console.log("[ChangeMap] 1.room.vue: 准备发送自定义地图, dataLen=", mapData.data.length);
+		socketClient.changeGameMap(mapData);
+		console.log("[ChangeMap] 2.room.vue: changeGameMap 调用完成, 显示loading");
 		useLoading().showLoading("等待其他玩家确认");
 	}
 </script>
@@ -421,23 +424,22 @@ import { vStagger } from "@src/directives";
 	& > .left-container {
 		width: 21rem;
 		margin-right: 0.5rem;
-		box-sizing: border-box;
 		border-radius: 0.6rem;
 		backdrop-filter: blur(0.2rem);
 		box-shadow: var(--fp-shadow-md);
 		display: flex;
 		flex-direction: column;
-		justify-content: space-between;
-		align-items: center;
 		@include felt-patch(#ffedb7);
-			.left-inner {
-				flex: 1;
-				width: 100%;
-				display: flex;
-				flex-direction: column;
-				justify-content: space-between;
-					align-items: center;
-			}
+
+		.left-inner {
+			flex: 1;
+			width: 100%;
+			min-height: 0;
+			display: flex;
+			flex-direction: column;
+			justify-content: space-between;
+			align-items: center;
+		}
 	}
 
 	& > .right-container {
@@ -628,6 +630,7 @@ import { vStagger } from "@src/directives";
 	box-sizing: border-box;
 	flex: 1;
 	overflow-y: auto;
+	min-height: 0;
 
 	& .game-setting-button {
 		font-size: 0.8rem;
@@ -786,6 +789,90 @@ import { vStagger } from "@src/directives";
 		color: #999;
 		font-size: 0.95rem;
 		gap: 0.3rem;
+	}
+}
+
+/* 移动端响应式 */
+@media (max-width: 48rem) {
+	.room-page {
+		width: 95%;
+		height: 95%;
+		flex-direction: column;
+		overflow-y: auto;
+		gap: 0.5rem;
+		padding: 0.8rem;
+	}
+
+	.left-container {
+		width: 100% !important;
+		flex: none;
+		height: auto !important;
+		margin-right: 0 !important;
+		min-height: 0;
+
+		.left-inner {
+			justify-content: space-between;
+			gap: 0.4rem;
+			min-height: 0;
+		}
+	}
+
+	.right-container {
+		width: 100%;
+		flex: none;
+		min-height: 8rem;
+
+		.player-list-container {
+			grid-template-rows: 1fr;
+			grid-template-columns: 1fr 1fr;
+		}
+	}
+
+	.room-topbar {
+		position: static;
+		margin-bottom: 0.3rem;
+
+		.room-name {
+			position: static;
+			width: 100%;
+			height: 2rem;
+			font-size: 0.9rem;
+		}
+
+		.leave-room-button {
+			position: static;
+			transform: none;
+		}
+	}
+
+	.room-id {
+		margin-top: 0;
+		margin-bottom: 0.2rem;
+	}
+
+	.map-preview-inroom {
+		height: 8rem;
+		width: 100%;
+	}
+
+	.game-setting {
+		overflow-y: auto;
+		max-height: 12rem;
+		min-height: 0;
+
+		.game-setting-item {
+			font-size: 0.8rem;
+			padding: 0.3rem 0.6rem;
+			margin-top: 0.4rem;
+		}
+	}
+
+	.room-footbar {
+		.ready-button,
+		.footbar-btn-start {
+			font-size: 1rem;
+			height: 2.2rem;
+		}
 	}
 }
 </style>

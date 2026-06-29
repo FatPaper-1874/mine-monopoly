@@ -279,12 +279,14 @@ const handleRoomInfoReply: ServerMessageHandler<SocketMsgType.RoomInfo> = (msg) 
 };
 
 const handleChangeMap: ServerMessageHandler<SocketMsgType.ChangeMap> = async (msg, client) => {
+	console.log("[ChangeMap] 14.client.handleChangeMap: 收到 ChangeMap, from=", msg.data?.from, "dataLen=", (msg.data?.data as string)?.length);
 	await handleChangeMapInternal(msg, client);
 };
 
 const handleChangeMapInternal: ServerMessageHandler<SocketMsgType.ChangeMap> = async (msg, client) => {
 	try {
 		const data = msg.data;
+		console.log("[ChangeMap] 16.handleChangeMapInternal: 开始加载地图, from=", data.from, "dataLen=", (data.data as string)?.length);
 		let gameMap, mapInfo;
 		switch (data.from) {
 			case "server": {
@@ -351,6 +353,7 @@ const handleChangeMapInternal: ServerMessageHandler<SocketMsgType.ChangeMap> = a
 			source: SocketMsgSource.Client,
 			data: { operateType: OperateType.MapResourceLoaded, data: undefined },
 		});
+		console.log("[ChangeMap] 17.handleChangeMapInternal: 地图加载成功, 关闭loading, mapName=", mapInfo.name);
 		useLoading().hideLoading();
 	} catch (e: any) {
 		logErrorWithOptions({
@@ -738,6 +741,7 @@ const handleMessageCardDialog: ServerMessageHandler<SocketMsgType.MessageCard> =
 
 const handleLoadingControl: ServerMessageHandler<SocketMsgType.LoadingControl> = (msg, client) => {
 	const { show, text } = msg.data;
+	console.log("[ChangeMap] LC.handleLoadingControl: show=", show, "text=", text);
 	if (show) {
 		useLoading().showLoading(text || "加载中...");
 		client.sendLoadingStarted();
@@ -832,6 +836,7 @@ const handleMapChunkEnd: ServerMessageHandler<SocketMsgType.MapChunkEnd> = async
 		}
 		const fullData = sortedChunks.join("");
 		const mapInfo: RoomMapInfo = { ...state.mapInfo, data: fullData };
+		console.log("[ChangeMap] 15.handleMapChunkEnd: 分块组装完成, totalChunks=", state.totalChunks, "fullDataLen=", fullData.length);
 		await handleChangeMapInternal({ type: SocketMsgType.ChangeMap, source: SocketMsgSource.Server, data: mapInfo } as SocketMessage<SocketMsgType.ChangeMap, SocketMsgSource.Server>, client);
 	} catch (e: any) {
 		logErrorWithOptions({

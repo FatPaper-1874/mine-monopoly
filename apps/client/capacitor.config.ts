@@ -7,6 +7,7 @@ const config: CapacitorConfig = {
 
 	server: {
 		cleartext: true,
+		hostname: "app.fatpaper.site",
 	},
 
 	android: {

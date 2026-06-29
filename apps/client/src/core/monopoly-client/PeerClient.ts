@@ -36,8 +36,7 @@ export class PeerClient {
 			}, 10000);
 
 			const conn = this.peer.connect(hostId, {
-				reliable: false,
-				serialization: "json",
+				reliable: true,
 			});
 
 			conn.on("open", () => {
@@ -86,10 +85,10 @@ export class PeerClient {
 						host: __FATPAPER_HOST__,
 						path: __ICE_SERVER_PATH__,
 						secure: true,
-						debug: 3,
+						debug: 0,
 						config: { iceServers },
 					}
-				: { host, port, debug: 3, config: { iceServers } };
+				: { host, port, debug: 0, config: { iceServers } };
 
 			connectionDiagnostics.logPeerEvent("Peer.constructor", JSON.stringify({
 				mode: __ICE_USE_PREFIX__ ? "prefix" : "port",

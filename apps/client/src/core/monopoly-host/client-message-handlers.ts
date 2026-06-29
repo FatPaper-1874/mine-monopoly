@@ -94,6 +94,7 @@ const handleChangeColor: ClientMessageHandler<SocketMsgType.ChangeColor> = (conn
 	host.getRoom().changeColor(clientId, msg.data);
 };
 const handleChangeMap: ClientMessageHandler<SocketMsgType.ChangeMap> = (conn, msg, host, clientId) => {
+	console.log("[ChangeMap] 6.host.handleChangeMap: 收到 ChangeMap, from=", msg.data.from, "dataLen=", (msg.data.data as string)?.length);
 	host.getRoom().changeMap(msg.data);
 };
 const handleChangeRole: ClientMessageHandler<SocketMsgType.ChangeRole> = (conn, msg, host, clientId) => {

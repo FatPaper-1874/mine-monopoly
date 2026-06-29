@@ -412,6 +412,7 @@ export class Room {
 
 	public async changeMap(data: RoomMapInfo) {
 		const _this = this;
+		console.log("[ChangeMap] 7.Room.changeMap: 开始处理, from=", data.from, "dataLen=", (data.data as string)?.length);
 		//换地图取消所有玩家准备状态
 		if (data.from === "server") {
 			this.mapInfo = data;
@@ -427,39 +428,11 @@ export class Room {
 			//如果地图来源为玩家 (有风险的)
 			//需要其他玩家确定
 			const otherPlayers = Array.from(this.userList.values()).filter((user) => user.userId !== this.ownerId);
-			const totalPlayers = otherPlayers.length;
+			console.log("[ChangeMap] 8.Room.changeMap: custom分支, otherPlayers.length=", otherPlayers.length, "userList.size=", this.userList.size);
 
-			const promiseArr = otherPlayers.map((user, index) => {
-				this.sendToClient(user.socketClient, SocketMsgType.ConfirmDialog, {
-					playerId: user.userId,
-					option: {
-						title: "房主要启用非官方地图",
-						content: `此地图由房主 <b>${
-							this.getOwner().username
-						} </b> 提供，未经过官方验证，可能存在<b><color:red>数据异常、游戏不平衡或脚本风险。</color></b><br>请谨慎游玩，并自行承担使用非官方内容所带来的风险。`,
-						confirmText: "同意",
-						cancelText: "不同意",
-					},
-				});
-				return this.operationListener.onceAsync(user.userId, OperateType.ConfirmDialogResult);
-			});
-
-			const res = await Promise.all(promiseArr);
-			if (res.some((r) => !r.confirm)) {
-				// 有玩家拒绝，通知所有客户端隐藏 loading
-				this.roomBroadcast({
-					type: SocketMsgType.LoadingControl,
-					source: SocketMsgSource.Server,
-					data: { show: false },
-				});
-				this.roomBroadcast({
-					type: SocketMsgType.MsgNotify,
-					source: SocketMsgSource.Server,
-					data: undefined,
-					msg: { type: "error", content: "有玩家拒绝使用自定义地图" },
-				});
-			} else {
-				// 所有玩家同意，通知所有客户端显示地图加载 loading
+			if (otherPlayers.length === 0) {
+				// 没有其他玩家，直接加载地图
+				console.log("[ChangeMap] 9.Room.changeMap: 无其他玩家, 直接加载地图");
 				this.roomBroadcast({
 					type: SocketMsgType.LoadingControl,
 					source: SocketMsgSource.Server,
@@ -467,19 +440,56 @@ export class Room {
 				});
 				this.mapInfo = data;
 				sendChangeMapMessage();
+			} else {
+				const promiseArr = otherPlayers.map((user, index) => {
+					this.sendToClient(user.socketClient, SocketMsgType.ConfirmDialog, {
+						playerId: user.userId,
+						option: {
+							title: "房主要启用非官方地图",
+							content: `此地图由房主 <b>${
+								this.getOwner().username
+							} </b> 提供，未经过官方验证，可能存在<b><color:red>数据异常、游戏不平衡或脚本风险。</color></b><br>请谨慎游玩，并自行承担使用非官方内容所带来的风险。`,
+							confirmText: "同意",
+							cancelText: "不同意",
+						},
+					});
+					return this.operationListener.onceAsync(user.userId, OperateType.ConfirmDialogResult);
+				});
+
+				const res = await Promise.all(promiseArr);
+				if (res.some((r) => !r.confirm)) {
+					// 有玩家拒绝，通知所有客户端隐藏 loading
+					this.roomBroadcast({
+						type: SocketMsgType.LoadingControl,
+						source: SocketMsgSource.Server,
+						data: { show: false },
+					});
+					this.roomBroadcast({
+						type: SocketMsgType.MsgNotify,
+						source: SocketMsgSource.Server,
+						data: undefined,
+						msg: { type: "error", content: "有玩家拒绝使用自定义地图" },
+					});
+				} else {
+					// 所有玩家同意，通知所有客户端显示地图加载 loading
+					this.roomBroadcast({
+						type: SocketMsgType.LoadingControl,
+						source: SocketMsgSource.Server,
+						data: { show: true, text: "地图加载中..." },
+					});
+					this.mapInfo = data;
+					sendChangeMapMessage();
+				}
 			}
 		}
 
 		function sendChangeMapMessage() {
+			console.log("[ChangeMap] 10.sendChangeMapMessage: 开始发送 ChangeMap, userList.size=", _this.userList.size);
 			_this.userList.forEach((u) => (u.isReady = false));
-			// 使用分块传输发送给所有玩家
+			// 使用分块传输发送给所有玩家（含房主，避免单条大消息被不可靠信道丢弃）
 			for (const [userId, user] of _this.userList) {
-				if (userId === _this.ownerId) {
-					// 房主直接发送 ChangeMap（本地已有完整数据，无需分块）
-					_this.sendToClient(user.socketClient, SocketMsgType.ChangeMap, data);
-				} else {
-					_this.startMapChunkTransfer(userId, data);
-				}
+				console.log("[ChangeMap] 11.sendChangeMapMessage: 发送给 userId=", userId, "isOwner=", userId === _this.ownerId);
+				_this.startMapChunkTransfer(userId, data);
 			}
 			_this.roomBroadcast({
 				type: SocketMsgType.RoomInfo,
@@ -787,6 +797,7 @@ export class Room {
 	 * 开始分块传输地图数据
 	 */
 	private startMapChunkTransfer(clientId: string, mapInfo: RoomMapInfo): void {
+		console.log("[ChangeMap] 12.startMapChunkTransfer: clientId=", clientId, "from=", mapInfo.from, "dataLen=", (mapInfo.data as string)?.length);
 		// 清理现有状态
 		this.clearTransferState(clientId);
 
@@ -825,10 +836,12 @@ export class Room {
 		// 发送 MapChunkStart
 		const user = this.userList.get(clientId);
 		if (!user || !user.socketClient.open) {
+			console.warn("[ChangeMap] 13.startMapChunkTransfer: user 不可用, user=", !!user, "open=", user?.socketClient?.open);
 			this.clearTransferState(clientId);
 			return;
 		}
 
+		console.log("[ChangeMap] 13.startMapChunkTransfer: 发送 MapChunkStart, totalChunks=", chunks.length, "chunkSize=", this.CHUNK_SIZE);
 		this.sendToClient(
 			user.socketClient,
 			SocketMsgType.MapChunkStart,

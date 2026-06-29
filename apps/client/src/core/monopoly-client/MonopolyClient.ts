@@ -444,6 +444,13 @@ export class MonopolyClient {
 	}
 
 	public changeGameMap(msg: RoomMapInfo) {
+		console.log("[ChangeMap] 3.MonopolyClient.changeGameMap: 调用 sendMsg, from=", msg.from, "dataLen=", (msg.data as string)?.length);
+		// 如果自己是房主，直接调用 Room.changeMap 走本地，避免大消息被 DataChannel 丢弃
+		if (this.gameHost) {
+			console.log("[ChangeMap] 3a.MonopolyClient.changeGameMap: 房主模式, 直接调用 Room.changeMap");
+			this.gameHost.getRoom().changeMap(msg);
+			return;
+		}
 		this.sendMsg({ type: SocketMsgType.ChangeMap, source: SocketMsgSource.Client, data: msg });
 	}
 
@@ -532,6 +539,7 @@ export class MonopolyClient {
 	public async sendMsg(msg: ClientSocketMessage) {
 		if (this.conn?.open) {
 			try {
+				console.log("[ChangeMap] 4.sendMsg: conn.open=true, 开始发送 type=", msg.type);
 				await this.conn.send(
 					JSON.stringify(msg, (key, value) => {
 						if (value === Infinity) return "Infinity";
@@ -539,9 +547,13 @@ export class MonopolyClient {
 						return value;
 					}),
 				);
-			} catch {
+				console.log("[ChangeMap] 5.sendMsg: 发送完成 type=", msg.type);
+			} catch (e) {
+				console.error("[ChangeMap] 5.sendMsg FAILED:", msg.type, e);
 				console.error("Failed to send message:", msg.type);
 			}
+		} else {
+			console.warn("[ChangeMap] 4.sendMsg: conn 不可用! open=", this.conn?.open, "conn=", !!this.conn);
 		}
 	}
 
