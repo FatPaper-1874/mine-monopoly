@@ -13,15 +13,15 @@
     align-items: center;
     justify-content: center;
     font-size: 140%;
-    filter:
-      drop-shadow(-0.0625rem -0.0625rem 0 #fff)
-      drop-shadow(0.0625rem -0.0625rem 0 #fff)
-      drop-shadow(-0.0625rem 0.0625rem 0 #fff)
-      drop-shadow(0.0625rem 0.0625rem 0 #fff)
-      drop-shadow(-0.0625rem 0 0 #fff)
-      drop-shadow(0.0625rem 0 0 #fff)
-      drop-shadow(0 -0.0625rem 0 #fff)
-      drop-shadow(0 0.0625rem 0 #fff);
+    text-shadow:
+      -0.125rem -0.125rem 0 #fff,
+      0.125rem -0.125rem 0 #fff,
+      -0.125rem 0.125rem 0 #fff,
+      0.125rem 0.125rem 0 #fff,
+      -0.125rem 0 0 #fff,
+      0.125rem 0 0 #fff,
+      0 -0.125rem 0 #fff,
+      0 0.125rem 0 #fff;
   }
 
   .particle-amount {
@@ -29,7 +29,7 @@
     font-size: 1.5rem;
     font-weight: bold;
     white-space: nowrap;
-    -webkit-text-stroke: 0.3125rem #fff;
+    -webkit-text-stroke: 0.5rem #fff;
     paint-order: stroke fill;
   }
 
