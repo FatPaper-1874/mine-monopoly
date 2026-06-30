@@ -1,5 +1,11 @@
 # @mine-monopoly/map-editor
 
+## 1.1.5
+
+### Patch Changes
+
+- - **新功能**: 支持运行时动态管理地图事件及图标渲染
+
 ## 1.1.4
 
 ### Patch Changes
