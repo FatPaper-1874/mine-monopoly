@@ -122,13 +122,13 @@ export class MonopolyClient {
 				connectionDiagnostics.stageEnd("Host_Create", { hostPeerId });
 
 				connectionDiagnostics.stageStart("HTTP_EmitHost");
-				useLoading().showLoading("主机创建成功，正在和服务器报喜...");
+				useLoading().showLoading("正在向服务器注册主机...");
 				await emitHostPeerId(roomId, hostPeerId, userStore.username, userStore.userId);
 				connectionDiagnostics.stageEnd("HTTP_EmitHost", { roomId, hostPeerId });
 			}
 			if (hostPeerId) {
 				connectionDiagnostics.stageStart("Client_LinkToHost");
-				useLoading().showLoading("连接主机中...");
+				useLoading().showLoading("正在建立连接...");
 				await this.linkToGameHost(hostPeerId);
 				connectionDiagnostics.stageEnd("Client_LinkToHost", { hostPeerId });
 			}
@@ -166,9 +166,11 @@ export class MonopolyClient {
 
 			if (!this.peerClient) {
 				connectionDiagnostics.stageStart("PeerClient_Create");
+				useLoading().showLoading("正在连接信令服务器...");
 				this.peerClient = await PeerClient.create(this.iceServerHost, this.iceServerPort, this.currentIceServers);
 				connectionDiagnostics.stageEnd("PeerClient_Create");
 			}
+			useLoading().showLoading("正在建立P2P通道...");
 			const { conn, peer } = await this.peerClient.linkToHost(hostPeerId);
 			this.conn = conn;
 			const { userId, username, color, avatar } = useUserInfo();

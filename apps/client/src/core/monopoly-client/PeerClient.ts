@@ -1,4 +1,4 @@
-import { useLoading } from "@src/store";
+import { useLoading, useUtil } from "@src/store";
 import { __ICE_SERVER_PATH__, __ICE_USE_PREFIX__, __FATPAPER_HOST__ } from "@src/../global.config";
 import Peer, { DataConnection } from "peerjs";
 import { connectionDiagnostics } from "@src/utils/connection-diagnostics";
@@ -46,6 +46,10 @@ export class PeerClient {
 					peerId: this.peer.id,
 					connectionId: conn.connectionId,
 				});
+				// 兜底：本地连接可能跳过 ICE 流程
+				if (useUtil().connectionMode === "unknown") {
+					useUtil().connectionMode = "p2p";
+				}
 				resolve(conn);
 			});
 
@@ -189,6 +193,7 @@ export class PeerClient {
 		try {
 			// 拦截原始的 RTCPeerConnection 来过滤 ICE 候选
 			let origOnIceCandidate = pc.onicecandidate;
+			let hasRelayCandidate = false;
 
 			// 覆盖 onicecandidate 属性以过滤候选
 			Object.defineProperty(pc, "onicecandidate", {
@@ -198,8 +203,16 @@ export class PeerClient {
 				get: () => {
 					return (event: RTCPeerConnectionIceEvent) => {
 						if (event.candidate) {
-							const parts = event.candidate.candidate?.split(" ") || [];
+							const candidateStr = event.candidate.candidate || "";
+							const parts = candidateStr.split(" ");
 							const ip = parts[4];
+
+							// 检测是否为 relay (TURN) 候选
+							const typeIndex = parts.findIndex((p) => p === "typ");
+							const candidateType = typeIndex >= 0 ? parts[typeIndex + 1] : "";
+							if (candidateType === "relay") {
+								hasRelayCandidate = true;
+							}
 
 							// 过滤 WSL/Docker 虚拟网卡候选 (172.27.x.x)
 							if (ip && ip.startsWith("172.27.")) {
@@ -222,6 +235,10 @@ export class PeerClient {
 				connectionDiagnostics.logPeerEvent("ICE.connectionStateChange", pc.iceConnectionState);
 				if (pc.iceConnectionState === "failed") {
 					connectionDiagnostics.error("ICE 连接失败 — 可能 TURN/STUN 不可达或 NAT 过于严格");
+				}
+				if (pc.iceConnectionState === "connected" || pc.iceConnectionState === "completed") {
+					// 用 getStats 查询实际选中的候选对类型
+					PeerClient.detectActualConnectionMode(pc, hasRelayCandidate);
 				}
 			};
 			pc.onicegatheringstatechange = () => {
@@ -251,6 +268,35 @@ export class PeerClient {
 	}
 
 	/**
+	 * 通过 getStats 查询实际选中的候选对类型，确定真实连接模式
+	 */
+	private static async detectActualConnectionMode(pc: RTCPeerConnection, hasRelayCandidate: boolean) {
+		try {
+			const stats = await pc.getStats();
+			let localCandidateType = "";
+
+			for (const report of stats.values()) {
+				if (report.type === "candidate-pair" && report.state === "succeeded") {
+					const localCandidate = stats.get(report.localCandidateId);
+					if (localCandidate && localCandidate.candidateType) {
+						localCandidateType = localCandidate.candidateType;
+					}
+					break;
+				}
+			}
+
+			const mode = localCandidateType === "relay" ? "relay" : "p2p";
+			useUtil().connectionMode = mode;
+			console.log(`[PeerClient] 连接模式: ${mode} (实际候选类型: ${localCandidateType || "未知"}, 有relay候选: ${hasRelayCandidate})`);
+		} catch (e) {
+			// getStats 失败时回退到 hasRelayCandidate 判断
+			const mode = hasRelayCandidate ? "relay" : "p2p";
+			useUtil().connectionMode = mode;
+			console.log(`[PeerClient] 连接模式(回退): ${mode} (getStats失败: ${e})`);
+		}
+	}
+
+	/**
 	 * 获取当前 ICE 连接状态
 	 */
 	private getIceConnectionState(): string {
@@ -275,6 +321,7 @@ export class PeerClient {
 
 	public destory() {
 		connectionDiagnostics.logPeerEvent("PeerClient.destory", "PeerClient 销毁");
+		useUtil().connectionMode = "unknown";
 		this.peer.destroy();
 		this.conn = null;
 	}

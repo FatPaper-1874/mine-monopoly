@@ -109,6 +109,8 @@ export const useUtil = defineStore("util", {
 		return {
 			ping: 0,
 			fps: 0,
+			/** 连接模式：unknown=未确定, p2p=直连, relay=TURN中继 */
+			connectionMode: "unknown" as "unknown" | "p2p" | "relay",
 			isRollDiceAnimationPlay: false,
 			rollDiceResult: new Array<number>(),
 			currentEventName: "",

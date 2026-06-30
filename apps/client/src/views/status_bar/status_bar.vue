@@ -3,6 +3,7 @@
 	import { useRoute } from "vue-router";
 	import Ping from "./components/ping.vue";
 	import Fps from "./components/fps.vue";
+	import ConnectionMode from "./components/connection-mode.vue";
 	import FullScreenButton from "./components/full-screen-button.vue";
 	import SettingButton from "./components/setting-button.vue";
 	import Help from "./components/help.vue";
@@ -17,6 +18,7 @@
 <template>
 	<div class="status-bar">
 		<Ping v-if="canChat" />
+		<ConnectionMode v-if="canChat" />
 		<Fps v-if="canChat" />
 		<!-- <FullScreenButton /> -->
 		<CameraFocusButton />

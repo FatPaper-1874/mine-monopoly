@@ -35,6 +35,8 @@ import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 
 /* import specific icons */
 import {
+	faCloud,
+	faServer,
 	faBolt,
 	faBomb,
 	faHeart,
@@ -109,6 +111,8 @@ import { isFullScreen as _isFullScreen, isLandscape as _isLandscape, isMobileDev
 import useEventBus from "@src/utils/event-bus";
 
 library.add(
+	faCloud,
+	faServer,
 	faBolt,
 	faBomb,
 	faHeart,

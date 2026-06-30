@@ -129,7 +129,7 @@ async function joinRoom(id: string) {
 				port: __ICE_SERVER_PORT__,
 			},
 		});
-		useLoading().showLoading("正在尝试连接");
+		useLoading().showLoading("正在加入房间...");
 		await monopolyClient.joinRoom(id);
 	} catch (e: any) {
 		FPMessage({ type: "error", message: e.message || e });
