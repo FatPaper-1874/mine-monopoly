@@ -1,5 +1,12 @@
 # @mine-monopoly/client
 
+## 1.1.12
+
+### Patch Changes
+
+- - 显示 P2P 直连/中继连接状态，连接过程提示更清晰
+  - 提升存档恢复的稳定性和兼容性
+
 ## 1.1.11
 
 ### Patch Changes

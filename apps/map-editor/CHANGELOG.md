@@ -1,5 +1,20 @@
 # @mine-monopoly/map-editor
 
+## 1.1.6
+
+### Patch Changes
+
+- - **游戏阶段**
+    - 新增 postRestore 阶段类型，存档恢复后执行
+    - 阶段管理界面新增 postRestore 分类支持
+  - **MCP 工具**
+    - 新增 `get-default-code` 工具，获取各阶段默认代码模板
+  - **编辑器核心**
+    - 系统阶段改用稳定 ID 常量替代随机生成
+    - 存档恢复时正确提取并使用保存的角色 ID
+  - **工具模块**
+    - 新增 `normalizePhases` 和 `normalizeGameMap` 工具函数
+
 ## 1.1.5
 
 ### Patch Changes
