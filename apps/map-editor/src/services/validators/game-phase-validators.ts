@@ -13,8 +13,9 @@ export const PhaseType = z.enum([
 	"gameRoundStart",
 	"playerRound",
 	"gameRoundEnd",
+	"postRestore",
 ], {
-	errorMap: () => ({ message: "Invalid phase type. Must be one of: gameOverRule, gameInited, gameRoundStart, playerRound, gameRoundEnd" }),
+	errorMap: () => ({ message: "Invalid phase type. Must be one of: gameOverRule, gameInited, gameRoundStart, playerRound, gameRoundEnd, postRestore" }),
 });
 
 /**

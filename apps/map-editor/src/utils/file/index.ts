@@ -1,7 +1,7 @@
 import { FormSchema, GameMap } from "@mine-monopoly/types";
 import { dataToProtoBuffer, loadFromProto, ProtoFileType, encodeProductMap } from "@mine-monopoly/utils/protos";
 import { encrypt } from "@mine-monopoly/utils/crypto";
-import { gzipCompress } from "@mine-monopoly/utils";
+import { gzipCompress, normalizePhases } from "@mine-monopoly/utils";
 import { useEditorStore, useMapDataStore, useResourceStore } from "@src/stores";
 import { eventBus } from "@src/utils/event-bus";
 import { getInitPhase } from "@src/views/map-editor/components/manager/process-manager/utils/init-phase";
@@ -9,6 +9,22 @@ import { message } from "ant-design-vue";
 import { generateShortId } from "@src/utils/short-id";
 import { __MAP_ENCRYPT_KEY__ } from "@src/global.config";
 import { getFsApi } from "@src/services/fs-api";
+
+/**
+ * 向后兼容：确保地图 phases 中所有已知阶段类型都存在，
+ * 并为特定阶段注入默认系统阶段（如 postRestore）。
+ */
+function ensureDefaultPhases(mapData: GameMap): void {
+	const phases = mapData.phases;
+	if (!phases) return;
+	// 首先调用共享的 normalizePhases 确保所有阶段类型存在
+	normalizePhases(phases);
+	// 旧地图的 postRestore 为空时，注入默认系统阶段
+	if (phases.postRestore.length === 0) {
+		const defaultPhases = getInitPhase();
+		phases.postRestore.push(defaultPhases.postRestore[0]);
+	}
+}
 
 export function getFileName(path: string): string {
 	return path.split(/[/\\]/).pop() || "";
@@ -26,9 +42,12 @@ export function getFileNameWithoutExt(path: string): string {
 export async function parseGameMapFromProtoFile(filePath: string) {
 	const buffer = await window.electronAPI.readFile(filePath);
 	const res = await loadFromProto(new Uint8Array(buffer));
+	const mapData = JSON.parse(res.jsonData) as GameMap;
+	// 向后兼容：确保所有阶段类型都已初始化（旧地图可能缺少新增的阶段类型）
+	ensureDefaultPhases(mapData);
 	return {
 		id: res.id,
-		mapData: JSON.parse(res.jsonData) as GameMap,
+		mapData,
 		models: res.modelFiles,
 		images: res.imageFiles,
 	};

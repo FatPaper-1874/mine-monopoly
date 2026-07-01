@@ -1,5 +1,5 @@
 import { GameMap, GameMapInDb, Role } from "@mine-monopoly/types";
-import { loadFromProto, ProtoFileType, decodeProductMap, gzipDecompress } from "@mine-monopoly/utils";
+import { loadFromProto, ProtoFileType, decodeProductMap, gzipDecompress, normalizeGameMap } from "@mine-monopoly/utils";
 import { isProductFile, decrypt } from "@mine-monopoly/utils/crypto";
 import { env } from "@mine-monopoly/env";
 import { useLoading } from "@src/store";
@@ -7,6 +7,7 @@ import { getGameMapById } from "../api/map";
 import { useMapData, useResourceStore } from "@src/store/game";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
 import { getDracoLoader } from "../draco/draco";
+
 
 async function loadFromProductFile(data: Uint8Array, key: string): Promise<{
 	id: string;
@@ -78,7 +79,7 @@ export async function loadGameMapFromServer(mapId: string) {
 	if (mapInfo) {
 		useLoading().showLoading("正在读取地图...");
 		const mapData = await getGameMap(mapInfo);
-		const gameMap = JSON.parse(mapData.jsonData) as GameMap;
+		const gameMap = normalizeGameMap(JSON.parse(mapData.jsonData) as GameMap);
 		useMapData().$patch(gameMap);
 		await loadMapDataToResourceStore(mapData);
 		useLoading().hideLoading();
@@ -103,7 +104,7 @@ export async function loadGameMapFromFile(file: ArrayBuffer) {
 	}
 
 	console.log("🚀 ~ loadGameMapFromFile ~ mapData:", mapData);
-	const gameMap = JSON.parse(mapData.jsonData) as GameMap;
+	const gameMap = normalizeGameMap(JSON.parse(mapData.jsonData) as GameMap);
 	useMapData().$patch(gameMap);
 	await loadMapDataToResourceStore(mapData);
 	const coverResource = useResourceStore().getRecourceById(gameMap.info.coverImageId);

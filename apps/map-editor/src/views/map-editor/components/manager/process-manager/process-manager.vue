@@ -165,6 +165,33 @@ function removePhase(group: PhaseGroupKey, id: string) {
 				</div>
 			</div>
 
+			<!-- 存档恢复后阶段 -->
+			<h4>存档恢复后（仅在读取存档时执行一次）</h4>
+			<div class="phase-container">
+				<div class="phase-item" v-for="(phase, index) in phases.postRestore">
+					<a-card
+						:key="phase.id"
+						class="process-card"
+						hoverable
+						:class="{ selected: currentGroupKey === 'postRestore' && index === currentIndex }"
+						@click="
+							currentGroupKey = 'postRestore';
+							currentIndex = index;
+						"
+						size="small"
+						:title="phase.name"
+					>
+						<template v-if="phase.mark == undefined && phase.from !== '系统'" #extra>
+							<a-button size="small" type="link" danger @click="removePhase('postRestore', phase.id)">删除</a-button>
+						</template>
+						{{ phase.description }}
+					</a-card>
+					<a-button type="dashed" @click="addPhase('postRestore', index)" class="add-phase-button">
+						<FontAwesomeIcon :icon="['fas', 'plus']" />
+					</a-button>
+				</div>
+			</div>
+
 			<!-- 轮次循环区域 -->
 			<h4>轮次循环区域</h4>
 			<div class="phase-container round-phase">

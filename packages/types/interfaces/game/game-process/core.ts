@@ -78,6 +78,12 @@ export interface IGameProcess extends IGameProcessCustomFields {
 	/** 游戏运行时栈（事件队列管理） */
 	gameRuntimeStack: IGameRuntimeStack<GameContext>;
 
+	/** 游戏导出数据（同步到客户端 GameData.exportData，用于游戏内脚本访问） */
+	exportData: IGameProcessExportData;
+
+	/** 游戏自定义数据（纯主机端内部存储，不同步到客户端） */
+	customData: Record<string, any>;
+
 	/** 游戏结束规则检查函数，返回 false 表示游戏继续，返回玩家ID数组表示游戏结束（数组顺序即为排名） */
 	gameOverRuleFunction: (ctx: GameContext, gameProcess: IGameProcess) => Promise<string[] | true | false>;
 

@@ -22,6 +22,7 @@ import type { FormSchema } from "@mine-monopoly/types/interfaces/game/util";
 import type { ModifierTemplate } from "@mine-monopoly/types/interfaces/game/action-system/modifier";
 import { getFsApi, type ExtendedFsAPI } from "./fs-api";
 import { parseGameMapFromProtoFile } from "../utils/file/index";
+import { getInitPhase } from "../views/map-editor/components/manager/process-manager/utils/init-phase";
 
 // ─── 类型 ───
 
@@ -118,6 +119,7 @@ const PHASE_DIRS: Record<string, string> = {
 	gameRoundStart: "game-round-start",
 	playerRound: "player-round",
 	gameRoundEnd: "game-round-end",
+	postRestore: "post-restore",
 };
 
 /** 项目标识文件 */
@@ -299,6 +301,7 @@ export async function deserializeFromDir(dirPath: string): Promise<DeserializeRe
 		gameRoundStart: [],
 		playerRound: [],
 		gameRoundEnd: [],
+		postRestore: [],
 	};
 	const phasesDir = `${dirPath}/phases`;
 	if (await API().exists(phasesDir)) {
@@ -327,6 +330,12 @@ export async function deserializeFromDir(dirPath: string): Promise<DeserializeRe
 				}
 			}
 		}
+	}
+
+	// 向后兼容：旧地图没有 postRestore 阶段时，注入默认系统阶段
+	if (phases.postRestore.length === 0) {
+		const defaultPhases = getInitPhase();
+		phases.postRestore.push(defaultPhases.postRestore[0]);
 	}
 
 	// settings

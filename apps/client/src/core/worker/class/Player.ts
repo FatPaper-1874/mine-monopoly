@@ -412,6 +412,8 @@ export class Player implements IPlayer {
 
 		// 同步 roleId 到 user 对象（客户端通过 PlayerInfo.user.roleId 渲染角色模型）
 		// 直接使用快照中的 roleId，避免被 backward compat 或其他逻辑覆盖
+		// 注意：由于现在在 initPlayers 中创建玩家时就使用了正确的 roleId，
+		// 这里应该只是确保一致性，不应再需要重新编译 roleInitFunction
 		const savedRoleId = (snapshot as any).roleId;
 		if (savedRoleId) {
 			this.roleId = savedRoleId;

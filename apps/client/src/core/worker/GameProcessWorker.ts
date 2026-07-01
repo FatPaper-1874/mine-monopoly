@@ -70,6 +70,7 @@ import type { Emitter } from "mitt";
 import { SaveSnapshot, PlayerSnapshot, PropertySnapshot } from "@src/core/save/types";
 import { applyWorkerSandbox } from "./security";
 
+import { normalizePhases } from "@mine-monopoly/utils";
 // ⚠️ 必须在任何游戏代码执行前调用，切断危险 API
 applyWorkerSandbox();
 
@@ -412,6 +413,7 @@ function sendToUsers(userIdList: string[], msg: ServerSocketMessage) {
 
 (async () => {})();
 
+
 export class GameProcess implements IGameProcess {
 	public eventBus: Emitter<GameRuntimeEvent> = mitt<GameRuntimeEvent>();
 	public customData: Record<string, any> = {};
@@ -494,6 +496,8 @@ export class GameProcess implements IGameProcess {
 
 	constructor(mapData: GameMap, gameSetting: GameSetting, userList: UserInRoomInfo[], roomOwnerId: string) {
 		this.mapData = mapData;
+		// 向后兼容：确保所有阶段类型都已初始化（旧地图可能缺少新增的阶段类型）
+		normalizePhases(this.mapData.phases);
 		this.gameSetting = gameSetting;
 		this.userList = userList;
 		// 暴露 gameProcess 给自定义代码，但不可被覆盖
@@ -1080,7 +1084,7 @@ export class GameProcess implements IGameProcess {
 		});
 	}
 
-	private async initPlayers() {
+	private async initPlayers(savedRoleIds?: Map<string, string>) {
 		// 打乱玩家顺序，确保房主不总是第一个行动
 		const shuffledList = [...this.userList];
 		for (let i = shuffledList.length - 1; i > 0; i--) {
@@ -1091,8 +1095,10 @@ export class GameProcess implements IGameProcess {
 
 		// 步骤1: 创建所有玩家实例并设置 commandBus
 		this.userList.forEach((u) => {
-			const role = this.mapData.roles.find((r) => r.id === u.roleId);
-			if (!role) throw Error("找不到对应角色");
+			// 优先使用存档中的 roleId，如果没有则使用房间选择的 roleId
+			const roleId = savedRoleIds?.get(u.userId) ?? u.roleId;
+			const role = this.mapData.roles.find((r) => r.id === roleId);
+			if (!role) throw Error(`找不到对应角色: ${roleId}`);
 			const player = new Player(
 				u,
 				this.gameSetting.initMoney.value || 10000,
@@ -1352,6 +1358,13 @@ export class GameProcess implements IGameProcess {
 		for (const phaseInfo of this.mapData.phases.gameInited) {
 			const gameInitedPhase = new GamePhase(phaseInfo, undefined, this.mapData.extraLibs);
 			await this.runGamePhase(gameInitedPhase);
+		}
+	}
+
+	private async runPostRestorePhase() {
+		for (const phaseInfo of this.mapData.phases.postRestore) {
+			const postRestorePhase = new GamePhase(phaseInfo, undefined, this.mapData.extraLibs);
+			await this.runGamePhase(postRestorePhase);
 		}
 	}
 
@@ -2164,8 +2177,19 @@ export class GameProcess implements IGameProcess {
 
 	public async start() {
 		try {
+			// 提取存档中的角色ID映射（如果有存档），用于在创建玩家时使用正确的角色
+			// 这样可以避免使用错误的角色初始化代码产生副作用
+			const savedRoleIds = this.pendingSaveData
+				? new Map<string, string>(
+						Object.entries(this.pendingSaveData.snapshot.playerSnapshots).map(([userId, snap]) => [
+							userId,
+							(snap as any).roleId,
+						]),
+				  )
+				: undefined;
+
 			// 步骤1: 初始化玩家和地皮（包含预初始化阶段）
-			await this.initPlayers();
+			await this.initPlayers(savedRoleIds);
 			await this.initProperties();
 
 			// 步骤2: 运行游戏初始化后阶段
@@ -2176,6 +2200,8 @@ export class GameProcess implements IGameProcess {
 			if (this.pendingSaveData) {
 				await this.restoreFromSnapshot(this.pendingSaveData.snapshot, this.pendingSaveData.aiPlayerIds);
 				this.pendingSaveData = null;
+				// 运行存档恢复后阶段（供地图脚本重建运行时状态）
+				await this.runPostRestorePhase();
 			}
 
 			// 步骤3: 发送游戏初始化消息给客户端（已包含存档恢复后的状态）

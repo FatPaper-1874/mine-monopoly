@@ -3,6 +3,27 @@ import FPMessageBoxVue from "./fp-message-box.vue";
 import useEventBus from "@src/utils/event-bus"; // 假设你还需要它
 import { GameEventType, UISchema, FormSchema } from "@mine-monopoly/types"; // 假设你还需要它
 
+/**
+ * 用户取消操作时抛出的错误
+ * 可通过 instanceof UserCancelledError 检测用户取消
+ */
+export class UserCancelledError extends Error {
+	name = "UserCancelledError";
+	constructor(message: string = "User cancelled") {
+		super(message);
+	}
+}
+
+/**
+ * 超时操作时抛出的错误
+ */
+export class TimeoutError extends Error {
+	name = "TimeoutError";
+	constructor(message: string = "Timeout") {
+		super(message);
+	}
+}
+
 export interface MessageBoxOptions {
 	title?: string;
 	content?: string | VNode | (() => VNode) | UISchema;
@@ -37,13 +58,13 @@ export function FPMessageBox(options: MessageBoxOptions) {
 		};
 
 		const handleCancel = () => {
-			reject(new Error("User cancelled"));
+			reject(new UserCancelledError());
 			destroy();
 		};
 
 		const handleTimeout = () => {
 			// 这里的逻辑看你业务需求，通常超时算取消
-			reject(new Error("Timeout"));
+			reject(new TimeoutError());
 			// 如果超时，我们手动调用 close 逻辑吗？
 			// 由于我们拿不到组件内部的 visible 状态，这里最好是销毁
 			destroy();

@@ -3,6 +3,7 @@
 	import roomUserCard from "@src/views/room/components/room-user-card.vue";
 	import FpDialog from "@src/components/utils/fp-dialog/fp-dialog.vue";
 	import { FPMessage } from "@mine-monopoly/ui";
+	import { FPMessageBox, UserCancelledError } from "@src/components/utils/fp-message-box";
 	import ItemSelector from "@src/components/utils/item-selector/item-selector.vue";
 	import router from "@src/router";
 	import { useLoading, useRoomInfo } from "@src/store";
@@ -180,10 +181,18 @@ import { vStagger } from "@src/directives";
 
 	async function handleDeleteSave(record: SaveRecord) {
 		try {
+			await FPMessageBox({
+				title: "确认删除",
+				content: `确定要删除存档「${record.mapName} - 回合${record.round}」吗？此操作不可恢复。`,
+				confirmText: "删除",
+				cancelText: "取消",
+			});
 			await saveManager.delete(record.id);
 			saveRecords.value = saveRecords.value.filter(r => r.id !== record.id);
 			FPMessage({ type: "success", message: "存档已删除" });
 		} catch (e: any) {
+			// 用户取消操作
+			if (e instanceof UserCancelledError) return;
 			FPMessage({ type: "error", message: `删除失败: ${e.message}` });
 		}
 	}

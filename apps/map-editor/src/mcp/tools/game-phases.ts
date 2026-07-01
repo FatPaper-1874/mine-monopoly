@@ -98,13 +98,13 @@ export const gamePhaseTools = [
 	{
 		name: "add_phase",
 		description:
-			"添加新的游戏阶段。游戏阶段被组织到不同类别中：gameOverRule（游戏结束检查）、gameInited（一次性初始化）、gameRoundStart（每回合开始）、playerRound（玩家回合）、gameRoundEnd（每回合结束）。每个阶段都有一个 initEventCode 在阶段执行时运行。重要提示：initEventCode 必须返回一个接受 (ctx: GameContext, gameProcess: IGameProcess) 参数的异步函数。ctx 类型因阶段标记而异。常见的上下文类型包括：GameRoundStartContext、PlayerRoundContext（包含 currentRoundPlayer）。需要 id、name、description、phaseType（类别）、from 和 initEventCode。mark 可选。",
+			"添加新的游戏阶段。游戏阶段被组织到不同类别中：gameOverRule（游戏结束检查）、gameInited（一次性初始化）、gameRoundStart（每回合开始）、playerRound（玩家回合）、gameRoundEnd（每回合结束）、postRestore（存档恢复后执行，仅在有存档数据时运行一次）。每个阶段都有一个 initEventCode 在阶段执行时运行。重要提示：initEventCode 必须返回一个接受 (ctx: GameContext, gameProcess: IGameProcess) 参数的异步函数。ctx 类型因阶段标记而异。常见的上下文类型包括：GameRoundStartContext、PlayerRoundContext（包含 currentRoundPlayer）。需要 id、name、description、phaseType（类别）、from 和 initEventCode。mark 可选。",
 		inputSchema: AddPhaseSchema,
 		handler: addPhase,
 	},
 	{
 		name: "remove_phase",
-		description: "根据ID删除游戏阶段。需要 phaseId 和 phaseType（阶段所属的类别：gameOverRule、gameInited、gameRoundStart、playerRound、gameRoundEnd）。",
+		description: "根据ID删除游戏阶段。需要 phaseId 和 phaseType（阶段所属的类别：gameOverRule、gameInited、gameRoundStart、playerRound、gameRoundEnd、postRestore）。",
 		inputSchema: RemovePhaseSchema,
 		handler: removePhase,
 	},

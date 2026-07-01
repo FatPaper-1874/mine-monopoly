@@ -66,6 +66,9 @@ export interface GameMap {
 
 		/** 游戏回合结束阶段 */
 		gameRoundEnd: GamePhaseInfo[];
+
+		/** 存档恢复后阶段（在 restoreFromSnapshot 之后、GameInit 广播之前运行，仅在有存档数据时执行一次） */
+		postRestore: GamePhaseInfo[];
 	};
 
 	/** 建筑模型 ID 列表 */
