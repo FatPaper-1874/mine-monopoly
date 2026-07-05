@@ -1,14 +1,13 @@
 <script setup lang="ts">
-import FullScreenMask from "@src/views/screen_mask/screen_mask.vue";
 import Loading from "@src/components/utils/fp-loading/fp-loading.vue";
 import Background from "@src/views/background/background.vue";
 import StatusBar from "@src/views/status_bar/status_bar.vue";
-import { computed, nextTick, onBeforeMount, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onBeforeMount, onMounted, watch } from "vue";
 import { useRoute } from "vue-router";
 import { pageEnter, pageLeave } from "@src/utils/gsap/page-transition";
 import Chat from "@src/views/chat_log/chat_log.vue";
 import DanmakuContainer from "@src/views/danmaku/danmaku_container.vue";
-import { isFullScreen, isMobileDevice } from "@src/utils";
+import { isMobileDevice } from "@src/utils";
 import { TitleBar } from "@mine-monopoly/ui";
 import SafeModeActionPanel from "@src/components/SafeModeActionPanel.vue";
 import { isPC } from "./utils/platform";
@@ -42,7 +41,6 @@ import {
 import { icon } from "@fortawesome/fontawesome-svg-core";
 import Update from "./components/common/update.vue";
 
-const isMobile = isMobileDevice();
 const router = useRoute();
 const isInGame = computed(() => router.name === "game");
 const canChat = computed(() => router.name === "room" || router.name === "game");
@@ -157,7 +155,6 @@ const backgroundSvgList: string[] = [
 	</TitleBar>
 	<div class="main-container-wrapper">
 		<div class="main-container" id="fpmessage-container">
-			<!-- <FullScreenMask v-if="isMobile" /> -->
 			<Chat v-if="canChat" />
 			<DanmakuContainer v-if="canChat" />
 			<Background

@@ -192,29 +192,6 @@ app.use(pinia).use(router).component("font-awesome-icon", FontAwesomeIcon).direc
 // 标记应用已成功启动，全局错误处理据此切换显示策略
 window.__APP_STARTED__ = true;
 
-// Capacitor 全屏：状态栏透明覆盖 + 自动收回
-if (getPlatformType() === "capacitor") {
-	Promise.all([
-		import("@capacitor/status-bar"),
-		import("@capacitor/core"),
-	]).then(([{ StatusBar }, { SystemBars }]) => {
-		// 状态栏透明覆盖到游戏内容上（消除摄像头黑边）
-		StatusBar.setOverlaysWebView({ overlay: true }).catch(() => {});
-		// 初始隐藏
-		StatusBar.hide().catch(() => {});
-		SystemBars.hide().catch(() => {});
-
-		// 用户下滑唤出状态栏后，自动收回
-		StatusBar.addListener("statusBarVisibilityChanged", (info: { visible: boolean }) => {
-			if (info.visible) {
-				setTimeout(() => {
-					StatusBar.hide().catch(() => {});
-				}, 2000); // 2秒后自动隐藏
-			}
-		});
-	});
-}
-
 // 初始化 console 拦截器（在开发环境中也启用）
 interceptConsole();
 
@@ -284,11 +261,6 @@ function initDeviceStatusListener() {
 	deviceStatus.isLandscape = _isLandscape();
 	deviceStatus.isMobile = isMobileDevice();
 	deviceStatus.isFocus = document.visibilityState === "visible";
-	// if (isMobileDevice()) {
-	// 	document.addEventListener("touchstart", function (e) {
-	// 		e.preventDefault();
-	// 	});
-	// }
 
 	window.addEventListener("fullscreenchange", (e) => {
 		deviceStatus.isFullScreen = _isFullScreen();
