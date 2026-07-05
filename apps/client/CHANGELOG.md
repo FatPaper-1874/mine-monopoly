@@ -1,5 +1,12 @@
 # @mine-monopoly/client
 
+## 1.1.13
+
+### Patch Changes
+
+- - Android 端支持沉浸式全屏体验，状态栏自动隐藏，游戏画面更完整
+  - 移除横屏提示遮罩，由系统原生处理沉浸式方案
+
 ## 1.1.12
 
 ### Patch Changes

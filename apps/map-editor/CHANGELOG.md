@@ -1,5 +1,12 @@
 # @mine-monopoly/map-editor
 
+## 1.1.8
+
+### Patch Changes
+
+- - 地图序列化时自动清理磁盘残留的孤儿文件，避免垃圾文件堆积
+  - 重构掷骰子阶段默认代码模板
+
 ## 1.1.7
 
 ### Patch Changes
