@@ -1,5 +1,12 @@
 # @mine-monopoly/client
 
+## 1.1.14
+
+### Patch Changes
+
+- - 优化 Android 客户端更新机制：底座更新与资源更新分离，底座过旧时自动引导安装新版本
+  - 更新失败时提供手动下载链接，避免更新卡死
+
 ## 1.1.13
 
 ### Patch Changes
