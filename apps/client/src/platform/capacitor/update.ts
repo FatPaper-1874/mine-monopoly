@@ -1,13 +1,30 @@
 /**
- * Capacitor 更新 API — 原生 Capgo 插件桥接
+ * Capacitor 更新 API — Web OTA + Android 底座更新
  *
- * ⚠️ 直接静态 import @capacitor/core 的 registerPlugin。
- *    registerPlugin("CapacitorUpdater") 在模块顶层调用。
- *    原生插件在 APK 中，仅当 @capacitor/core 加载后注册才有效。
+ * - Web OTA 继续使用 Capgo bundle 更新网页资源
+ * - 原生底座更新通过本地插件下载 APK 并拉起系统安装器
  */
 
 import { registerPlugin } from "@capacitor/core";
 import type { UpdateAPI } from "../types";
+import { NativeUpdater, type NativeAppInfo, hasNativeUpdaterPlugin } from "./native-updater";
+
+type UpdateKind = "web" | "native";
+type RetryAction = "download" | "install" | "open-external";
+
+type WebUpdateManifest = {
+	version: string;
+	url: string;
+	releaseNotes?: string;
+	minNativeVersion?: string;
+};
+
+type NativeUpdateManifest = {
+	version: string;
+	versionCode?: number;
+	url: string;
+	releaseNotes?: string;
+};
 
 // ── 注册原生 Capgo 插件 ──
 const CapacitorUpdater = registerPlugin<any>("CapacitorUpdater", {
@@ -22,29 +39,122 @@ const CapacitorUpdater = registerPlugin<any>("CapacitorUpdater", {
 });
 
 // ── 内部状态 ──
-let pendingVersion: string | null = null;
-let pendingUrl: string | null = null;
+let pendingKind: UpdateKind | null = null;
+let pendingWebUpdate: WebUpdateManifest | null = null;
+let pendingNativeUpdate: NativeUpdateManifest | null = null;
 let downloadedBundle: { id: string; version: string } | null = null;
 let statusCallback: ((data: any) => void) | null = null;
 let appReadyCalled = false;
-let downloadTotalSize = 0;       // 下载文件总大小（字节），预先通过 HEAD 获取
-let lastTransferred = 0;         // 上次已下载字节数，用于计算速度
-let lastSpeedTime = 0;           // 上次速度采样时间戳
+let downloadTotalSize = 0;
+let lastTransferred = 0;
+let lastSpeedTime = 0;
 
 const DEFAULT_UPDATE_URL = "https://assets.fatpaper.site/releases/client/download/apk/update.json";
+const DEFAULT_NATIVE_UPDATE_URL = "https://assets.fatpaper.site/releases/client/download/apk/native-update.json";
+const DEFAULT_RELEASE_NOTE = "修复了一些已知问题，优化了游戏体验。";
 
 function getUpdateCheckUrl(): string {
 	if ((window as any).__CAPACITOR_UPDATE_URL__) return (window as any).__CAPACITOR_UPDATE_URL__;
-	// 加时间戳绕过 CDN 缓存
 	return DEFAULT_UPDATE_URL + "?t=" + Date.now();
 }
 
+function getNativeUpdateCheckUrl(): string {
+	return DEFAULT_NATIVE_UPDATE_URL + "?t=" + Date.now();
+}
+
 function compareVersions(a: string, b: string): number {
-	const pa = a.split(".").map(Number), pb = b.split(".").map(Number);
+	const pa = a.split(".").map(Number);
+	const pb = b.split(".").map(Number);
 	for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
 		if ((pa[i] ?? 0) !== (pb[i] ?? 0)) return (pa[i] ?? 0) - (pb[i] ?? 0);
 	}
 	return 0;
+}
+
+async function fetchManifest<T>(url: string): Promise<T> {
+	const resp = await fetch(url);
+	if (!resp.ok) throw new Error(`HTTP ${resp.status}: 无法获取更新信息`);
+	const raw = await resp.text();
+	const sanitized = raw.replace(/[\x00-\x08\x0A-\x1F]/g, " ");
+	return JSON.parse(sanitized) as T;
+}
+
+function resetDownloadStats() {
+	downloadTotalSize = 0;
+	lastTransferred = 0;
+	lastSpeedTime = 0;
+}
+
+function emitAvailable(kind: UpdateKind, version: string, releaseNotes: string, extra: Record<string, any> = {}) {
+	statusCallback?.({
+		status: "available",
+		info: {
+			kind,
+			version,
+			releaseNotes,
+			...extra,
+		},
+	});
+}
+
+function ensureNativeManifest(
+	nativeUpdate: NativeUpdateManifest | null,
+	currentNativeVersion: string,
+	requiredNativeVersion: string,
+) : NativeUpdateManifest {
+	if (!nativeUpdate || !nativeUpdate.version || !nativeUpdate.url) {
+		throw new Error(`当前资源版本要求底座至少为 ${requiredNativeVersion}，但未找到可用的底座安装包`);
+	}
+	if (compareVersions(nativeUpdate.version, currentNativeVersion) <= 0) {
+		throw new Error(`当前资源版本要求底座至少为 ${requiredNativeVersion}，请手动下载安装最新客户端`);
+	}
+	if (compareVersions(nativeUpdate.version, requiredNativeVersion) < 0) {
+		throw new Error(`最新底座版本仍低于要求版本 ${requiredNativeVersion}，请检查发布配置`);
+	}
+	return nativeUpdate;
+}
+
+async function getCurrentNativeInfo(): Promise<NativeAppInfo> {
+	if (!hasNativeUpdaterPlugin()) {
+		return {
+			versionName: "0.0.0",
+			versionCode: 0,
+			packageName: "fallback",
+		};
+	}
+
+	try {
+		return await NativeUpdater.getAppInfo();
+	} catch {
+		return {
+			versionName: __APP_VERSION__,
+			versionCode: 0,
+			packageName: "fallback",
+		};
+	}
+}
+
+function emitError(error: string, action: RetryAction = "download", extra: Record<string, any> = {}) {
+	statusCallback?.({
+		status: "error",
+		error,
+		action,
+		...extra,
+	});
+}
+
+function openExternalUrl(url: string) {
+	const popup = window.open(url, "_blank", "noopener,noreferrer");
+	if (popup) {
+		popup.opener = null;
+		return;
+	}
+
+	const anchor = document.createElement("a");
+	anchor.href = url;
+	anchor.target = "_blank";
+	anchor.rel = "noopener noreferrer";
+	anchor.click();
 }
 
 export function createCapUpdateAPI(): UpdateAPI {
@@ -53,26 +163,84 @@ export function createCapUpdateAPI(): UpdateAPI {
 	return {
 		async checkForUpdate() {
 			try {
-				const cur = await CapacitorUpdater.current();
-				const currentVersion = cur?.bundle?.version || __APP_VERSION__;
-				const resp = await fetch(getUpdateCheckUrl());
-				if (!resp.ok) throw new Error(`HTTP ${resp.status}: 无法获取更新信息`);
-				// 先取 text，兼容服务端 releaseNotes 含字面换行符（0x0A）而非 \n 的问题
-				const raw = await resp.text();
-				// 将所有控制字符（0x00-0x1F，除 \t 0x09 外）替换为空格
-				const sanitized = raw.replace(/[\x00-\x08\x0A-\x1F]/g, " ");
-				const data = JSON.parse(sanitized);
-				if (!data.version || !data.url) throw new Error("服务器更新信息不完整，缺少 version 字段");
+				const [cur, nativeInfo, webUpdate, nativeUpdate] = await Promise.all([
+					CapacitorUpdater.current(),
+					getCurrentNativeInfo(),
+					fetchManifest<WebUpdateManifest>(getUpdateCheckUrl()),
+					fetchManifest<NativeUpdateManifest>(getNativeUpdateCheckUrl()).catch(() => null),
+				]);
 
-				if (compareVersions(data.version, currentVersion) <= 0) return null;
+				const currentBundleVersion = cur?.bundle?.version || __APP_VERSION__;
+				const currentNativeVersion = nativeInfo.versionName || __APP_VERSION__;
+				const currentBundleMinNativeVersion = __MIN_NATIVE_VERSION__ || "0.0.0";
+				const currentBundleNeedsNativeUpdate =
+					compareVersions(currentBundleMinNativeVersion, currentNativeVersion) > 0;
 
-				pendingVersion = data.version;
-				pendingUrl = data.url;
-				statusCallback?.({
-					status: "available",
-					info: { version: data.version, releaseNotes: data.releaseNotes || "修复了一些已知问题，优化了游戏体验。" },
-				});
-				return { version: data.version, releaseNotes: data.releaseNotes };
+				if (!webUpdate.version || !webUpdate.url) {
+					throw new Error("服务器更新信息不完整，缺少 version 或 url 字段");
+				}
+
+				if (currentBundleNeedsNativeUpdate) {
+					const nextNativeUpdate = ensureNativeManifest(
+						nativeUpdate,
+						currentNativeVersion,
+						currentBundleMinNativeVersion,
+					);
+					pendingKind = "native";
+					pendingNativeUpdate = nextNativeUpdate;
+					pendingWebUpdate = null;
+					emitAvailable(
+						"native",
+						nextNativeUpdate.version,
+						nextNativeUpdate.releaseNotes || DEFAULT_RELEASE_NOTE,
+						{
+							currentVersion: currentNativeVersion,
+							requiredVersion: currentBundleMinNativeVersion,
+						},
+					);
+					return {
+						kind: "native",
+						version: nextNativeUpdate.version,
+						releaseNotes: nextNativeUpdate.releaseNotes,
+					};
+				}
+
+				if (compareVersions(webUpdate.version, currentBundleVersion) <= 0) {
+					return null;
+				}
+
+				const requiredNativeVersion = webUpdate.minNativeVersion || "0.0.0";
+				if (compareVersions(requiredNativeVersion, currentNativeVersion) > 0) {
+					const nextNativeUpdate = ensureNativeManifest(
+						nativeUpdate,
+						currentNativeVersion,
+						requiredNativeVersion,
+					);
+					pendingKind = "native";
+					pendingNativeUpdate = nextNativeUpdate;
+					pendingWebUpdate = null;
+					emitAvailable(
+						"native",
+						nextNativeUpdate.version,
+						nextNativeUpdate.releaseNotes || webUpdate.releaseNotes || DEFAULT_RELEASE_NOTE,
+						{
+							currentVersion: currentNativeVersion,
+							requiredVersion: requiredNativeVersion,
+							targetBundleVersion: webUpdate.version,
+						},
+					);
+					return {
+						kind: "native",
+						version: nextNativeUpdate.version,
+						releaseNotes: nextNativeUpdate.releaseNotes,
+					};
+				}
+
+				pendingKind = "web";
+				pendingWebUpdate = webUpdate;
+				pendingNativeUpdate = null;
+				emitAvailable("web", webUpdate.version, webUpdate.releaseNotes || DEFAULT_RELEASE_NOTE);
+				return { kind: "web", version: webUpdate.version, releaseNotes: webUpdate.releaseNotes };
 			} catch (err: any) {
 				const msg = err.message || "检查更新失败";
 				console.error("[Updater] 检查更新失败:", msg);
@@ -82,79 +250,149 @@ export function createCapUpdateAPI(): UpdateAPI {
 		},
 
 		async startDownload() {
-			if (!pendingVersion || !pendingUrl) {
-				statusCallback?.({ status: "error", error: "没有待下载的更新" });
+			if (pendingKind === "native" && pendingNativeUpdate) {
+				resetDownloadStats();
+				if (!hasNativeUpdaterPlugin()) {
+					openExternalUrl(pendingNativeUpdate.url);
+					emitError(
+						"当前底座过旧，已尝试在系统浏览器中打开安装包下载链接；若未自动跳转，请复制下方链接到浏览器完成安装",
+						"open-external",
+						{ downloadUrl: pendingNativeUpdate.url },
+					);
+					return;
+				}
+				try {
+					await NativeUpdater.downloadApk({
+						url: pendingNativeUpdate.url,
+						version: pendingNativeUpdate.version,
+					});
+				} catch (err: any) {
+					emitError(err.message || "下载安装包失败");
+				}
 				return;
 			}
-			try {
-				// 预先通过 HEAD 请求获取总大小，用于推算下载进度
-				downloadTotalSize = 0;
-				lastTransferred = 0;
-				lastSpeedTime = 0;
-				try {
-					const headResp = await fetch(pendingUrl, { method: "HEAD" });
-					const cl = headResp.headers.get("Content-Length");
-					if (cl) downloadTotalSize = parseInt(cl, 10);
-				} catch { /* HEAD 失败不影响下载 */ }
 
-				const bundle = await CapacitorUpdater.download({ version: pendingVersion, url: pendingUrl });
-				downloadedBundle = bundle;
-				await CapacitorUpdater.next({ id: bundle.id });
-			} catch (err: any) {
-				statusCallback?.({ status: "error", error: err.message || "下载失败" });
+			if (pendingKind === "web" && pendingWebUpdate) {
+				try {
+					resetDownloadStats();
+					try {
+						const headResp = await fetch(pendingWebUpdate.url, { method: "HEAD" });
+						const cl = headResp.headers.get("Content-Length");
+						if (cl) downloadTotalSize = parseInt(cl, 10);
+					} catch {}
+
+					const bundle = await CapacitorUpdater.download({
+						version: pendingWebUpdate.version,
+						url: pendingWebUpdate.url,
+					});
+					downloadedBundle = bundle;
+					await CapacitorUpdater.next({ id: bundle.id });
+				} catch (err: any) {
+					emitError(err.message || "下载失败");
+				}
+				return;
 			}
+
+			emitError("没有待下载的更新");
 		},
 
 		async quitAndInstall() {
+			if (pendingKind === "native") {
+				try {
+					await NativeUpdater.installDownloadedApk();
+				} catch (err: any) {
+					emitError(err.message || "拉起安装失败", "install");
+				}
+				return;
+			}
+
 			if (!downloadedBundle) return;
 			try {
 				await CapacitorUpdater.set({ id: downloadedBundle.id });
-			} catch { window.location.reload(); }
+			} catch {
+				window.location.reload();
+			}
 		},
 
 		onUpdateStatus(callback) {
 			statusCallback = callback;
 			const fns: (() => void)[] = [];
+
 			CapacitorUpdater.addListener("download", (e: any) => {
-				if (typeof e?.percent === "number") {
-					// 文档写 0–100，但原生可能返回 0–1（用户反馈始终 0 推测）
-					const pct = e.percent < 1 ? e.percent * 100 : e.percent;
+				if (pendingKind !== "web" || typeof e?.percent !== "number") return;
+				const pct = e.percent < 1 ? e.percent * 100 : e.percent;
+				const transferred = downloadTotalSize > 0 ? Math.round((pct / 100) * downloadTotalSize) : 0;
 
-					// 从总大小和百分比推算已下载量
-					const transferred = downloadTotalSize > 0 ? Math.round((pct / 100) * downloadTotalSize) : 0;
+				const now = Date.now();
+				let bytesPerSecond = 0;
+				if (transferred > 0 && lastTransferred > 0 && lastSpeedTime > 0) {
+					const dt = (now - lastSpeedTime) / 1000;
+					const dBytes = transferred - lastTransferred;
+					if (dt > 0 && dBytes >= 0) bytesPerSecond = Math.round(dBytes / dt);
+				}
+				lastTransferred = transferred;
+				lastSpeedTime = now;
 
-					// 计算下载速度（字节/秒）
-					const now = Date.now();
-					let bytesPerSecond = 0;
-					if (transferred > 0 && lastTransferred > 0 && lastSpeedTime > 0) {
-						const dt = (now - lastSpeedTime) / 1000;
-						const dBytes = transferred - lastTransferred;
-						if (dt > 0 && dBytes >= 0) bytesPerSecond = Math.round(dBytes / dt);
-					}
-					lastTransferred = transferred;
-					lastSpeedTime = now;
+				statusCallback?.({
+					status: "progress",
+					progress: {
+						kind: "web",
+						percent: pct,
+						bytesPerSecond,
+						transferred,
+						total: downloadTotalSize,
+					},
+				});
+			}).then((h: any) => fns.push(() => h.remove()));
 
+			CapacitorUpdater.addListener("downloadComplete", () => {
+				if (pendingKind === "web") statusCallback?.({ status: "downloaded", info: { kind: "web" } });
+			}).then((h: any) => fns.push(() => h.remove()));
+
+			CapacitorUpdater.addListener("downloadFailed", () => {
+				if (pendingKind === "web") statusCallback?.({ status: "error", error: "下载失败" });
+			}).then((h: any) => fns.push(() => h.remove()));
+
+			CapacitorUpdater.addListener("updateFailed", () => {
+				if (pendingKind === "web") statusCallback?.({ status: "error", error: "安装失败" });
+			}).then((h: any) => fns.push(() => h.remove()));
+
+			if (hasNativeUpdaterPlugin()) {
+				NativeUpdater.addListener("download", (e: any) => {
+					if (pendingKind !== "native" || typeof e?.percent !== "number") return;
 					statusCallback?.({
 						status: "progress",
 						progress: {
-							percent: pct,          // 保留浮点，update.vue 侧 Math.floor 取整
-							bytesPerSecond,
-							transferred,
-							total: downloadTotalSize,
+							kind: "native",
+							percent: e.percent,
+							bytesPerSecond: e.bytesPerSecond || 0,
+							transferred: e.transferred || 0,
+							total: e.total || 0,
 						},
 					});
-				}
-			}).then((h: any) => fns.push(() => h.remove()));
-			CapacitorUpdater.addListener("downloadComplete", () => statusCallback?.({ status: "downloaded" })).then((h: any) => fns.push(() => h.remove()));
-			CapacitorUpdater.addListener("downloadFailed", () => statusCallback?.({ status: "error", error: "下载失败" })).then((h: any) => fns.push(() => h.remove()));
-			CapacitorUpdater.addListener("updateFailed", () => statusCallback?.({ status: "error", error: "安装失败" })).then((h: any) => fns.push(() => h.remove()));
-			return () => { statusCallback = null; for (const fn of fns) fn(); };
+				}).then((h: any) => fns.push(() => h.remove()));
+
+				NativeUpdater.addListener("downloadComplete", () => {
+					if (pendingKind === "native") statusCallback?.({ status: "downloaded", info: { kind: "native" } });
+				}).then((h: any) => fns.push(() => h.remove()));
+
+				NativeUpdater.addListener("downloadFailed", (e: any) => {
+					if (pendingKind === "native") statusCallback?.({ status: "error", error: e?.error || "下载安装包失败" });
+				}).then((h: any) => fns.push(() => h.remove()));
+			}
+
+			return () => {
+				statusCallback = null;
+				for (const fn of fns) fn();
+			};
 		},
 	};
 }
 
 async function notifyAppReadySafe() {
 	if (appReadyCalled) return;
-	try { await CapacitorUpdater.notifyAppReady(); } catch {}
+	try {
+		await CapacitorUpdater.notifyAppReady();
+	} catch {}
 	appReadyCalled = true;
 }

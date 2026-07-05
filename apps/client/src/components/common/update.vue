@@ -6,6 +6,8 @@ import FpMessage from "@src/components/utils/fp-message";
 
 // 定义状态类型
 type UpdateStatus = "checking" | "available" | "downloading" | "downloaded" | "error";
+type UpdateKind = "web" | "native";
+type ErrorAction = "download" | "install" | "open-external";
 
 // 响应式数据
 const visible = ref(false);
@@ -17,6 +19,9 @@ const downloadSpeed = ref("");
 const downloadTransferred = ref("");
 const downloadTotal = ref("");
 const errorMsg = ref("");
+const errorLink = ref("");
+const updateKind = ref<UpdateKind>("web");
+const errorAction = ref<ErrorAction>("download");
 
 let removeListener: (() => void) | null = null;
 
@@ -66,6 +71,24 @@ const close = () => {
 	visible.value = false;
 };
 
+const triggerPrimaryAction = () => {
+	if (status.value === "downloaded" || (status.value === "error" && errorAction.value === "install")) {
+		install();
+		return;
+	}
+	startDownload();
+};
+
+const primaryActionText = computed(() => {
+	if (status.value === "error") {
+		if (errorAction.value === "install") return "继续安装";
+		if (errorAction.value === "open-external") return "再次打开下载链接";
+		return "重试";
+	}
+	if (status.value === "downloaded") return updateKind.value === "native" ? "立即安装" : "立即重启";
+	return updateKind.value === "native" ? "下载底座更新" : "立即更新";
+});
+
 onMounted(() => {
 	if (window.updateAPI) {
 		status.value = "checking";
@@ -81,6 +104,9 @@ onMounted(() => {
 			switch (data.status) {
 				case "available":
 					status.value = "available";
+					updateKind.value = (data.info.kind as UpdateKind) || "web";
+					errorAction.value = "download";
+					errorLink.value = "";
 					version.value = data.info.version;
 					releaseNote.value = (data.info.releaseNotes as string) || "修复了一些已知问题，优化了游戏体验。";
 					visible.value = true;
@@ -88,6 +114,9 @@ onMounted(() => {
 
 				case "progress":
 					status.value = "downloading";
+					updateKind.value = (data.progress.kind as UpdateKind) || updateKind.value;
+					errorAction.value = "download";
+					errorLink.value = "";
 					downloadPercent.value = Math.floor(data.progress.percent);
 					downloadSpeed.value = formatSpeed(data.progress.bytesPerSecond);
 					downloadTransferred.value = formatBytes(data.progress.transferred);
@@ -97,13 +126,27 @@ onMounted(() => {
 
 				case "downloaded":
 					status.value = "downloaded";
+					updateKind.value = (data.info?.kind as UpdateKind) || updateKind.value;
+					errorAction.value = "install";
+					errorLink.value = "";
 					visible.value = true;
 					break;
 
 				case "error":
 					const errorDetail = data.error || "未知原因";
+					errorAction.value = (data.action as ErrorAction) || (status.value === "downloaded" ? "install" : "download");
+					errorLink.value = (data.downloadUrl as string) || "";
 
-					if (status.value === "downloading") {
+					if (
+						errorDetail.includes("底座")
+						|| errorDetail.includes("安装包")
+						|| errorDetail.includes("安装器")
+						|| errorDetail.includes("未知来源")
+					) {
+						status.value = "error";
+						errorMsg.value = errorDetail;
+						visible.value = true;
+					} else if (status.value === "downloading") {
 						status.value = "error";
 						errorMsg.value = "网络连接中断，请稍后重试。";
 					} else if (errorDetail.includes("所有更新源")) {
@@ -160,27 +203,31 @@ onUnmounted(() => {
 				<span class="progress-text">{{ downloadPercent }}%</span>
 			</div>
 			<p class="info-text">{{ downloadTransferred }} / {{ downloadTotal }} — {{ downloadSpeed }}</p>
-			<p class="sub-text">正在下载资源，请勿关闭游戏...</p>
+			<p class="sub-text">
+				{{ updateKind === "native" ? "正在下载客户端底座，请勿关闭游戏..." : "正在下载资源，请勿关闭游戏..." }}
+			</p>
 		</div>
 
 		<div v-if="status === 'downloaded'" class="scene-box centered">
 			<div class="icon-success">
 				<FontAwesomeIcon icon="check-circle" />
 			</div>
-			<p class="main-text">更新包已就绪</p>
-			<p class="sub-text">重启游戏即可生效</p>
+			<p class="main-text">{{ updateKind === "native" ? "安装包已下载完成" : "更新包已就绪" }}</p>
+			<p class="sub-text">{{ updateKind === "native" ? "点击下方按钮拉起系统安装器" : "重启游戏即可生效" }}</p>
 		</div>
 
 		<div v-if="status === 'error'" class="scene-box centered">
 			<p class="error-text">{{ errorMsg }}</p>
+			<p v-if="errorLink" class="link-label">下载链接：</p>
+			<p v-if="errorLink" class="link-text">{{ errorLink }}</p>
 		</div>
 
 		<div v-if="status !== 'downloading'" class="custom-footer" :class="{ 'has-separator': status === 'available' }">
 			<button v-if="status === 'available'" class="btn-gray" @click="close">稍后提醒</button>
-			<button v-if="status === 'available' || status === 'error'" class="btn-theme" @click="startDownload">
-				{{ status === "error" ? "重试" : "立即更新" }}
+			<button v-if="status === 'available' || status === 'error'" class="btn-theme" @click="triggerPrimaryAction">
+				{{ primaryActionText }}
 			</button>
-			<button v-if="status === 'downloaded'" class="btn-theme" @click="install">立即重启</button>
+			<button v-if="status === 'downloaded'" class="btn-theme" @click="install">{{ primaryActionText }}</button>
 		</div>
 	</FpDialog>
 </template>
@@ -275,6 +322,20 @@ onUnmounted(() => {
 }
 .error-text {
 	color: #ff5252;
+}
+
+.link-label {
+	margin-top: 1rem;
+	color: var(--fp-color-text-secondary);
+	font-size: 0.85rem;
+}
+
+.link-text {
+	margin-top: 0.25rem;
+	word-break: break-all;
+	font-size: 0.8rem;
+	color: var(--fp-color-text-secondary);
+	user-select: text;
 }
 
 // 4. 自定义底部按钮栏

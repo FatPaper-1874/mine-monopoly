@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 import path from "path";
+import { readFileSync } from "node:fs";
 import viteCompression from "vite-plugin-compression";
 import { visualizer } from "rollup-plugin-visualizer";
 import electron from "vite-plugin-electron/simple";
@@ -9,6 +10,10 @@ import generateMonacoDTS from "./plugins/vite-plugin-generate-monaco-dts";
 import { envPlugin } from "@mine-monopoly/env/vite-plugin";
 
 const APP_VERSION_SHORT = pkg.version.split(".").slice(0, 2).join(".");
+const updatePolicy = JSON.parse(
+	readFileSync(path.resolve(__dirname, "build", "update-policy.json"), "utf-8"),
+) as { minNativeVersion?: string };
+const MIN_NATIVE_VERSION = updatePolicy.minNativeVersion || "0.0.0";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ command, mode }) => {
@@ -23,6 +28,7 @@ export default defineConfig(({ command, mode }) => {
 			__APP_VERSION__: JSON.stringify(pkg.version),
 			__BUILD_TIME__: JSON.stringify(new Date().toISOString()),
 			__COMPATIBLE_VERSION__: JSON.stringify(APP_VERSION_SHORT),
+			__MIN_NATIVE_VERSION__: JSON.stringify(MIN_NATIVE_VERSION),
 		},
 		plugins: [
 			vue(),

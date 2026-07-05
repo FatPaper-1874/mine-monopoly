@@ -2,6 +2,7 @@
 declare const __APP_VERSION__: string;
 declare const __BUILD_TIME__: string;
 declare const __COMPATIBLE_VERSION__: string;
+declare const __MIN_NATIVE_VERSION__: string;
 
 declare namespace NodeJS {
 	interface ProcessEnv {

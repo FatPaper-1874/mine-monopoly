@@ -20,9 +20,19 @@ const DIST = resolve(ROOT, "dist", "frontend");
 const OTA = resolve(ROOT, "dist", "capacitor", "ota");
 const ZIP = resolve(OTA, "dist.zip");
 const UPDATE_JSON = resolve(OTA, "update.json");
+const NATIVE_UPDATE_JSON = resolve(OTA, "native-update.json");
 const DIST_URL = "https://assets.fatpaper.site/releases/client/download/apk/dist.zip";
+const UPDATE_POLICY = resolve(ROOT, "build", "update-policy.json");
 
 const args = process.argv.slice(2), shouldUpload = args.includes("--upload");
+
+function versionToCode(version) {
+	const [major = 0, minor = 0, patch = 0] = version
+		.split("-")[0]
+		.split(".")
+		.map((part) => parseInt(part, 10) || 0);
+	return major * 10000 + minor * 100 + patch;
+}
 
 // 1. vite build
 console.log("[Capacitor OTA] vite build…");
@@ -45,19 +55,55 @@ if (process.platform === "win32") {
 	execSync(`zip -r "${ZIP}" .`, { cwd: DIST, stdio: "inherit" });
 }
 
-// 4. update.json
+// 4. update.json / native-update.json
 const pkg = JSON.parse(readFileSync(resolve(ROOT, "package.json"), "utf-8"));
-writeFileSync(UPDATE_JSON, JSON.stringify({ version: pkg.version, url: DIST_URL, releaseNotes: notes }, null, 2) + "\n");
-console.log(`[Capacitor OTA] ✅ dist.zip + update.json (v${pkg.version})`);
+const updatePolicy = existsSync(UPDATE_POLICY)
+	? JSON.parse(readFileSync(UPDATE_POLICY, "utf-8"))
+	: {};
+const nativeUpdateUrl = `https://assets.fatpaper.site/releases/client/download/apk/MineMonopoly-Android-${pkg.version}.apk`;
+const versionCode = versionToCode(pkg.version);
+
+writeFileSync(
+	UPDATE_JSON,
+	JSON.stringify(
+		{
+			version: pkg.version,
+			url: DIST_URL,
+			releaseNotes: notes,
+			minNativeVersion: updatePolicy.minNativeVersion || "0.0.0",
+		},
+		null,
+		2,
+	) + "\n",
+);
+writeFileSync(
+	NATIVE_UPDATE_JSON,
+	JSON.stringify(
+		{
+			version: pkg.version,
+			versionCode,
+			url: nativeUpdateUrl,
+			releaseNotes: notes,
+		},
+		null,
+		2,
+	) + "\n",
+);
+console.log(`[Capacitor OTA] ✅ dist.zip + update.json + native-update.json (v${pkg.version})`);
 
 // 5. upload (optional)
 if (shouldUpload) {
 	const bk = process.env.R2_BUCKET_NAME, ep = process.env.R2_ENDPOINT_URL;
 	const tgt = `s3://${bk}/releases/client/download/apk/`;
-	for (const f of [ZIP, UPDATE_JSON]) {
+	for (const f of [ZIP, UPDATE_JSON, NATIVE_UPDATE_JSON]) {
 		execSync(`aws s3 cp "${f}" "${tgt}" --endpoint-url "${ep}" --no-progress`, {
 			stdio: "inherit",
-			env: { ...process.env, AWS_ACCESS_KEY_ID: process.env.R2_ACCESS_KEY_ID!, AWS_SECRET_ACCESS_KEY: process.env.R2_SECRET_ACCESS_KEY!, AWS_DEFAULT_REGION: "auto" },
+			env: {
+				...process.env,
+				AWS_ACCESS_KEY_ID: process.env.R2_ACCESS_KEY_ID,
+				AWS_SECRET_ACCESS_KEY: process.env.R2_SECRET_ACCESS_KEY,
+				AWS_DEFAULT_REGION: "auto",
+			},
 		});
 	}
 	console.log(`[Capacitor OTA] ✅ uploaded to R2`);

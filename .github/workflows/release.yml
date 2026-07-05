@@ -36,6 +36,17 @@ jobs:
           node-version: 22
           cache: pnpm
 
+      - name: Check Client Version
+        if: steps.tag.outputs.pkg_name == 'client'
+        shell: bash
+        run: |
+          PKG_VERSION=$(node -p "require('./apps/client/package.json').version")
+          TAG_VERSION="${{ steps.tag.outputs.version }}"
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "apps/client/package.json version ($PKG_VERSION) does not match tag version ($TAG_VERSION)"
+            exit 1
+          fi
+
       - run: pnpm install --frozen-lockfile
         shell: bash
 
@@ -139,6 +150,16 @@ jobs:
           node-version: 22
           cache: pnpm
 
+      - name: Check Client Version
+        shell: bash
+        run: |
+          PKG_VERSION=$(node -p "require('./apps/client/package.json').version")
+          TAG_VERSION="${{ steps.tag.outputs.version }}"
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "apps/client/package.json version ($PKG_VERSION) does not match tag version ($TAG_VERSION)"
+            exit 1
+          fi
+
       - run: pnpm install --frozen-lockfile
         shell: bash
 
@@ -166,32 +187,7 @@ jobs:
         shell: bash
         run: |
           cd apps/client
-          npx vite build --mode capacitor
-
-          # 提取更新日志
-          NOTES="修复了一些已知问题，优化了游戏体验。"
-          if [ -f CHANGELOG.md ]; then
-            NOTES=$(grep -A100 '^## ' CHANGELOG.md | tail -n +2 | sed '/^## /q' | grep -v '^### ' | sed '/^$/d' | head -20)
-            [ -z "$NOTES" ] && NOTES="修复了一些已知问题，优化了游戏体验。"
-          fi
-
-          # 打包 OTA
-          mkdir -p dist/capacitor/ota
-          VERSION="${{ steps.tag.outputs.version }}"
-          cd dist/frontend && zip -r ../capacitor/ota/dist.zip . && cd ../..
-          # 用 node 生成合法 JSON（转义换行符等控制字符）
-          export NOTES VERSION
-          node -e "
-            const fs = require('fs');
-            const notes = process.env.NOTES;
-            const json = JSON.stringify({
-              version: process.env.VERSION,
-              url: 'https://assets.fatpaper.site/releases/client/download/apk/dist.zip',
-              releaseNotes: notes
-            }, null, 2) + '\n';
-            fs.writeFileSync('dist/capacitor/ota/update.json', json);
-          "
-          echo "OTA dist.zip + update.json ready (v$VERSION)"
+          node ./scripts/build-capacitor-ota.js
 
       - name: Capacitor Sync
         shell: bash
@@ -214,12 +210,7 @@ jobs:
         working-directory: apps/client/android
         run: |
           VERSION="${{ steps.tag.outputs.version }}"
-          VERSION_CODE="${{ steps.tag.outputs.version_code }}"
-          echo "Building APK version=$VERSION code=$VERSION_CODE"
-
-          # 注入版本号
-          sed -i "s/versionCode .*/versionCode $VERSION_CODE/" app/build.gradle
-          sed -i "s/versionName .*/versionName \"$VERSION\"/" app/build.gradle
+          echo "Building APK version=$VERSION"
 
           # build.gradle 自动检测 RELEASE_KEYSTORE_BASE64 环境变量
           # 存在时从 Base64 解码生成临时 keystore 并用 env 中的密码签名
@@ -246,6 +237,7 @@ jobs:
             apps/client/dist/android/*.apk
             apps/client/dist/capacitor/ota/dist.zip
             apps/client/dist/capacitor/ota/update.json
+            apps/client/dist/capacitor/ota/native-update.json
           if-no-files-found: error
 
   # ── GitHub Release ──
@@ -335,6 +327,8 @@ jobs:
           find artifacts -name "dist.zip" -exec aws s3 cp {} "s3://${R2_BUCKET_NAME}/releases/client/download/apk/dist.zip" \
             --endpoint-url "${R2_ENDPOINT_URL}" --no-progress \;
           find artifacts -name "update.json" -exec aws s3 cp {} "s3://${R2_BUCKET_NAME}/releases/client/download/apk/update.json" \
+            --endpoint-url "${R2_ENDPOINT_URL}" --no-progress \;
+          find artifacts -name "native-update.json" -exec aws s3 cp {} "s3://${R2_BUCKET_NAME}/releases/client/download/apk/native-update.json" \
             --endpoint-url "${R2_ENDPOINT_URL}" --no-progress \;
           echo "APK + OTA uploaded"
         env:
