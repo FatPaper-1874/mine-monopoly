@@ -1,5 +1,5 @@
 (async (context, gameProcess) => {
-	const currentPlayer = ctx.currentRoundPlayer;
+	const currentPlayer = context.currentRoundPlayer;
     const currentPlayerId = currentPlayer.id;
 
     // 使用循环来处理可能的多次操作，直到玩家掷骰子或超时
@@ -29,6 +29,5 @@
 
     // 将骰子结果写入上下文，并存储到玩家对象中供其他机制使用
     const diceResult = await currentPlayer.rollDices();
-    ctx.diceResult = diceResult;
-    currentPlayer.lastDiceRollResults = diceResult;
+    context.diceResult = diceResult;
 }) as GameEventFunction<RollDiceContext>;

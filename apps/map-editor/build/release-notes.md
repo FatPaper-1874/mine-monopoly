@@ -1,8 +1,4 @@
-- - 添加 Capacitor OTA 更新功能及 Android 自动构建流程
-  - 移动端关闭抗锯齿、EffectComposer 和模型动画省 GPU
-  - 移动端横屏使用 16:9 容器比例并动态计算基准字号
-  - 添加 Capacitor Android 构建支持
-  - 将 electronAPI 改造为通用 platform 平台接口，移除地图缓存
-  - 地图说明支持 Markdown 渲染
-  - 修复登录页 CSS transition 与 GSAP 入场动画冲突，优化更新弹窗
-  - 修复 Docker 部署时 admin 环境变量缺失及 .mmmap 解密失败
+- - **默认代码模板**
+    - 重构掷骰子阶段默认代码，使用 `while(true)+Promise.race` 循环替代独立监听函数
+    - 统一参数命名规范（`context` → `ctx`）
+    - 简化骰子结果处理逻辑，移除多余的动画等待
