@@ -65,6 +65,7 @@ jobs:
           SERVER_PORT=${{ vars.SERVER_PORT }}
           ICE_SERVER_PORT=${{ vars.ICE_SERVER_PORT }}
           MONOPOLY_ADMIN_PORT=${{ vars.MONOPOLY_ADMIN_PORT || '83' }}
+          VITE_WEB_BASE_PATH=${{ vars.VITE_WEB_BASE_PATH || '/monopoly/' }}
           NODE_ENV=production
           MAP_ENCRYPT_KEY=${{ secrets.MAP_ENCRYPT_KEY }}
           EOF
@@ -72,7 +73,7 @@ jobs:
       - name: Build Client
         if: steps.tag.outputs.pkg_name == 'client'
         shell: bash
-        run: pnpm --filter @mine-monopoly/client run build -- --publish never
+        run: pnpm --filter @mine-monopoly/client run build:electron -- --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
@@ -125,6 +126,110 @@ jobs:
           name: release-notes
           path: release-notes.md
           if-no-files-found: warn
+
+  # ── Web 静态站点构建制品 ──
+  build-web:
+    if: startsWith(github.ref_name, '@mine-monopoly/client@')
+    runs-on: ubuntu-latest
+    environment: build
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse Tag
+        id: tag
+        shell: bash
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION=$(echo "$TAG" | sed -E 's/@mine-monopoly\/.+@(.+)/\1/')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Check Client Version
+        shell: bash
+        run: |
+          PKG_VERSION=$(node -p "require('./apps/client/package.json').version")
+          TAG_VERSION="${{ steps.tag.outputs.version }}"
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "apps/client/package.json version ($PKG_VERSION) does not match tag version ($TAG_VERSION)"
+            exit 1
+          fi
+
+      - run: pnpm install --frozen-lockfile
+        shell: bash
+
+      - run: pnpm --filter @mine-monopoly/env run build
+        shell: bash
+
+      - name: Create .env
+        shell: bash
+        run: |
+          cat > .env << EOF
+          MONOPOLY_DOMAIN=${{ vars.MONOPOLY_DOMAIN }}
+          PROTOCOL=${{ vars.PROTOCOL }}
+          API_BASE_PREFIX=${{ vars.API_BASE_PREFIX || '' }}
+          ICE_BASE_PREFIX=${{ vars.ICE_BASE_PREFIX || '' }}
+          ADMIN_BASE_PREFIX=${{ vars.ADMIN_BASE_PREFIX || '' }}
+          SERVER_PORT=${{ vars.SERVER_PORT }}
+          ICE_SERVER_PORT=${{ vars.ICE_SERVER_PORT }}
+          MONOPOLY_ADMIN_PORT=${{ vars.MONOPOLY_ADMIN_PORT || '83' }}
+          VITE_WEB_BASE_PATH=${{ vars.VITE_WEB_BASE_PATH || '/monopoly/' }}
+          NODE_ENV=production
+          MAP_ENCRYPT_KEY=${{ secrets.MAP_ENCRYPT_KEY }}
+          EOF
+
+      - name: Build Web Release Artifact
+        shell: bash
+        run: |
+          pnpm --filter @mine-monopoly/client run build:web
+          VERSION="${{ steps.tag.outputs.version }}"
+          mkdir -p apps/client/dist/web-release
+          tar -czf "apps/client/dist/web-release/minemonopoly-web-${VERSION}.tar.gz" -C "apps/client/dist/frontend" .
+          node --input-type=module <<'EOF'
+          import { readFileSync, statSync, writeFileSync } from "node:fs";
+          const version = process.env.RELEASE_VERSION;
+          const artifactFile = `minemonopoly-web-${version}.tar.gz`;
+          const artifactPath = `apps/client/dist/web-release/${artifactFile}`;
+          const releaseNotesPath = "apps/client/build/release-notes.md";
+          const pkg = JSON.parse(readFileSync("apps/client/package.json", "utf-8"));
+          const releaseNotes = readFileSync(releaseNotesPath, "utf-8").trim();
+          const metadata = {
+            app: "client-web",
+            packageName: pkg.name,
+            version,
+            tag: `@mine-monopoly/client@${version}`,
+            commit: process.env.GITHUB_SHA || null,
+            buildTime: new Date().toISOString(),
+            artifact: {
+              file: artifactFile,
+              size: statSync(artifactPath).size,
+              entry: "index.html",
+              root: "dist/frontend",
+            },
+            releaseNotes,
+          };
+          writeFileSync(
+            "apps/client/dist/web-release/metadata.json",
+            `${JSON.stringify(metadata, null, 2)}\n`,
+          );
+          EOF
+        env:
+          RELEASE_VERSION: ${{ steps.tag.outputs.version }}
+
+      - name: Upload Web Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-web
+          path: |
+            apps/client/dist/web-release/*.tar.gz
+            apps/client/dist/web-release/metadata.json
+          if-no-files-found: error
 
   # ── Android APK + OTA 更新包 ──
   build-android:
@@ -242,8 +347,8 @@ jobs:
 
   # ── GitHub Release ──
   release:
-    if: ${{ always() && needs.build-electron.result == 'success' }}
-    needs: [build-electron, build-android]
+    if: ${{ always() && ((startsWith(github.ref_name, '@mine-monopoly/map-editor@') && needs.build-electron.result == 'success' && needs.upload-r2.result == 'success') || (startsWith(github.ref_name, '@mine-monopoly/client@') && needs.build-electron.result == 'success' && needs.build-android.result == 'success' && needs.build-web.result == 'success' && needs.upload-r2.result == 'success' && needs.deploy-web.result == 'success')) }}
+    needs: [build-electron, build-android, build-web, upload-r2, deploy-web]
     runs-on: ubuntu-latest
 
     steps:
@@ -270,11 +375,12 @@ jobs:
           files: |
             artifacts/**/*-Setup.exe
             artifacts/**/*.apk
+            artifacts/**/*.tar.gz
 
   # ── R2 上传（Electron 安装包 + Android APK + OTA 更新包） ──
   upload-r2:
-    if: ${{ always() && needs.build-electron.result == 'success' }}
-    needs: [build-electron, build-android]
+    if: ${{ always() && ((startsWith(github.ref_name, '@mine-monopoly/map-editor@') && needs.build-electron.result == 'success') || (startsWith(github.ref_name, '@mine-monopoly/client@') && needs.build-electron.result == 'success' && needs.build-android.result == 'success' && needs.build-web.result == 'success')) }}
+    needs: [build-electron, build-android, build-web]
     runs-on: ubuntu-latest
     environment: build
 
@@ -338,6 +444,31 @@ jobs:
           R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
           R2_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT_URL }}
 
+      # Web 制品 -> releases/client/web/<version>/
+      - name: Upload Web Artifact to R2
+        if: steps.tag.outputs.pkg_name == 'client'
+        run: |
+          VERSION="${{ steps.tag.outputs.version }}"
+          WEB_TAR=$(find artifacts -maxdepth 1 -name "minemonopoly-web-*.tar.gz" | head -1)
+          WEB_META=$(find artifacts -maxdepth 1 -name "metadata.json" | head -1)
+          if [ -z "$WEB_TAR" ] || [ -z "$WEB_META" ]; then
+            echo "Web release artifact or metadata is missing"
+            exit 1
+          fi
+          aws s3 cp "$WEB_TAR" "s3://${R2_BUCKET_NAME}/releases/client/web/${VERSION}/minemonopoly-web-${VERSION}.tar.gz" \
+            --endpoint-url "${R2_ENDPOINT_URL}" --no-progress \
+            --content-type "application/gzip"
+          aws s3 cp "$WEB_META" "s3://${R2_BUCKET_NAME}/releases/client/web/${VERSION}/metadata.json" \
+            --endpoint-url "${R2_ENDPOINT_URL}" --no-progress \
+            --content-type "application/json"
+          echo "Web artifact uploaded"
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT_URL }}
+
       # Map Editor 安装包 → releases/map-editor/download/windows/
       - name: Upload Editor to R2
         if: steps.tag.outputs.pkg_name == 'map-editor'
@@ -353,3 +484,81 @@ jobs:
           AWS_DEFAULT_REGION: auto
           R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
           R2_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT_URL }}
+
+  # ── Web 部署通知（服务器从 R2 拉取） ──
+  deploy-web:
+    if: ${{ startsWith(github.ref_name, '@mine-monopoly/client@') && needs.upload-r2.result == 'success' }}
+    needs: [upload-r2]
+    runs-on: ubuntu-latest
+    environment: build
+
+    steps:
+      - name: Parse Tag
+        id: tag
+        shell: bash
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION=$(echo "$TAG" | sed -E 's/@mine-monopoly\/.+@(.+)/\1/')
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Trigger Web Deploy Webhook
+        shell: bash
+        env:
+          R2_PUBLIC_BASE_URL: ${{ vars.R2_PUBLIC_BASE_URL || 'https://assets.fatpaper.site' }}
+          WEB_DEPLOY_WEBHOOK_URL: ${{ secrets.WEB_DEPLOY_WEBHOOK_URL }}
+          WEB_DEPLOY_WEBHOOK_SECRET: ${{ secrets.WEB_DEPLOY_WEBHOOK_SECRET }}
+        run: |
+          VERSION="${{ steps.tag.outputs.version }}"
+          TAG_NAME="${{ steps.tag.outputs.tag }}"
+          ARTIFACT_PATH="releases/client/web/${VERSION}/minemonopoly-web-${VERSION}.tar.gz"
+          METADATA_PATH="releases/client/web/${VERSION}/metadata.json"
+          BODY=$(cat <<EOF
+          {
+            "app": "client-web",
+            "version": "${VERSION}",
+            "tag": "${TAG_NAME}",
+            "commit": "${GITHUB_SHA}",
+            "artifactPath": "${ARTIFACT_PATH}",
+            "artifactUrl": "${R2_PUBLIC_BASE_URL}/${ARTIFACT_PATH}",
+            "metadataPath": "${METADATA_PATH}",
+            "metadataUrl": "${R2_PUBLIC_BASE_URL}/${METADATA_PATH}"
+          }
+          EOF
+          )
+          SIGNATURE=$(printf '%s' "$BODY" | openssl dgst -sha256 -hmac "${WEB_DEPLOY_WEBHOOK_SECRET}" -hex | sed 's/^.* //')
+          curl --fail-with-body --silent --show-error \
+            -X POST "${WEB_DEPLOY_WEBHOOK_URL}" \
+            -H "Content-Type: application/json" \
+            -H "X-MineMonopoly-Event: client-web-release" \
+            -H "X-Signature-SHA256: ${SIGNATURE}" \
+            --data "$BODY"
+
+      - name: Update Web Latest Pointer
+        shell: bash
+        env:
+          R2_PUBLIC_BASE_URL: ${{ vars.R2_PUBLIC_BASE_URL || 'https://assets.fatpaper.site' }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT_URL }}
+        run: |
+          VERSION="${{ steps.tag.outputs.version }}"
+          ARTIFACT_PATH="releases/client/web/${VERSION}/minemonopoly-web-${VERSION}.tar.gz"
+          METADATA_PATH="releases/client/web/${VERSION}/metadata.json"
+          cat > latest.json <<EOF
+          {
+            "version": "${VERSION}",
+            "tag": "${{ steps.tag.outputs.tag }}",
+            "commit": "${GITHUB_SHA}",
+            "artifactPath": "${ARTIFACT_PATH}",
+            "artifactUrl": "${R2_PUBLIC_BASE_URL}/${ARTIFACT_PATH}",
+            "metadataPath": "${METADATA_PATH}",
+            "metadataUrl": "${R2_PUBLIC_BASE_URL}/${METADATA_PATH}",
+            "releasedAt": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+          }
+          EOF
+          aws s3 cp latest.json "s3://${R2_BUCKET_NAME}/releases/client/web/latest.json" \
+            --endpoint-url "${R2_ENDPOINT_URL}" --no-progress \
+            --content-type "application/json"

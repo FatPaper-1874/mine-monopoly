@@ -9,6 +9,8 @@
 	"scripts": {
 		"dev": "vite --host",
 		"build": "node ./scripts/extract-changelog.js && vite build && electron-builder",
+		"build:electron": "node ./scripts/extract-changelog.js && vite build && electron-builder",
+		"build:web": "node ./scripts/extract-changelog.js && vite build --mode web",
 		"build:capacitor": "vite build --mode capacitor",
 		"build:capacitor:ota": "node ./scripts/build-capacitor-ota.js",
 		"dev:capacitor": "vite --host 0.0.0.0",

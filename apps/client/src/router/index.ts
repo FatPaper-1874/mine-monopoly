@@ -30,11 +30,11 @@ const routes = [
 ];
 
 const router = createRouter({
-  // Electron 必须用 Hash (file:// 协议)，其他平台用 History
-  history: getPlatformType() === "electron"
-    ? createWebHashHistory()
-    : createWebHistory(),
-  routes
+	// Electron 必须用 Hash (file:// 协议)，其他平台用 History
+	history: getPlatformType() === "electron"
+		? createWebHashHistory()
+		: createWebHistory(import.meta.env.BASE_URL),
+	routes,
 });
 
 router.beforeEach((to, form) => {
