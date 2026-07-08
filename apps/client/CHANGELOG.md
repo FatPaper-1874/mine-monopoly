@@ -1,5 +1,11 @@
 # @mine-monopoly/client
 
+## 1.1.15
+
+### Patch Changes
+
+- - 移动端进入游戏时自动引导切换至横屏模式，适配大屏体验
+
 ## 1.1.14
 
 ### Patch Changes
