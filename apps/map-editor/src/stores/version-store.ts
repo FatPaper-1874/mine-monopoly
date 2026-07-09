@@ -9,6 +9,8 @@ import {
 	isDirFormatMap,
 	type DeserializeResult,
 } from "@src/services/map-serializer";
+import { getFsApi } from "@src/services/fs-api";
+import { saveGameMapToBinFile } from "@src/utils/file";
 import type { SnapshotInfo, SnapshotDiff } from "@src/services/snapshot-service";
 import { useMapDataStore, useResourceStore, useEditorStore } from "@src/stores";
 import { eventBus } from "@src/utils/event-bus";
@@ -17,6 +19,11 @@ import { message } from "ant-design-vue";
 /** 规范化路径 */
 function norm(p: string): string {
 	return p.replace(/\\/g, "/").replace(/\/+$/, "");
+}
+
+function getDistFpmapPath(dirPath: string, mapName: string): string {
+	const safeName = (mapName || "未命名地图").replace(/[\\/:*?"<>|]/g, "_");
+	return `${norm(dirPath)}/dist/${safeName}.fpmap`;
 }
 
 export const useVersionStore = defineStore("Version", {
@@ -162,6 +169,20 @@ export const useVersionStore = defineStore("Version", {
 
 		// ─── 保存 ───
 
+		async exportCurrentMapToDist(dirPath: string): Promise<string> {
+			const mapDataStore = useMapDataStore();
+			const fs = getFsApi();
+			const distDir = `${norm(dirPath)}/dist`;
+			const outputPath = getDistFpmapPath(dirPath, mapDataStore.info.name);
+
+			if (!(await fs.exists(distDir))) {
+				await fs.mkdir(distDir);
+			}
+
+			await saveGameMapToBinFile(mapDataStore.id, outputPath, mapDataStore.$state);
+			return outputPath;
+		},
+
 		/**
 		 * 另存为新的目录格式地图
 		 */
@@ -178,6 +199,7 @@ export const useVersionStore = defineStore("Version", {
 					resourceStore.images,
 					dirPath,
 				);
+				await this.exportCurrentMapToDist(dirPath);
 
 				// 初始化版本管理
 				this.mapDir = norm(dirPath);
@@ -217,9 +239,11 @@ export const useVersionStore = defineStore("Version", {
 					resourceStore.images,
 					this.mapDir,
 				);
+				await this.exportCurrentMapToDist(this.mapDir);
 
 				// 没有实质变更则跳过提交
 				if (!(await window.gitAPI.hasChanges(this.mapDir))) {
+					this.lastSaveTime = Date.now();
 					return;
 				}
 

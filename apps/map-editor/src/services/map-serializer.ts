@@ -85,6 +85,17 @@ async function readText(filePath: string): Promise<string> {
 	return bufToText(buf);
 }
 
+async function ensureTextFileContainsLines(filePath: string, lines: string[]): Promise<void> {
+	const existing = (await API().exists(filePath)) ? await readText(filePath) : "";
+	const normalized = existing.replace(/\r\n/g, "\n");
+	const missingLines = lines.filter(line => !normalized.split("\n").includes(line));
+	if (missingLines.length === 0) return;
+
+	const needsTrailingNewline = normalized.length > 0 && !normalized.endsWith("\n");
+	const next = `${normalized}${needsTrailingNewline ? "\n" : ""}${missingLines.join("\n")}\n`;
+	await writeText(filePath, next);
+}
+
 async function ensureDir(dirPath: string): Promise<void> {
 	if (!(await API().exists(dirPath))) {
 		await API().mkdir(dirPath);
@@ -318,9 +329,16 @@ export async function serializeToDir(mapData: GameMap, dirPath: string): Promise
 
 	// .gitignore (每次保存时确保存在)
 	const gitignorePath = `${dirPath}/.gitignore`;
-	if (!(await API().exists(gitignorePath))) {
-		await writeText(gitignorePath, "# 临时文件\n*.tmp\n*~\n.DS_Store\nThumbs.db\n");
-	}
+	await ensureTextFileContainsLines(gitignorePath, [
+		"# 临时文件",
+		"*.tmp",
+		"*~",
+		".DS_Store",
+		"Thumbs.db",
+		"",
+		"# 构建产物",
+		"dist/",
+	]);
 
 	// .gitattributes (每次保存时确保存在)
 	const gitattrsPath = `${dirPath}/.gitattributes`;
