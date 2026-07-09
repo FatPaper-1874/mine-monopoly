@@ -2,10 +2,30 @@ import { _axios } from "@/utils/axios";
 import type { ApiResponse } from "@mine-monopoly/types";
 import type { AdminUserListItem } from "@/interfaces/interfaces";
 
-export const getUserList = async (page: number, size: number, search?: string) => {
+export const getUserList = async (
+	page: number,
+	size: number,
+	options?: {
+		search?: string;
+		online?: boolean;
+		isAdmin?: boolean;
+		sortBy?: "createTime" | "lastActiveTime" | "username" | "useraccount";
+		sortOrder?: "ASC" | "DESC";
+	}
+) => {
 	const res = await _axios.get<ApiResponse<{ total: number; userList: AdminUserListItem[]; current: number }>>(
 		"/user/list",
-		{ params: { page, size, search } }
+		{
+			params: {
+				page,
+				size,
+				search: options?.search,
+				online: options?.online,
+				isAdmin: options?.isAdmin,
+				sortBy: options?.sortBy,
+				sortOrder: options?.sortOrder,
+			},
+		}
 	);
 	return res.data.data;
 };

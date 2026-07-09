@@ -59,12 +59,28 @@ routerUser.get("/is-admin", async (req, res, next) => {
 });
 
 routerUser.get("/list", async (req, res, next) => {
-	const { page = 1, size = 8, search } = req.query;
+	const { page = 1, size = 8, search, online, isAdmin, sortBy, sortOrder } = req.query;
 	try {
+		const onlineFilter =
+			online === "true" ? true : online === "false" ? false : undefined;
+		const isAdminFilter =
+			isAdmin === "true" ? true : isAdmin === "false" ? false : undefined;
 		const { userList, total } = await getUserList(
 			parseInt(page.toString()),
 			parseInt(size.toString()),
-			search?.toString()
+			{
+				search: search?.toString(),
+				online: onlineFilter,
+				isAdmin: isAdminFilter,
+				sortBy:
+					sortBy === "createTime" ||
+					sortBy === "lastActiveTime" ||
+					sortBy === "username" ||
+					sortBy === "useraccount"
+						? sortBy
+						: undefined,
+				sortOrder: sortOrder === "ASC" || sortOrder === "DESC" ? sortOrder : undefined,
+			}
 		);
 		const resMsg: ResInterface = {
 			status: 200,
@@ -296,4 +312,3 @@ routerUser.post("/register", avatarMulter.single("avatar"), async (req, res) => 
 		res.status(500).json(resContent);
 	}
 });
-

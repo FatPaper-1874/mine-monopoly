@@ -99,6 +99,8 @@ export interface AdminUserListItem {
 	color: string;
 	online: boolean;
 	isAdmin: boolean;
+	createTime: string | null;
+	lastActiveTime: string | null;
 }
 
 export interface Role {
