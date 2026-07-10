@@ -38,7 +38,7 @@ function addPhase(group: PhaseGroupKey, insertIndex: number) {
 		id: generateShortId('phase'),
 		name: "新阶段",
 		description: "新阶段",
-		from: undefined, // 用户添加的阶段不设置 from，这样可以被删除
+		from: undefined,
 		initEventCode: `(async (context, gameProcess) => {
 
 }) as GameEventFunction<GameContext>;`,

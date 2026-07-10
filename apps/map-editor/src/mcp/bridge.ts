@@ -45,6 +45,11 @@ export type MCPToolName =
 	| "add_property"
 	| "update_property"
 	| "remove_property"
+	// Game setting tools
+	| "list_game_settings"
+	| "add_game_setting"
+	| "update_game_setting"
+	| "remove_game_setting"
 	// UI Template tools
 	| "create_ui_template"
 	| "update_ui_template"

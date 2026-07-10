@@ -58,8 +58,12 @@ function initCustomDataList() {
 		let type: CustomDataRow["type"] = "string";
 		if (typeof val === "number") type = "number";
 		else if (typeof val === "boolean") type = "boolean";
+		const value =
+			typeof val === "string" || typeof val === "number" || typeof val === "boolean"
+				? val
+				: String(val);
 
-		return { key, value: val, type };
+		return { key, value, type };
 	});
 }
 

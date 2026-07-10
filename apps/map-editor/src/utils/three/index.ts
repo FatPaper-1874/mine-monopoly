@@ -1,4 +1,4 @@
-import { GLTF, GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
+import { GLTFLoader, type GLTF } from "three/examples/jsm/loaders/GLTFLoader";
 import { getDracoLoader } from "./draco";
 import { useResourceStore } from "@src/stores";
 import * as THREE from "three";
@@ -9,13 +9,15 @@ import { LineMaterial } from "three/examples/jsm/lines/LineMaterial";
 const loader = new GLTFLoader();
 loader.setDRACOLoader(getDracoLoader());
 
-export async function getModelById(id: string): Promise<GLTF> {
+type LoadedGLTF = GLTF;
+
+export async function getModelById(id: string): Promise<LoadedGLTF> {
 	const modelInfo = useResourceStore().findModelById(id);
 	if (!modelInfo) throw Error(`找不到id为 ${id} 的模型资源`);
 	return await getModelByUrl(modelInfo.url);
 }
 
-export async function getModelByUrl(url: string): Promise<GLTF> {
+export async function getModelByUrl(url: string): Promise<LoadedGLTF> {
 	const fileUrl = url;
 	try {
 		const gltf = await loader.loadAsync(fileUrl);

@@ -91,6 +91,10 @@ export default defineConfig(({ command, mode }) => {
 				},
 			],
 		},
+		server: {
+			port: 5174,
+			strictPort: true,
+		},
 		worker: {
 			format: "es", // 重要：让 worker 用 ESM 格式
 		},

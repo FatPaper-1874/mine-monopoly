@@ -49,6 +49,13 @@ interface Window {
 			newFileName: string,
 		) => Promise<{ filePath: string; fileType: string }>;
 		clearTempDir: () => Promise<void>;
+		mkdir: (dirPath: string) => Promise<void>;
+		readDir: (dirPath: string) => Promise<{ name: string; isDirectory: boolean; isFile: boolean }[]>;
+		exists: (p: string) => Promise<boolean>;
+		statPath: (p: string) => Promise<{ isDirectory: boolean; isFile: boolean; size: number; mtimeMs: number }>;
+		unlink: (p: string) => Promise<void>;
+		rmdir: (dirPath: string) => Promise<void>;
+		rename: (oldPath: string, newPath: string) => Promise<void>;
 
 		showOpenDialog: (options: OpenDialogOptions) => Promise<OpenDialogReturnValue>;
 		showSaveDialog: (options: SaveDialogOptions) => Promise<SaveDialogReturnValue>;

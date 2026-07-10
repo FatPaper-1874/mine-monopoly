@@ -10,7 +10,7 @@ import { getModelByUrl } from ".";
 export class ModelPreviewerRenderer extends ThreeSceneBase {
   private currentModel: Group | null = null;
   private isRunning = false;
-  private controls: OrbitControls;
+  private controls!: OrbitControls;
   private animationManager: AnimationManager | null = null;
   private clock: Clock | null = null;
   private currentModelId: string | null = null;

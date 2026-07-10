@@ -44,7 +44,7 @@ export async function bakeModelTransform(
     model.updateMatrixWorld();
 
     // 烘焙几何体变换
-    model.traverse((child) => {
+    model.traverse((child: THREE.Object3D) => {
       if (child instanceof THREE.Mesh) {
         child.geometry = child.geometry.clone();
         child.geometry.applyMatrix4(child.matrixWorld);
@@ -52,7 +52,7 @@ export async function bakeModelTransform(
       }
     });
 
-    model.traverse((child) => {
+    model.traverse((child: THREE.Object3D) => {
       child.position.set(0, 0, 0);
       child.rotation.set(0, 0, 0);
       child.scale.set(1, 1, 1);
@@ -62,7 +62,7 @@ export async function bakeModelTransform(
     const buffer = await new Promise<ArrayBuffer>((resolve, reject) => {
       new GLTFExporter().parse(
         model,
-        (result) => resolve(result as ArrayBuffer),
+        (result: unknown) => resolve(result as ArrayBuffer),
         (err: unknown) => reject(err),
         { binary: true }
       );
@@ -95,7 +95,7 @@ export async function bakeModelTransform(
     const buffer = await new Promise<ArrayBuffer>((resolve, reject) => {
       new GLTFExporter().parse(
         gltf.scene,
-        (result) => resolve(result as ArrayBuffer),
+        (result: unknown) => resolve(result as ArrayBuffer),
         (err: unknown) => reject(err),
         { binary: true, animations: gltf.animations }
       );

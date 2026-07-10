@@ -4,7 +4,7 @@ import { ThreeSceneBase } from "@mine-monopoly/utils";
 import { createModelFromImage } from "./role";
 
 export class RolePreviewerRenderer extends ThreeSceneBase {
-	private controls: OrbitControls; // 添加控制器实例变量
+	private controls!: OrbitControls; // 添加控制器实例变量
 	private animationFrameId: number | null = null; // 用于存储动画帧ID
 
 	constructor(contianer: HTMLDivElement) {

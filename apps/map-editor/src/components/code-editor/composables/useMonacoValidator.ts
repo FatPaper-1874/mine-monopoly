@@ -226,7 +226,7 @@ export function useMonacoValidator() {
 		} finally {
 			model.dispose();
 			// 恢复 extraLibs，避免影响 UI 编辑器的类型提示
-			tsDefaults.setExtraLibs(prevLibs);
+			tsDefaults.setExtraLibs(prevLibs as any);
 		}
 	}
 
@@ -236,11 +236,11 @@ export function useMonacoValidator() {
 /**
  * 获取已初始化的 Monaco 全局单例
  */
-let monacoPromise: Promise<typeof monaco> | null = null;
+let monacoPromise: Promise<typeof monaco | null> | null = null;
 
 function getMonacoInstance(): Promise<typeof monaco | null> {
 	if (!monacoPromise) {
-		monacoPromise = import("monaco-editor").then((m) => {
+		monacoPromise = import("monaco-editor").then((m): typeof monaco => {
 			// 检查是否已初始化 compiler options
 			const defaults = m.languages.typescript.typescriptDefaults;
 			try {
