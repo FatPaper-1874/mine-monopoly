@@ -6,7 +6,6 @@ import { eventBus } from "@src/utils/event-bus";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { LoopRepeat, Clock } from "three";
-import gsap from "gsap";
 import { MapItem, MapItemType } from "@mine-monopoly/types/interfaces/game/item";
 import { applyOpacityToObject, createDynamicLine, createMultiLine, DynamicLine, getModelById } from "@src/utils/three";
 import { render } from "vue";
@@ -22,6 +21,8 @@ import { generateShortId } from "@src/utils/short-id";
 
 interface MapItemTypeWithModel extends MapItemType {
 	model: THREE.Object3D;
+	gltf?: Awaited<ReturnType<typeof getModelById>>;
+	hasAnimations?: boolean;
 }
 
 export class MapRenderer {
@@ -32,13 +33,13 @@ export class MapRenderer {
 	private requestAnimationFrameId: number = -1;
 	private resizeObserver: ResizeObserver | undefined;
 
-	private controls: OrbitControls;
+	private controls!: OrbitControls;
 	private cameraTarget = new THREE.Vector3(0, 0, 0);
 	private currentRotation: 0 | 1 | 2 | 3 = 0;
 	private outlinePass: SolidOutlinePass;
 	private linkOutlinePass: SolidOutlinePass;
 	private multiSelectOutlinePass: SolidOutlinePass;
-	private composer: EffectComposer;
+	private composer!: EffectComposer;
 
 	private itemTypesCache: Map<string, MapItemTypeWithModel> = new Map();
 
@@ -984,8 +985,9 @@ export class MapRenderer {
 		this.linkOutlinePass.renderCamera = this.camera;
 		this.multiSelectOutlinePass.renderCamera = this.camera;
 		this.composer.passes.forEach((pass) => {
-			if ("camera" in pass) {
-				(pass as any).camera = this.camera;
+			const cameraAwarePass = pass as typeof pass & { camera?: THREE.Camera };
+			if ("camera" in cameraAwarePass) {
+				cameraAwarePass.camera = this.camera;
 			}
 		});
 		this.lookAtCenter();
@@ -1029,24 +1031,24 @@ export class MapRenderer {
 
 	private async renderMapItemToMap(mapItem: MapItem) {
 		let itemTypeCache = this.itemTypesCache.get(mapItem.type.id);
-		let hasAnimations = false;
 
 		if (!itemTypeCache) {
 			const gltf = await getModelById(mapItem.type.modelId);
 			const model = gltf.scene;
-			hasAnimations = gltf.animations && gltf.animations.length > 0;
+			const hasAnimations = gltf.animations && gltf.animations.length > 0;
 
-			itemTypeCache = {
+			const createdCache: MapItemTypeWithModel = {
 				...mapItem.type,
 				model,
-				gltf,  // Save full gltf for animations
-				hasAnimations
+				gltf,
+				hasAnimations,
 			};
 
-			this.itemTypesCache.set(mapItem.type.id, itemTypeCache);
-		} else {
-			hasAnimations = itemTypeCache.hasAnimations || false;
+			this.itemTypesCache.set(mapItem.type.id, createdCache);
+			itemTypeCache = createdCache;
 		}
+		if (!itemTypeCache) throw new Error(`找不到地图元素类型缓存: ${mapItem.type.id}`);
+		const hasAnimations = itemTypeCache.hasAnimations || false;
 
 		// For animated models, use clone(true) deep copy to preserve bone structure
 		// Then register animation for each instance separately
@@ -1077,7 +1079,7 @@ export class MapRenderer {
 
 	public async loadMap(mapData: GameMap) {
 		mapData = { ...mapData };
-		useEditorStore().setLoading(true);
+		useEditorStore().setLoading(true, "渲染地图中...");
 		this.scene.background = new THREE.Color(0xbbbbbb);
 		this.mapItemGroup.clear();
 		this.itemTypesCache.clear();
@@ -1520,7 +1522,7 @@ export class MapRenderer {
 			const newPreModel = gltf.scene;
 			applyOpacityToObject(newPreModel, 0.5);
 			this.previewBoxInCreate = newPreModel;
-			this.scene.add(this.previewBoxInCreate);
+			this.scene.add(newPreModel);
 		}
 	}
 

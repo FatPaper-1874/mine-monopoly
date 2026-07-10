@@ -21,6 +21,7 @@ const modeUiMap: Record<OperationMode, any> = {
 
 const uiContent = computed(() => modeUiMap[editorStore.currentEditMode]);
 const isLoading = computed(() => editorStore.isLoading);
+const loadingText = computed(() => editorStore.loadingText);
 </script>
 
 <template>
@@ -30,13 +31,13 @@ const isLoading = computed(() => editorStore.isLoading);
 			<component :is="uiContent" />
 		</div>
 		<canvas id="map-editor-canvas-container"> </canvas>
-		<transition name="fade">
-			<div v-if="isLoading" class="loading-mask">
-				<div class="spinner"></div>
-				<span>加载中...</span>
-			</div>
-		</transition>
-	</div>
+			<transition name="fade">
+				<div v-if="isLoading" class="loading-mask">
+					<div class="spinner"></div>
+					<span>{{ loadingText }}</span>
+				</div>
+			</transition>
+		</div>
 </template>
 
 <style lang="scss" scoped>
