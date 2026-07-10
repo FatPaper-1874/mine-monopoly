@@ -1,5 +1,12 @@
 # @mine-monopoly/client
 
+## 1.1.16
+
+### Patch Changes
+
+- - 修复空指针和类型错误，提升游戏稳定性
+  - 游戏画布背景优化，提升视觉效果
+
 ## 1.1.15
 
 ### Patch Changes

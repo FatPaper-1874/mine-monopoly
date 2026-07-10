@@ -1,5 +1,22 @@
 # @mine-monopoly/map-editor
 
+## 1.1.9
+
+### Patch Changes
+
+- - **保存功能**
+    - 保存操作统一使用 `withLoading` 加载状态管理模式
+    - save/saveAsNewDir 返回 `.fpmap` 导出路径，保存时提示 dist 同步导出信息
+  - **类型安全**
+    - 新增 Three.js 示例模块类型声明（`three-examples.d.ts`）
+    - 修复 Monaco 编辑器验证器类型、Three.js 渲染器 definite assignment
+    - 修复模型烘焙参数类型标注
+  - **渲染**
+    - 加载遮罩支持动态文本显示
+    - 移除未使用的 gsap import，优化相机类型安全
+  - **MCP 工具**
+    - 新增游戏设置 MCP 工具接口（list/add/update/remove）
+
 ## 1.1.8
 
 ### Patch Changes
