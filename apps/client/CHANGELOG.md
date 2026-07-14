@@ -1,5 +1,12 @@
 # @mine-monopoly/client
 
+## 1.1.17
+
+### Patch Changes
+
+- - 修复单玩家模式下角色位置显示异常的问题
+  - 优化多人同位置时玩家排列逻辑，画面更整齐
+
 ## 1.1.16
 
 ### Patch Changes

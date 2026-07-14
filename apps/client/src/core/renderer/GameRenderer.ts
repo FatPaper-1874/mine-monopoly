@@ -1989,25 +1989,23 @@ export class GameRenderer {
 			positionMap.set(playerId, pos);
 		});
 
-		groupByPositionIndex(playersList, positionMap).forEach((a) => {
-			const positionIndex = a[0].positionIndex;
+		groupByPositionIndex(playersList, positionMap).forEach(({ players, positionIndex }) => {
 			const mapItem = this.getMapItem(positionIndex);
 			if (!mapItem) return;
 
 			const { x, z } = mapItem.position;
 			const surfaceY = this.getMapItemSurfaceHeight(mapItem);
 
-			if (a.length > 1) {
-				const offsetArr = generateCirclePointsOffset(x, z, 0.5, a.length);
+			if (players.length > 1) {
+				const offsetArr = generateCirclePointsOffset(x, z, 0.5, players.length);
 				offsetArr.forEach((offset, index) => {
-					const playerEntity = this.getPlayerEntity(a[index].id);
+					const playerEntity = this.getPlayerEntity(players[index].id);
 					if (playerEntity) {
-						// 使用初始位置减去偏移量
 						playerEntity.model.position.x = x + offset.offsetX;
 						playerEntity.model.position.z = z + offset.offsetY;
 						playerEntity.model.position.y = surfaceY;
 
-						const scale = 1 - 1 / a.length;
+						const scale = 1 - 1 / players.length;
 
 						gsap.to(playerEntity.model.scale, {
 							x: Math.sign(playerEntity.model.scale.x) * scale,
@@ -2017,9 +2015,9 @@ export class GameRenderer {
 					}
 				});
 			} else {
-				const playerEntity = this.getPlayerEntity(a[0].id);
+				const playerEntity = this.getPlayerEntity(players[0].id);
 				if (playerEntity) {
-					// 动画已经把模型移动到正确位置了，只需要调整朝向
+					playerEntity.model.position.set(x, surfaceY, z);
 					gsap.to(playerEntity.model.scale, {
 						x: Math.sign(playerEntity.model.scale.x),
 						y: Math.sign(playerEntity.model.scale.y),
@@ -2029,7 +2027,10 @@ export class GameRenderer {
 			}
 		});
 
-		function groupByPositionIndex(items: PlayerInfo[], positionMap: Map<string, number>): PlayerInfo[][] {
+		function groupByPositionIndex(
+			items: PlayerInfo[],
+			positionMap: Map<string, number>,
+		): Array<{ positionIndex: number; players: PlayerInfo[] }> {
 			const groups = new Map<number, PlayerInfo[]>();
 
 			for (const item of items) {
@@ -2041,7 +2042,10 @@ export class GameRenderer {
 				groups.get(pos)!.push(item);
 			}
 
-			return Array.from(groups.values());
+			return Array.from(groups.entries()).map(([positionIndex, players]) => ({
+				positionIndex,
+				players,
+			}));
 		}
 
 		function generateCirclePointsOffset(

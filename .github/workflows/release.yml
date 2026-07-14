@@ -3,8 +3,8 @@ name: Release
 on:
   push:
     tags:
-      - '@mine-monopoly/client@*'
-      - '@mine-monopoly/map-editor@*'
+      - 'client-v*'
+      - 'map-editor-v*'
 
 permissions:
   contents: write
@@ -23,8 +23,8 @@ jobs:
         shell: bash
         run: |
           TAG="${{ github.ref_name }}"
-          PKG_NAME=$(echo "$TAG" | sed -E 's/@mine-monopoly\/(.+)@.+/\1/')
-          VERSION=$(echo "$TAG" | sed -E 's/@mine-monopoly\/.+@(.+)/\1/')
+          PKG_NAME=$(echo "$TAG" | sed -E 's/^(client|map-editor)-v.+/\1/')
+          VERSION=$(echo "$TAG" | sed -E 's/^(client|map-editor)-v(.+)/\2/')
           echo "pkg_name=$PKG_NAME" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Tag: $TAG → pkg=$PKG_NAME, ver=$VERSION"
@@ -129,7 +129,7 @@ jobs:
 
   # ── Web 静态站点构建制品 ──
   build-web:
-    if: startsWith(github.ref_name, '@mine-monopoly/client@')
+    if: startsWith(github.ref_name, 'client-v')
     runs-on: ubuntu-latest
     environment: build
 
@@ -141,7 +141,7 @@ jobs:
         shell: bash
         run: |
           TAG="${{ github.ref_name }}"
-          VERSION=$(echo "$TAG" | sed -E 's/@mine-monopoly\/.+@(.+)/\1/')
+          VERSION=$(echo "$TAG" | sed -E 's/^client-v(.+)/\1/')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - uses: pnpm/action-setup@v4
@@ -203,7 +203,7 @@ jobs:
             app: "client-web",
             packageName: pkg.name,
             version,
-            tag: `@mine-monopoly/client@${version}`,
+            tag: `client-v${version}`,
             commit: process.env.GITHUB_SHA || null,
             buildTime: new Date().toISOString(),
             artifact: {
@@ -233,7 +233,7 @@ jobs:
 
   # ── Android APK + OTA 更新包 ──
   build-android:
-    if: startsWith(github.ref_name, '@mine-monopoly/client@')
+    if: startsWith(github.ref_name, 'client-v')
     runs-on: ubuntu-latest
     environment: build
 
@@ -244,7 +244,7 @@ jobs:
         id: tag
         run: |
           TAG="${{ github.ref_name }}"
-          VERSION=$(echo "$TAG" | sed -E 's/@mine-monopoly\/.+@(.+)/\1/')
+          VERSION=$(echo "$TAG" | sed -E 's/^client-v(.+)/\1/')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "version_code=$(echo $VERSION | tr -d '.')" >> $GITHUB_OUTPUT
 
@@ -347,7 +347,7 @@ jobs:
 
   # ── GitHub Release ──
   release:
-    if: ${{ always() && ((startsWith(github.ref_name, '@mine-monopoly/map-editor@') && needs.build-electron.result == 'success' && needs.upload-r2.result == 'success') || (startsWith(github.ref_name, '@mine-monopoly/client@') && needs.build-electron.result == 'success' && needs.build-android.result == 'success' && needs.build-web.result == 'success' && needs.upload-r2.result == 'success' && needs.deploy-web.result == 'success')) }}
+    if: ${{ always() && ((startsWith(github.ref_name, 'map-editor-v') && needs.build-electron.result == 'success' && needs.upload-r2.result == 'success') || (startsWith(github.ref_name, 'client-v') && needs.build-electron.result == 'success' && needs.build-android.result == 'success' && needs.build-web.result == 'success' && needs.upload-r2.result == 'success' && needs.deploy-web.result == 'success')) }}
     needs: [build-electron, build-android, build-web, upload-r2, deploy-web]
     runs-on: ubuntu-latest
 
@@ -356,8 +356,8 @@ jobs:
         id: tag
         run: |
           TAG="${{ github.ref_name }}"
-          PKG_NAME=$(echo "$TAG" | sed -E 's/@mine-monopoly\/(.+)@.+/\1/')
-          VERSION=$(echo "$TAG" | sed -E 's/@mine-monopoly\/.+@(.+)/\1/')
+          PKG_NAME=$(echo "$TAG" | sed -E 's/^(client|map-editor)-v.+/\1/')
+          VERSION=$(echo "$TAG" | sed -E 's/^(client|map-editor)-v(.+)/\2/')
           echo "pkg_name=$PKG_NAME" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
@@ -374,12 +374,16 @@ jobs:
           draft: false
           files: |
             artifacts/**/*-Setup.exe
+            artifacts/**/*-Setup.exe.blockmap
+            artifacts/**/latest.yml
             artifacts/**/*.apk
-            artifacts/**/*.tar.gz
+            artifacts/**/*.zip
+            artifacts/**/update.json
+            artifacts/**/native-update.json
 
   # ── R2 上传（Electron 安装包 + Android APK + OTA 更新包） ──
   upload-r2:
-    if: ${{ always() && ((startsWith(github.ref_name, '@mine-monopoly/map-editor@') && needs.build-electron.result == 'success') || (startsWith(github.ref_name, '@mine-monopoly/client@') && needs.build-electron.result == 'success' && needs.build-android.result == 'success' && needs.build-web.result == 'success')) }}
+    if: ${{ always() && ((startsWith(github.ref_name, 'map-editor-v') && needs.build-electron.result == 'success') || (startsWith(github.ref_name, 'client-v') && needs.build-electron.result == 'success' && needs.build-android.result == 'success' && needs.build-web.result == 'success')) }}
     needs: [build-electron, build-android, build-web]
     runs-on: ubuntu-latest
     environment: build
@@ -389,8 +393,8 @@ jobs:
         id: tag
         run: |
           TAG="${{ github.ref_name }}"
-          PKG_NAME=$(echo "$TAG" | sed -E 's/@mine-monopoly\/(.+)@.+/\1/')
-          VERSION=$(echo "$TAG" | sed -E 's/@mine-monopoly\/.+@(.+)/\1/')
+          PKG_NAME=$(echo "$TAG" | sed -E 's/^(client|map-editor)-v.+/\1/')
+          VERSION=$(echo "$TAG" | sed -E 's/^(client|map-editor)-v(.+)/\2/')
           echo "pkg_name=$PKG_NAME" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
@@ -487,7 +491,7 @@ jobs:
 
   # ── Web 部署通知（服务器从 R2 拉取） ──
   deploy-web:
-    if: ${{ startsWith(github.ref_name, '@mine-monopoly/client@') && needs.upload-r2.result == 'success' }}
+    if: ${{ startsWith(github.ref_name, 'client-v') && needs.upload-r2.result == 'success' }}
     needs: [upload-r2]
     runs-on: ubuntu-latest
     environment: build
@@ -498,7 +502,7 @@ jobs:
         shell: bash
         run: |
           TAG="${{ github.ref_name }}"
-          VERSION=$(echo "$TAG" | sed -E 's/@mine-monopoly\/.+@(.+)/\1/')
+          VERSION=$(echo "$TAG" | sed -E 's/^client-v(.+)/\1/')
           echo "tag=$TAG" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
