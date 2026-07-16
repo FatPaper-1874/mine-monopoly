@@ -374,12 +374,7 @@ jobs:
           draft: false
           files: |
             artifacts/**/*-Setup.exe
-            artifacts/**/*-Setup.exe.blockmap
-            artifacts/**/latest.yml
             artifacts/**/*.apk
-            artifacts/**/*.zip
-            artifacts/**/update.json
-            artifacts/**/native-update.json
 
   # ── R2 上传（Electron 安装包 + Android APK + OTA 更新包） ──
   upload-r2:
