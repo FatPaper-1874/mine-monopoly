@@ -2,6 +2,11 @@ import * as monaco from "monaco-editor";
 import { mapContentService } from "@src/services";
 import { eventBus } from "@src/utils/event-bus";
 import staticEditorLib from "../editor-lib.d.ts?raw";
+import {
+	type CodeTemplateExtraParams,
+	type EditorCodeType,
+	resolveValidationTemplateConfig,
+} from "../code-templates";
 
 // 监听类型刷新事件
 eventBus.on("refresh-monaco-types", () => {
@@ -17,98 +22,9 @@ export interface ValidateResult {
 	errors: Array<{ line: number; column: number; message: string }>;
 }
 
-/**
- * 代码类型对应的模板配置
- */
-interface TemplateConfig {
-	/** 模板头代码（箭头函数开头） */
-	header: string;
-	/** 模板尾（闭合括号） */
-	footer: string;
-	/**
-	 * 动态生成 header 的函数（用于修饰器根据 commandType 生成精确模板）
-	 */
-	dynamicHeader?: (commandType?: string) => string;
-}
-
-/**
- * 各代码类型的模板定义
- * 所有类型（IPlayer、IGameProcess、MoneyTag 等）由 editor-lib.d.ts 全局声明，无需 import。
- * header 行数决定了用户代码的起始行偏移。
- */
-const TEMPLATES: Record<string, TemplateConfig> = {
-	"chance-card": {
-		header: `(async (sourcePlayer: IPlayer, target: IPlayer | IProperty | IPlayer[] | IProperty[], gameProcess: IGameProcess) => {
-`,
-		footer: `});
-`,
-	},
-	"map-event": {
-		header: `(async (player: IPlayer, gameProcess: IGameProcess) => {
-`,
-		footer: `});
-`,
-	},
-	"role": {
-		header: `((player: IPlayer, gameProcess: IGameProcess) => {
-`,
-		footer: `});
-`,
-	},
-	"game-phase": {
-		header: `(async (ctx: GameContext, gameProcess: IGameProcess) => {
-`,
-		footer: `});
-`,
-	},
-	"modifier": {
-		header: "",  // 使用 dynamicHeader 动态生成
-		dynamicHeader: generateModifierHeader,
-		footer: `});
-`,
-	},
-	"property": {
-		header: `(async (player: IPlayer, property: IProperty, gameProcess: IGameProcess) => {
-`,
-		footer: `});
-`,
-	},
-	"extra-libs": {
-		header: "",
-		footer: "",
-	},
-};
-
-/**
- * 根据命令类型获取对应的 CommandMap 类型和 owner 参数名称
- * player.* 命令使用 PlayerCommandMap，owner 参数为 player: IPlayer
- * property.* 命令使用 PropertyCommandMap，owner 参数为 property: IProperty
- * 其他命令回退到 ICommandMap
- */
-function getCommandMapType(commandType: string): { commandMap: string; ownerName: string; ownerType: string } {
-	if (commandType.startsWith("player.")) {
-		return { commandMap: "PlayerCommandMap", ownerName: "player", ownerType: "IPlayer" };
-	}
-	if (commandType.startsWith("property.")) {
-		return { commandMap: "PropertyCommandMap", ownerName: "property", ownerType: "IProperty" };
-	}
-	return { commandMap: "ICommandMap", ownerName: "owner", ownerType: "any" };
-}
-
-/**
- * 动态生成修饰器 header 模板
- * 所有类型由 editor-lib.d.ts 全局声明，无需 import。
- */
-function generateModifierHeader(commandType?: string): string {
-	// 如果提供了具体的 commandType，使用精确的类型签名
-	if (commandType && commandType.trim()) {
-		const { commandMap, ownerName, ownerType } = getCommandMapType(commandType);
-		return `(async (${ownerName}: ${ownerType}, gameProcess: IGameProcess, cmd: ICommand<${commandMap}, "${commandType}">, ctx: ICommandContext<${commandMap}, "${commandType}">) => {
-`;
-	}
-	// 默认使用泛型签名
-	return `(async (player: IPlayer, gameProcess: IGameProcess, cmd: ICommand<ICommandMap, keyof ICommandMap>, ctx: ICommandContext<ICommandMap, keyof ICommandMap>) => {
-`;
+export interface ValidateTemplateOptions extends CodeTemplateExtraParams {
+	template?: string;
+	mode?: "snippet" | "full";
 }
 
 /**
@@ -124,19 +40,30 @@ export function useMonacoValidator() {
 	 * @param commandType 命令类型（仅修饰器需要，用于生成精确模板）
 	 * @returns 校验结果
 	 */
-	async function validate(code: string, codeType: string, commandType?: string): Promise<ValidateResult> {
-		const template = TEMPLATES[codeType];
-		if (!template) {
+	async function validate(
+		code: string,
+		codeType: string,
+		options?: string | ValidateTemplateOptions,
+	): Promise<ValidateResult> {
+		const normalizedOptions: ValidateTemplateOptions =
+			typeof options === "string" ? { commandType: options } : (options || {});
+		const normalizedCodeType = codeType as EditorCodeType;
+		const supportedCodeTypes: EditorCodeType[] = [
+			"chance-card",
+			"map-event",
+			"role",
+			"game-phase",
+			"modifier",
+			"property",
+			"extra-libs",
+		];
+
+		if (!supportedCodeTypes.includes(normalizedCodeType)) {
 			return {
 				valid: false,
 				errors: [{ line: 0, column: 0, message: `Unknown codeType: ${codeType}` }],
 			};
 		}
-
-		// 获取 header（优先使用动态生成）
-		const header = template.dynamicHeader
-			? template.dynamicHeader(commandType)
-			: template.header;
 
 		// 获取全局 Monaco 单例
 		const monacoInstance = await getMonacoInstance();
@@ -147,10 +74,10 @@ export function useMonacoValidator() {
 			};
 		}
 
-		// 组装完整代码：只有 template header + 用户代码 + footer
-		const fullCode = header + code + "\n" + template.footer;
-		// header 行数（仅模板 header，动态类型通过 extraLibs 加载）
-		const headerLines = header.split("\n").length;
+		const mode = normalizedOptions.mode || "snippet";
+		const { header, footer } = resolveValidationTemplateConfig(normalizedCodeType, normalizedOptions);
+		const fullCode = mode === "full" ? code : header + code + (footer ? "\n" + footer : "");
+		const lineOffset = mode === "full" ? 0 : Math.max(0, header.split("\n").length - 1);
 
 		// 注入完整类型库到 Monaco TS 语言服务
 		const tsDefaults = monacoInstance.languages.typescript.typescriptDefaults;
@@ -205,17 +132,17 @@ export function useMonacoValidator() {
 
 			for (const marker of markers) {
 				if (marker.severity !== monacoInstance.MarkerSeverity.Error) continue;
-				const userLine = marker.startLineNumber - headerLines;
+				const userLine = marker.startLineNumber - lineOffset;
 				// header 区域错误（如类型解析失败）也要报告，因为可能意味着类型推断失效
-				if (userLine <= 0) {
+				if (mode === "snippet" && userLine <= 0) {
 					errors.push({
 						line: 0,
 						column: marker.startColumn,
 						message: `[初始化错误] ${marker.message}`,
 					});
-				} else if (userLine <= userCodeLineCount) {
+				} else if (mode === "full" || userLine <= userCodeLineCount) {
 					errors.push({
-						line: userLine,
+						line: mode === "full" ? marker.startLineNumber : userLine,
 						column: marker.startColumn,
 						message: marker.message,
 					});

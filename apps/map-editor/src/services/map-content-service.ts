@@ -26,6 +26,33 @@ import { useMonacoValidator } from "@src/components/code-editor/composables/useM
  * Map Content Service class
  */
 export class MapContentService {
+	private formatValidationErrors(errors: Array<{ line: number; column: number; message: string }>): string {
+		return errors
+			.map((error) => {
+				const lineLabel = error.line > 0 ? `L${error.line}` : "模板";
+				return `${lineLabel}:C${error.column} ${error.message}`;
+			})
+			.join("\n");
+	}
+
+	private async ensureCodeValid(
+		data: {
+			code: string;
+			codeType: string;
+			commandType?: string;
+			targetType?: string;
+			template?: string;
+			mode?: "snippet" | "full";
+		},
+		label: string,
+	): Promise<void> {
+		if (!data.code?.trim()) return;
+		const validation = await this.validateEffectCode(data);
+		if (!validation.valid) {
+			throw new Error(`${label} TS 校验失败:\n${this.formatValidationErrors(validation.errors)}`);
+		}
+	}
+
 	/**
 	 * Chance Card Operations
 	 */
@@ -38,6 +65,15 @@ export class MapContentService {
 	async addChanceCard(data: Omit<ChanceCard, "id">): Promise<ChanceCard> {
 		// 1. Validate input data
 		const validated = AddChanceCardSchema.parse(data);
+		await this.ensureCodeValid(
+			{
+				code: validated.effectCode,
+				codeType: "chance-card",
+				targetType: validated.type,
+				mode: "full",
+			},
+			"机会卡 effectCode",
+		);
 
 		// 2. Get Store instances
 		const mapDataStore = useMapDataStore();
@@ -86,6 +122,15 @@ export class MapContentService {
 	async updateChanceCard(data: ChanceCard): Promise<ChanceCard> {
 		// 1. Validate input
 		const validated = UpdateChanceCardSchema.parse(data);
+		await this.ensureCodeValid(
+			{
+				code: validated.effectCode,
+				codeType: "chance-card",
+				targetType: validated.type,
+				mode: "full",
+			},
+			"机会卡 effectCode",
+		);
 
 		// 2. Check if exists
 		const mapDataStore = useMapDataStore();
@@ -165,6 +210,14 @@ export class MapContentService {
 	async addRole(data: Omit<Role, "id">): Promise<Role> {
 		// 1. Validate input data
 		const validated = AddRoleSchema.parse(data);
+		await this.ensureCodeValid(
+			{
+				code: validated.initCode || "",
+				codeType: "role",
+				mode: "full",
+			},
+			"角色 initCode",
+		);
 
 		// 2. Get Store instances
 		const mapDataStore = useMapDataStore();
@@ -212,6 +265,14 @@ export class MapContentService {
 	async updateRole(data: z.infer<typeof UpdateRoleSchema>): Promise<Role> {
 		// 1. Validate input
 		const validated = UpdateRoleSchema.parse(data);
+		await this.ensureCodeValid(
+			{
+				code: validated.initCode || "",
+				codeType: "role",
+				mode: "full",
+			},
+			"角色 initCode",
+		);
 
 		// 2. Check if exists and get current data
 		const mapDataStore = useMapDataStore();
@@ -286,6 +347,14 @@ export class MapContentService {
 	async addMapEvent(data: Omit<MapEvent, "id">): Promise<MapEvent> {
 		// 1. Validate input data
 		const validated = AddMapEventSchema.parse(data);
+		await this.ensureCodeValid(
+			{
+				code: validated.effectCode,
+				codeType: "map-event",
+				mode: "full",
+			},
+			"地图事件 effectCode",
+		);
 
 		// 2. Get Store instances
 		const mapDataStore = useMapDataStore();
@@ -333,6 +402,14 @@ export class MapContentService {
 	async updateMapEvent(data: MapEvent): Promise<MapEvent> {
 		// 1. Validate input
 		const validated = UpdateMapEventSchema.parse(data);
+		await this.ensureCodeValid(
+			{
+				code: validated.effectCode,
+				codeType: "map-event",
+				mode: "full",
+			},
+			"地图事件 effectCode",
+		);
 
 		// 2. Check if exists
 		const mapDataStore = useMapDataStore();
@@ -428,6 +505,14 @@ export class MapContentService {
 	}): Promise<any> {
 		// 1. Validate input
 		const validated = AddPhaseSchema.parse(data);
+		await this.ensureCodeValid(
+			{
+				code: validated.initEventCode,
+				codeType: "game-phase",
+				mode: "full",
+			},
+			"游戏阶段 initEventCode",
+		);
 
 		// 2. Get Store
 		const mapDataStore = useMapDataStore();
@@ -476,6 +561,14 @@ export class MapContentService {
 	}): Promise<any> {
 		// 1. Validate input
 		const validated = UpdatePhaseSchema.parse(data);
+		await this.ensureCodeValid(
+			{
+				code: validated.initEventCode || "",
+				codeType: "game-phase",
+				mode: "full",
+			},
+			"游戏阶段 initEventCode",
+		);
 
 		// 2. Get Store and find phase
 		const mapDataStore = useMapDataStore();
@@ -679,6 +772,14 @@ export class MapContentService {
 	async updateExtraLibs(code: string): Promise<void> {
 		// 1. Validate input
 		const validated = UpdateExtraLibsSchema.parse({ code });
+		await this.ensureCodeValid(
+			{
+				code: validated.code,
+				codeType: "extra-libs",
+				mode: "full",
+			},
+			"额外库代码",
+		);
 
 		// 2. Get Store and update
 		const mapDataStore = useMapDataStore();
@@ -705,6 +806,14 @@ export class MapContentService {
 	async addProperty(data: { mapItemId: string } & PropertyData): Promise<any> {
 		// 1. Validate input
 		const validated = AddPropertySchema.parse(data);
+		await this.ensureCodeValid(
+			{
+				code: validated.property.effectCode || "",
+				codeType: "property",
+				mode: "full",
+			},
+			"地皮 effectCode",
+		);
 
 		// 2. Get Store, check mapItem exists and has no property
 		const mapDataStore = useMapDataStore();
@@ -755,6 +864,14 @@ export class MapContentService {
 	async updateProperty(data: UpdatePropertyInput): Promise<any> {
 		// 1. Validate input
 		const validated = UpdatePropertySchema.parse(data);
+		await this.ensureCodeValid(
+			{
+				code: validated.property.effectCode || "",
+				codeType: "property",
+				mode: "full",
+			},
+			"地皮 effectCode",
+		);
 
 		// 2. Get Store, check mapItem and property exist
 		const mapDataStore = useMapDataStore();
@@ -1130,6 +1247,15 @@ export class MapContentService {
 
 	async createModifierTemplate(data: { name: string; slug: string; descriptor: any; effectCode: string }): Promise<any> {
 		const mapDataStore = useMapDataStore();
+		await this.ensureCodeValid(
+			{
+				code: data.effectCode,
+				codeType: "modifier",
+				commandType: data.descriptor?.commandType,
+				mode: "full",
+			},
+			"修饰器 effectCode",
+		);
 
 		// Check slug uniqueness
 		if (mapDataStore.modifierTemplates.some(t => t.slug === data.slug)) {
@@ -1162,6 +1288,15 @@ export class MapContentService {
 		if (!existing) {
 			throw new Error(`ModifierTemplate 不存在: ${data.id}`);
 		}
+		await this.ensureCodeValid(
+			{
+				code: data.effectCode || "",
+				codeType: "modifier",
+				commandType: data.descriptor?.commandType || existing?.descriptor?.commandType,
+				mode: "full",
+			},
+			"修饰器 effectCode",
+		);
 
 		// Check slug uniqueness if changing
 		if (data.slug && data.slug !== existing.slug) {
@@ -1219,9 +1354,21 @@ export class MapContentService {
 	 *
 	 * Uses Monaco TS language service to type-check effectCode.
 	 */
-	async validateEffectCode(data: { code: string; codeType: string; commandType?: string }) {
+	async validateEffectCode(data: {
+		code: string;
+		codeType: string;
+		commandType?: string;
+		targetType?: string;
+		template?: string;
+		mode?: "snippet" | "full";
+	}) {
 		const { validate } = useMonacoValidator();
-		return await validate(data.code, data.codeType, data.commandType);
+		return await validate(data.code, data.codeType, {
+			commandType: data.commandType,
+			targetType: data.targetType,
+			template: data.template,
+			mode: data.mode,
+		});
 	}
 
 }

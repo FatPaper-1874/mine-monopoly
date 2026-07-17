@@ -1,34 +1,45 @@
 import { TargetSelectType } from "@mine-monopoly/types";
 
-// =========================================================
-// 静态模板文本
-// =========================================================
+export type EditorCodeType =
+	| "chance-card"
+	| "map-event"
+	| "role"
+	| "game-phase"
+	| "modifier"
+	| "property"
+	| "extra-libs";
 
-/** 地图事件 effectCode 模板 */
-export const MAP_EVENT_TEMPLATE = `(async (player: IPlayer, gameProcess: IGameProcess) => {
+export interface CodeTemplateExtraParams {
+	targetType?: TargetSelectType | string;
+	commandType?: string;
+}
 
-});`;
+export interface CodeTemplateDefinition {
+	editorText: string;
+	template: string;
+	params: string;
+	header: string;
+	footer: string;
+}
 
-/** 地产 effectCode 模板 */
-export const PROPERTY_TEMPLATE = `((property: IProperty, gameProcess: IGameProcess) => {
+export interface ValidationTemplateConfig {
+	header: string;
+	footer: string;
+}
 
-})`;
+const USER_CODE_MARKER = "  // --- USER CODE ---";
 
-/** 角色 initCode 模板 */
-export const ROLE_TEMPLATE = `((player: IPlayer, gameProcess: IGameProcess) => {
+function buildDefinition(header: string, footer: string, params: string): CodeTemplateDefinition {
+	return {
+		editorText: `${header}\n${footer}`,
+		template: `${header}${USER_CODE_MARKER}\n${footer}`,
+		params,
+		header,
+		footer,
+	};
+}
 
-});`;
-
-/** 游戏阶段 initEventCode 模板 */
-export const GAME_PHASE_TEMPLATE = `(async (context, gameProcess: IGameProcess) => {
-
-});`;
-
-// =========================================================
-// 机会卡 - 动态模板（根据 targetType 生成）
-// =========================================================
-
-const chanceCardTargetTypeMap: Record<TargetSelectType, string> = {
+const chanceCardTargetTypeMap: Record<string, string> = {
 	[TargetSelectType.ToSelf]: "IPlayer",
 	[TargetSelectType.ToOtherPlayer]: "IPlayer",
 	[TargetSelectType.ToPlayer]: "IPlayer",
@@ -36,28 +47,13 @@ const chanceCardTargetTypeMap: Record<TargetSelectType, string> = {
 	[TargetSelectType.ToMapItem]: "string",
 };
 
-/** 生成机会卡完整模板代码 */
-export function generateChanceCardTemplate(targetType: TargetSelectType): string {
-	return `(async (sourcePlayer: IPlayer, target: ${chanceCardTargetTypeMap[targetType]}, gameProcess: IGameProcess) => {
-
-});`;
+function resolveChanceCardTargetType(targetType?: TargetSelectType | string): string {
+	if (!targetType) {
+		return chanceCardTargetTypeMap[TargetSelectType.ToSelf];
+	}
+	return chanceCardTargetTypeMap[targetType] || chanceCardTargetTypeMap[TargetSelectType.ToSelf];
 }
 
-/** 仅生成机会卡参数声明部分 */
-export function generateChanceCardParams(targetType: TargetSelectType): string {
-	return `sourcePlayer: IPlayer, target: ${chanceCardTargetTypeMap[targetType]}, gameProcess: IGameProcess`;
-}
-
-// =========================================================
-// 修饰器模板 - 动态模板（根据 commandType 生成）
-// =========================================================
-
-/**
- * 根据命令类型获取对应的 CommandMap 类型和 owner 参数名称
- * player.* 命令使用 PlayerCommandMap 以获得正确的 payload 类型推断
- * property.* 命令使用 PropertyCommandMap
- * 其他命令回退到 ICommandMap
- */
 function getCommandMapType(commandType: string): { commandMap: string; ownerName: string; ownerType: string } {
 	if (commandType.startsWith("player.")) {
 		return { commandMap: "PlayerCommandMap", ownerName: "player", ownerType: "IPlayer" };
@@ -68,30 +64,114 @@ function getCommandMapType(commandType: string): { commandMap: string; ownerName
 	return { commandMap: "ICommandMap", ownerName: "owner", ownerType: "any" };
 }
 
-/** 生成修饰器完整模板代码 */
-export function generateModifierTemplate(commandType: string): string {
-	// 如果提供了具体的 commandType，使用精确的类型签名
-	if (commandType && commandType.trim()) {
-		const { commandMap, ownerName, ownerType } = getCommandMapType(commandType);
-		return `(async (${ownerName}: ${ownerType}, gameProcess: IGameProcess, cmd: ICommand<${commandMap}, "${commandType}">, ctx: ICommandContext<${commandMap}, "${commandType}">) => {
-
-		})`;
+export function getCodeTemplateDefinition(
+	codeType: EditorCodeType,
+	extraParams: CodeTemplateExtraParams = {},
+): CodeTemplateDefinition {
+	switch (codeType) {
+		case "chance-card": {
+			const targetParamType = resolveChanceCardTargetType(extraParams.targetType);
+			const params = `sourcePlayer: IPlayer, target: ${targetParamType}, gameProcess: IGameProcess`;
+			return buildDefinition(`(async (${params}) => {\n`, `});`, params);
+		}
+		case "map-event": {
+			const params = `player: IPlayer, gameProcess: IGameProcess`;
+			return buildDefinition(`(async (${params}) => {\n`, `});`, params);
+		}
+		case "role": {
+			const params = `player: IPlayer, gameProcess: IGameProcess`;
+			return buildDefinition(`((` + params + `) => {\n`, `});`, params);
+		}
+		case "game-phase": {
+			const params = `ctx: GameContext, gameProcess: IGameProcess`;
+			return buildDefinition(`(async (${params}) => {\n`, `}) as GameEventFunction<GameContext>;`, params);
+		}
+		case "modifier": {
+			if (extraParams.commandType && extraParams.commandType.trim()) {
+				const { commandMap, ownerName, ownerType } = getCommandMapType(extraParams.commandType);
+				const params = `${ownerName}: ${ownerType}, gameProcess: IGameProcess, cmd: ICommand<${commandMap}, "${extraParams.commandType}">, ctx: ICommandContext<${commandMap}, "${extraParams.commandType}">`;
+				return buildDefinition(`(async (${params}) => {\n`, `});`, params);
+			}
+			const params = `player: IPlayer, gameProcess: IGameProcess, cmd: ICommand<ICommandMap, keyof ICommandMap>, ctx: ICommandContext<ICommandMap, keyof ICommandMap>`;
+			return buildDefinition(`(async (${params}) => {\n`, `});`, params);
+		}
+		case "property": {
+			const params = `property: IProperty, gameProcess: IGameProcess`;
+			return buildDefinition(`((${params}) => {\n`, `});`, params);
+		}
+		case "extra-libs":
+			return {
+				editorText: "",
+				template: `// --- USER CODE ---`,
+				params: "",
+				header: "",
+				footer: "",
+			};
+		default: {
+			const exhaustiveCheck: never = codeType;
+			throw new Error(`Unsupported codeType: ${exhaustiveCheck}`);
+		}
 	}
-	// 默认使用泛型签名
-	return `(async (player: IPlayer, gameProcess: IGameProcess, cmd: ICommand<ICommandMap, keyof ICommandMap>, ctx: ICommandContext<ICommandMap, keyof ICommandMap>) => {
-
-	})`;
 }
 
-/** 仅生成修饰器参数声明部分 */
-export function generateModifierParams(commandType: string): string {
-	// 如果提供了具体的 commandType，使用精确的类型签名
-	if (commandType && commandType.trim()) {
-		const { commandMap, ownerName, ownerType } = getCommandMapType(commandType);
-		return `${ownerName}: ${ownerType}, gameProcess: IGameProcess, cmd: ICommand<${commandMap}, "${commandType}">, ctx: ICommandContext<${commandMap}, "${commandType}">`;
+export function resolveValidationTemplateConfig(
+	codeType: EditorCodeType,
+	extraParams: CodeTemplateExtraParams & { template?: string } = {},
+): ValidationTemplateConfig {
+	if (extraParams.template) {
+		const fromTemplate = parseTemplateConfig(extraParams.template);
+		if (fromTemplate) {
+			return fromTemplate;
+		}
 	}
-	// 默认使用泛型签名
-	return `player: IPlayer, gameProcess: IGameProcess, cmd: ICommand<ICommandMap, keyof ICommandMap>, ctx: ICommandContext<ICommandMap, keyof ICommandMap>`;
+	const definition = getCodeTemplateDefinition(codeType, extraParams);
+	return { header: definition.header, footer: definition.footer };
+}
+
+function parseTemplateConfig(template: string): ValidationTemplateConfig | null {
+	if (!template) return null;
+
+	const markerIndex = template.indexOf(USER_CODE_MARKER);
+	if (markerIndex >= 0) {
+		const header = template.slice(0, markerIndex);
+		const footer = template.slice(markerIndex + USER_CODE_MARKER.length + 1);
+		return { header, footer };
+	}
+
+	const matched = template.match(/^([\s\S]*?=>\s*\{\n?)([\s\S]*)(\n\}\)\s*(?:as[\s\S]+)?;?\s*)$/);
+	if (!matched) {
+		return null;
+	}
+
+	return {
+		header: matched[1],
+		footer: matched[3],
+	};
+}
+
+// =========================================================
+// Backward-compatible exports for existing editor components
+// =========================================================
+
+export const MAP_EVENT_TEMPLATE = getCodeTemplateDefinition("map-event").editorText;
+export const PROPERTY_TEMPLATE = getCodeTemplateDefinition("property").editorText;
+export const ROLE_TEMPLATE = getCodeTemplateDefinition("role").editorText;
+export const GAME_PHASE_TEMPLATE = getCodeTemplateDefinition("game-phase").editorText;
+
+export function generateChanceCardTemplate(targetType: TargetSelectType): string {
+	return getCodeTemplateDefinition("chance-card", { targetType }).editorText;
+}
+
+export function generateChanceCardParams(targetType: TargetSelectType): string {
+	return getCodeTemplateDefinition("chance-card", { targetType }).params;
+}
+
+export function generateModifierTemplate(commandType: string): string {
+	return getCodeTemplateDefinition("modifier", { commandType }).editorText;
+}
+
+export function generateModifierParams(commandType: string): string {
+	return getCodeTemplateDefinition("modifier", { commandType }).params;
 }
 
 // =========================================================
@@ -111,11 +191,11 @@ export function replaceEffectCodeParams(
 	if (!current) {
 		return generateTemplate();
 	}
-	const paramPattern = /^(\(async\s*\()(\s*[\s\S]*?)(\s*\)\s*=>\s*\{)/;
+	const paramPattern = /^(\((?:async\s*)?\()(\s*[\s\S]*?)(\s*\)\s*=>\s*\{)/;
 	const match = current.match(paramPattern);
 	if (match) {
 		const newParams = generateParams();
-		return match[1] + ' ' + newParams + match[3] + current.slice(match[0].length);
+		return match[1] + " " + newParams + match[3] + current.slice(match[0].length);
 	}
 	return generateTemplate();
 }
