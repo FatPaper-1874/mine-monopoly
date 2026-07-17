@@ -7,28 +7,34 @@ import { Buff } from "../game-process";
 export interface IBuffManager {
 	/**
 	 * 添加独立 Buff
+	 * @param buff - 要添加的 Buff 数据
 	 */
 	addBuff(buff: Buff): void;
 
 	/**
 	 * 更新指定 Buff 的字段
+	 * @param id - Buff ID
+	 * @param fields - 要更新的字段集合
 	 * @returns 是否更新成功（Buff 不存在时返回 false）
 	 */
 	updateBuff(id: string, fields: Partial<Buff>): boolean;
 
 	/**
 	 * 根据 ID 移除 Buff
+	 * @param id - Buff ID
 	 * @returns 是否移除成功
 	 */
 	removeBuff(id: string): boolean;
 
 	/**
 	 * 按标签移除 Buff
+	 * @param tag - 要移除的标签
 	 */
 	removeByTag(tag: string): void;
 
 	/**
 	 * 检查是否存在指定标签的 Buff
+	 * @param tag - Buff 标签
 	 */
 	hasBuffWithTag(tag: string): boolean;
 

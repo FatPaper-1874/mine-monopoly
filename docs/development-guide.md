@@ -191,6 +191,10 @@ const result = await player.gain(200, { tag: MoneyTag.CARD });
 
 允许在游戏过程中为指定玩家动态注册自定义按钮，显示在骰子按钮旁边。
 
+如果地图需要让本地机器人理解这些按钮或自定义交互，参考：
+- [自定义地图 AI 语义指南](./custom-map-ai-semantics-guide.md)
+  这份指南也包含本地机器人更容易理解的推荐语义词表和降级写法。
+
 **注册按钮：**
 ```typescript
 const button = gameProcess.registerPlayerButton(

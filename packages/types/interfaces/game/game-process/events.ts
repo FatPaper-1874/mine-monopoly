@@ -55,6 +55,8 @@ export interface IGameRuntimeStack<Context extends GameContext> {
  * 游戏事件函数类型
  * 定义游戏事件的执行函数签名
  * @template Context - 上下文类型
+ * @param ctx - 当前事件执行上下文
+ * @param gameProcess - 当前游戏进程实例
  */
 export type GameEventFunction<Context extends GameContext> = (
 	ctx: Context,

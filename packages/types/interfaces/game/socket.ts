@@ -18,7 +18,7 @@ import {
 	TargetSelectDialogOption,
 	TargetSelectDialogResult,
 } from "./game-process";
-import { Role, User } from "./item";
+import { Role, User, UserInRoomInfo } from "./item";
 import { DiceResult } from "./util";
 
 /**
@@ -907,7 +907,7 @@ export interface RoomInfo {
 	roomId: string;
 
 	/** 房间内用户列表 */
-	userList: Array<User>;
+	userList: Array<UserInRoomInfo>;
 
 	/** 游戏是否已开始 */
 	isStarted: boolean;

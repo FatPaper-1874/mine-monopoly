@@ -1,4 +1,5 @@
 import { TargetSelectType } from "../../../../types/enums/game/game";
+import { AIDecisionSemanticHint } from "../ai";
 
 /**
  * 对话框基础选项接口
@@ -43,6 +44,9 @@ interface DialogOption {
 export interface TargetSelectDialogOption<I extends TargetSelectType> extends DialogOption {
 	/** 目标选择类型 */
 	type: I;
+
+	/** AI 辅助语义（可选） */
+	ai?: AIDecisionSemanticHint;
 }
 
 /**
@@ -79,7 +83,10 @@ export interface TargetSelectResult {
  * 确认对话框选项接口
  */
 // 确认Dialog
-export interface ConfirmDialogOption extends DialogOption {}
+export interface ConfirmDialogOption extends DialogOption {
+	/** AI 辅助语义（可选） */
+	ai?: AIDecisionSemanticHint;
+}
 
 /**
  * 确认对话框结果接口
@@ -111,6 +118,9 @@ export interface FormField<K extends string, D> {
 
 	/** 最大值（仅 number-input 有效） */
 	max?: number;
+
+	/** AI 辅助语义（可选） */
+	ai?: AIDecisionSemanticHint;
 }
 
 /**
@@ -120,6 +130,9 @@ export interface FormField<K extends string, D> {
 export interface FormDialogOption<F extends readonly FormField<string, any>[]> extends DialogOption {
 	/** 表单字段列表 */
 	fields: F;
+
+	/** AI 辅助语义（可选） */
+	ai?: AIDecisionSemanticHint;
 }
 
 /**
@@ -163,6 +176,9 @@ export interface ItemSelectDialogOption<T = SelectorItem> extends Omit<DialogOpt
 
 	/** 对话框内容（字符串或 UI Schema），显示在物品列表之前（可选） */
 	content?: string | UISchema;
+
+	/** AI 辅助语义（可选） */
+	ai?: AIDecisionSemanticHint;
 }
 
 /**
@@ -174,6 +190,9 @@ export interface SelectorItem {
 
 	/** 显示 UI 或纯文本 */
 	display: UISchema | string;
+
+	/** AI 辅助语义（可选） */
+	ai?: AIDecisionSemanticHint;
 }
 
 /**

@@ -70,6 +70,8 @@ export interface UserInGameInfo extends User {
 export interface UserInRoomInfo extends User {
 	/** 所选角色 ID */
 	roleId: string;
+	/** 是否为 AI 玩家 */
+	isAI?: boolean;
 }
 
 /**

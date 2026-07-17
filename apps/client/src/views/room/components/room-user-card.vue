@@ -1,15 +1,14 @@
 <script setup lang="ts">
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
-import { lightenColor, randomString } from "@src/utils";
-import { computed, ref, reactive, onMounted, watch, nextTick, onBeforeUnmount } from "vue";
-import { ChangeRoleOperate, UserInRoomInfo } from "@mine-monopoly/types";
+import { lightenColor } from "@src/utils";
+import { computed, ref } from "vue";
+import { UserInRoomInfo } from "@mine-monopoly/types";
 import { useMonopolyClient } from "@src/core/monopoly-client/MonopolyClient";
-import { __PROTOCOL__ } from "@src/../global.config";
 import { useUserInfo, useRoomInfo } from "@src/store";
 import { useMapData, useResourceStore } from "@src/store/game";
 
-const props = defineProps<{ user: UserInRoomInfo | undefined }>();
-const emits = defineEmits(["role-select"]);
+const props = defineProps<{ user: UserInRoomInfo | undefined; addAiButton?: boolean }>();
+const emits = defineEmits(["role-select", "add-ai"]);
 
 const user = computed(() => props.user);
 const lightColor = computed(() => (user.value ? lightenColor(user.value.color, 15) : "#ffffff"));
@@ -20,8 +19,10 @@ const avatarSrc = computed(() => {
 const isMe = computed(() => (user.value ? user.value.userId === useUserInfo().userId : false));
 const isRoomOwner = computed(() => (user.value ? user.value.userId === useRoomInfo().ownerId : false));
 const amIRoomOwner = computed(() => useRoomInfo().amIRoomOwner);
+const isAIPlayer = computed(() => Boolean(user.value?.isAI));
+const canChangeColor = computed(() => isMe.value || (amIRoomOwner.value && isAIPlayer.value));
 
-const canSelectRole = computed(() => useMapData().roles.length > 0 && isMe.value);
+const canSelectRole = computed(() => useMapData().roles.length > 0 && (isMe.value || (amIRoomOwner.value && isAIPlayer.value)));
 const role = computed(() => {
 	if (!user.value) return undefined;
 	return useMapData().getRoleById(user.value?.roleId);
@@ -46,39 +47,56 @@ function handleKickOut() {
 
 function handleRoleSelect() {
 	if (!canSelectRole.value) return;
-	if (!isMe.value) return;
-	emits("role-select");
+	if (!props.user) return;
+	emits("role-select", props.user);
 }
 
 function handleColorChange(e: Event) {
+	if (!props.user) return;
 	const target = e.target as HTMLInputElement;
 	const newColor = target.value;
 	const monopolyClient = useMonopolyClient();
-	monopolyClient.changeColor(newColor);
+	monopolyClient.changeColorForUser(props.user.userId, newColor);
+}
+
+function handleAddAi() {
+	emits("add-ai");
 }
 </script>
 
 <template>
 	<div class="room-user-card">
+		<button
+			v-if="addAiButton && !user"
+			type="button"
+			@click="handleAddAi"
+			style="position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 5; width: max-content;"
+		>
+			<FontAwesomeIcon style="margin-right: 0.35rem;" icon="robot" />
+			添加 机器人 / AI
+		</button>
 		<template v-if="user">
-			<div class="ready-tag" v-if="user.isReady">准备</div>
+			<div class="ready-tag" v-if="user.isReady && !canSelectRole">准备</div>
 
 			<div
-				v-else="user"
+				v-else
 				@click="handleRoleSelect"
 				class="choose-role"
 				:style="{ 'background-color': role?.color }"
-				:class="{ 'no-role': role === undefined, 'my-button': isMe }"
+				:class="{ 'no-role': role === undefined, 'my-button': canSelectRole }"
 				:disabled="!canSelectRole"
 			>
 				<span>{{ role ? role.name : "选择角色" }}</span>
 			</div>
 		</template>
 
-		<div class="is-room-owner" v-if="isRoomOwner"><FontAwesomeIcon icon="crown" /> <span>房主</span></div>
+		<div v-if="isRoomOwner || isAIPlayer" class="status-badges">
+			<div class="status-badge owner" v-if="isRoomOwner"><FontAwesomeIcon icon="crown" /> <span>房主</span></div>
+			<div class="status-badge ai" v-if="isAIPlayer"><FontAwesomeIcon icon="robot" /> <span>AI</span></div>
+		</div>
 
 		<div class="right-side">
-			<div v-if="isMe" class="color-picker">
+			<div v-if="canChangeColor" class="color-picker">
 				<div @click="handleColorPickerClick" class="color-display"></div>
 				<input ref="colorPickerEl" type="color" @change="handleColorChange" />
 			</div>
@@ -91,7 +109,7 @@ function handleColorChange(e: Event) {
 		<div v-if="user && user.username" class="user-info">
 			<div class="avatar" :style="{ 'background-color': user.color }">
 				<img v-if="avatarSrc" :src="avatarSrc" />
-				<FontAwesomeIcon v-else :style="{ color: '#ffffff' }" icon="gamepad" />
+				<FontAwesomeIcon v-else :style="{ color: '#ffffff' }" :icon="isAIPlayer ? 'robot' : 'gamepad'" />
 			</div>
 
 			<div class="info" :style="{ 'background-color': lightColor }">
@@ -235,29 +253,43 @@ $top-bar-height: 2.8rem;
 		}
 	}
 
-	& > .is-room-owner {
-		@include felt-patch(var(--fp-color-tertiary));
+	& > .status-badges {
 		position: absolute;
 		display: flex;
-		justify-content: center;
-		align-items: center;
-		left: 0.8rem;
-		padding: 0.5rem 0.8rem;
-		top: calc($top-bar-height + 0.4rem);
-		font-size: 0.9rem;
-		color: #ffffff;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 0.45rem;
+		inset-inline-start: 0.8rem;
+		inset-block-start: calc($top-bar-height + 0.4rem);
 		z-index: 101;
-		background-color: var(--fp-color-tertiary);
-		border-radius: 0.6rem;
-		gap: 0.3rem;
-		user-select: none;
-		background-image: var(--fp-texture-felt);
 
-		&:before {
-			top: 0.3rem;
-			left: 0.3rem;
-			right: 0.3rem;
-			bottom: 0.3rem;
+		.status-badge {
+			position: relative;
+			display: flex;
+			align-items: center;
+			gap: 0.3rem;
+			padding: 0.45rem 0.75rem;
+			border-radius: 0.6rem;
+			font-size: 0.85rem;
+			color: #ffffff;
+			user-select: none;
+			background-image: var(--fp-texture-felt);
+			box-shadow: var(--fp-shadow-card);
+
+			&.owner {
+				background-color: var(--fp-color-tertiary);
+			}
+
+			&.ai {
+				background-color: var(--fp-color-secondary);
+			}
+
+			&:before {
+				top: 0.3rem;
+				left: 0.3rem;
+				right: 0.3rem;
+				bottom: 0.3rem;
+			}
 		}
 	}
 

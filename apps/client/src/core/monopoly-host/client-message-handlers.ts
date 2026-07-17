@@ -86,6 +86,10 @@ const handleReadyToggle: ClientMessageHandler<SocketMsgType.ReadyToggle> = (conn
 };
 const handleKickOut: ClientMessageHandler<SocketMsgType.KickOut> = (conn, msg, host, clientId) => {
 	const playerId = msg.data;
+	if (host.getRoom().isAiPlayer(playerId)) {
+		host.getRoom().removeAiPlayer(playerId);
+		return;
+	}
 	host.getRoom().sendToClientById(playerId, SocketMsgType.KickOut);
 	host.getRoom().leave(playerId);
 	host.deleteClient(playerId);

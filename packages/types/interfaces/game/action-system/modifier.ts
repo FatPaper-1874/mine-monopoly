@@ -42,7 +42,12 @@ export interface ModifierDescriptor<C extends ICommandMap, K extends keyof C = k
 export interface IModifier<C extends ICommandMap, K extends keyof C = keyof C> {
 	/** 修饰器描述符 */
 	descriptor: ModifierDescriptor<C, K>;
-	/** 修饰器执行函数 */
+
+	/**
+	 * 修饰器执行函数
+	 * @param command - 当前正在执行的命令
+	 * @param context - 命令执行上下文
+	 */
 	fn(command: ICommand<C, K>, context: ICommandContext<C, K>): Promise<void> | void;
 	/** 修饰器实例的上下文数据（创建时传入，运行时通过 ctx.modifierData 读取） */
 	contextData?: Record<string, any>;
@@ -68,6 +73,7 @@ export interface ConsumeResult {
 export interface ModifierAddOptions {
 	/** 修饰器结束时的回调函数 */
 	onComplete?: () => void;
+
 	/** 修饰器实例的上下文数据（运行时通过 ctx.modifierData 读取） */
 	contextData?: Record<string, any>;
 }
@@ -164,6 +170,8 @@ export interface IModifierManager<C extends ICommandMap, K extends keyof C = key
 
 	/**
 	 * 从快照恢复修饰器
+	 * @param snaps - 修饰器快照列表
+	 * @param mapData - 当前地图数据，用于按 slug 恢复模板
 	 */
 	restoreModifiers(snaps: ModifierSnapshot[], mapData: any): void;
 }
@@ -197,8 +205,12 @@ export interface ModifierTemplate {
 
 /** 存档中 modifier 的快照 — 引用模板 slug + 运行时状态 */
 export interface ModifierSnapshot {
+	/** 模板 slug */
 	templateSlug: string;
+
+	/** 恢复后的剩余触发次数 */
 	remainingTriggers: number;
+
 	/** 修饰器实例的上下文数据快照 */
 	contextData?: Record<string, any>;
 }

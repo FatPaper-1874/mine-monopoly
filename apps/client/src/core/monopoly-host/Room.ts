@@ -66,6 +66,7 @@ export class Room {
 	private mapInfo: RoomMapInfo | undefined;
 	private roomId: string;
 	private userList: Map<string, UserInRoom>;
+	private aiUserList: Map<string, UserInRoomInfo>;
 	private ownerId: string = "";
 	private gameSetting: GameSetting;
 	private gameProcessWorker: Worker | null = null;
@@ -101,12 +102,22 @@ export class Room {
 	private static readonly HEARTBEAT_NORMAL_TIMEOUT = 15000;
 	private static readonly HEARTBEAT_BUSY_TIMEOUT = 60000;
 	private static readonly INIT_TIMEOUT = 30000;
+	private static readonly MAX_ROOM_PLAYERS = 6;
+	private static readonly AI_COLOR_PALETTE = [
+		"#5b8def",
+		"#43aa8b",
+		"#f4a261",
+		"#e76f51",
+		"#9c6ade",
+		"#f72585",
+	];
 
 	constructor(roomId: string) {
 		this.roomId = roomId;
 		this.ownerId = "";
 		this.isStarted = false;
 		this.userList = new Map();
+		this.aiUserList = new Map();
 		this.gameSetting = {};
 		this.operationListener = new OperateListener();
 		// 暴露 Room 实例给 Inspector 窗口（dev only）
@@ -130,6 +141,133 @@ export class Room {
 
 	public getUserList(): UserInRoom[] {
 		return Array.from(this.userList.values());
+	}
+
+	public isAiPlayer(userId: string): boolean {
+		return this.aiUserList.has(userId);
+	}
+
+	public addAiPlayer(): { success: boolean; error?: string } {
+		if (this.isStarted) {
+			return { success: false, error: "游戏开始后不能添加 AI 玩家" };
+		}
+		if (this.getAllRoomUsers().length >= Room.MAX_ROOM_PLAYERS) {
+			return { success: false, error: `房间最多支持 ${Room.MAX_ROOM_PLAYERS} 名玩家` };
+		}
+
+		const aiIndex = this.aiUserList.size + 1;
+		const aiUser: UserInRoomInfo = {
+			userId: `ai-${randomString(12)}`,
+			username: `AI玩家${aiIndex}`,
+			isReady: true,
+			avatar: "",
+			color: Room.AI_COLOR_PALETTE[(aiIndex - 1) % Room.AI_COLOR_PALETTE.length],
+			roleId: "",
+			isAI: true,
+		};
+		this.assignRandomRoleToAiUser(aiUser);
+		this.aiUserList.set(aiUser.userId, aiUser);
+		this.roomBroadcast({
+			type: SocketMsgType.MsgNotify,
+			source: SocketMsgSource.Server,
+			data: undefined,
+			msg: { type: "info", content: `${aiUser.username}加入了房间` },
+		});
+		this.roomInfoBroadcast();
+		return { success: true };
+	}
+
+	public removeAiPlayer(userId: string): boolean {
+		const aiUser = this.aiUserList.get(userId);
+		if (!aiUser) return false;
+		if (this.isStarted) return false;
+
+		this.aiUserList.delete(userId);
+		this.roomBroadcast({
+			type: SocketMsgType.MsgNotify,
+			source: SocketMsgSource.Server,
+			data: undefined,
+			msg: { type: "warning", content: `${aiUser.username}离开了房间` },
+		});
+		this.roomInfoBroadcast();
+		return true;
+	}
+
+	private getRoomUserInfo(user: UserInRoom): UserInRoomInfo {
+		return {
+			userId: user.userId,
+			username: user.username,
+			isReady: user.isReady,
+			color: user.color,
+			avatar: user.avatar,
+			roleId: user.roleId,
+			isAI: false,
+		};
+	}
+
+	private getAllRoomUsers(): UserInRoomInfo[] {
+		return [
+			...Array.from(this.userList.values()).map((user) => this.getRoomUserInfo(user)),
+			...Array.from(this.aiUserList.values()),
+		];
+	}
+
+	private getRandomRoleId(): string | null {
+		const roles = useMapData().roles;
+		if (roles.length === 0) return null;
+		return roles[Math.floor(Math.random() * roles.length)]?.id ?? null;
+	}
+
+	private assignRandomRoleToAiUser(aiUser: UserInRoomInfo): boolean {
+		const roleId = this.getRandomRoleId();
+		if (!roleId) return false;
+		aiUser.roleId = roleId;
+		aiUser.isReady = true;
+		return true;
+	}
+
+	public randomizeAiRoles(targetUserId?: string): boolean {
+		const targets = targetUserId ? [this.aiUserList.get(targetUserId)].filter(Boolean) : Array.from(this.aiUserList.values());
+		if (targets.length === 0) return false;
+		for (const aiUser of targets) {
+			if (!this.assignRandomRoleToAiUser(aiUser!)) {
+				return false;
+			}
+		}
+		this.roomInfoBroadcast();
+		return true;
+	}
+
+	private ensureAiPlayersReadyForStart(): { success: boolean; error?: string } {
+		const invalidAiUser = Array.from(this.aiUserList.values()).find((user) => {
+			if (user.roleId) return false;
+			return !this.assignRandomRoleToAiUser(user);
+		});
+		if (invalidAiUser) {
+			return { success: false, error: `${invalidAiUser.username}未能分配角色` };
+		}
+		return { success: true };
+	}
+
+	private ensureAiPlayersForSave(record: SaveRecord, aiPlayerIds: string[]): void {
+		for (const playerId of aiPlayerIds) {
+			if (this.aiUserList.has(playerId)) continue;
+			const nameIndex = record.playerUserIds.indexOf(playerId);
+			const snapshotRoleId = record.snapshot.playerSnapshots[playerId]?.roleId ?? "";
+			this.aiUserList.set(playerId, {
+				userId: playerId,
+				username: record.playerNames[nameIndex] || `AI玩家-${playerId.slice(0, 4)}`,
+				isReady: true,
+				avatar: "",
+				color: Room.AI_COLOR_PALETTE[this.aiUserList.size % Room.AI_COLOR_PALETTE.length],
+				roleId: snapshotRoleId,
+				isAI: true,
+			});
+		}
+	}
+
+	private getUserNameById(userId: string): string {
+		return this.userList.get(userId)?.username ?? this.aiUserList.get(userId)?.username ?? `Player-${userId.slice(0, 4)}`;
 	}
 
 	// public isUserOffLine(userId: string): boolean {
@@ -204,14 +342,7 @@ export class Room {
 		const roomInfo: RoomInfo = {
 			// mapInfo: this.mapInfo,
 			roomId: this.roomId,
-			userList: Array.from(this.userList.values()).map((user) => ({
-				userId: user.userId,
-				username: user.username,
-				isReady: user.isReady,
-				color: user.color,
-				avatar: user.avatar,
-				roleId: user.roleId,
-			})),
+			userList: this.getAllRoomUsers(),
 			isStarted: this.isStarted,
 			ownerId: this.getOwner().userId,
 			ownerName: this.getOwner().username,
@@ -413,6 +544,10 @@ export class Room {
 	public async changeMap(data: RoomMapInfo) {
 		const _this = this;
 		console.log("[ChangeMap] 7.Room.changeMap: 开始处理, from=", data.from, "dataLen=", (data.data as string)?.length);
+		this.aiUserList.forEach((user) => {
+			user.isReady = true;
+			user.roleId = "";
+		});
 		//换地图取消所有玩家准备状态
 		if (data.from === "server") {
 			this.mapInfo = data;
@@ -504,15 +639,24 @@ export class Room {
 		if (user) {
 			user.color = color;
 			this.roomInfoBroadcast();
-		} else {
 			return;
 		}
+		const aiUser = this.aiUserList.get(_userId);
+		if (!aiUser) return;
+		aiUser.color = color;
+		this.roomInfoBroadcast();
 	}
 
 	public changeRole(_userId: string, roleId: string): void {
 		const user = this.userList.get(_userId);
-		if (!user) return;
-		user.roleId = roleId;
+		if (user) {
+			user.roleId = roleId;
+			this.roomInfoBroadcast();
+			return;
+		}
+		const aiUser = this.aiUserList.get(_userId);
+		if (!aiUser) return;
+		aiUser.roleId = roleId;
 		this.roomInfoBroadcast();
 	}
 
@@ -528,7 +672,18 @@ export class Room {
 	}
 
 	public async startGame() {
-		if (!Array.from(this.userList.values()).every((item) => item.userId == this.ownerId || item.isReady)) {
+		const aiReadyResult = this.ensureAiPlayersReadyForStart();
+		if (!aiReadyResult.success) {
+			this.roomBroadcast({
+				type: SocketMsgType.MsgNotify,
+				source: SocketMsgSource.Server,
+				data: undefined,
+				msg: { type: "warning", content: aiReadyResult.error || "AI 玩家未就绪" },
+			});
+			this.roomInfoBroadcast();
+			return;
+		}
+		if (!this.getAllRoomUsers().every((item) => item.userId === this.ownerId || item.isAI || item.isReady)) {
 			this.roomBroadcast({
 				type: SocketMsgType.MsgNotify,
 				source: SocketMsgSource.Server,
@@ -598,6 +753,9 @@ export class Room {
 		await setRoomStarted(this.getRoomId(), false);
 		Array.from(this.userList.values()).forEach((u) => {
 			u.isReady = false;
+		});
+		this.aiUserList.forEach((u) => {
+			u.isReady = true;
 		});
 		this.roomInfoBroadcast();
 		console.log("🚀 ~ Room ~ handleGameOver ~ 游戏结束啦:");
@@ -914,6 +1072,8 @@ export class Room {
 		const roomUserIds = Array.from(this.userList.keys());
 		const { valid, aiPlayerIds, error } = this.saveManager.validatePlayers(record, roomUserIds);
 		if (!valid) return { success: false, error };
+		this.ensureAiPlayersForSave(record, aiPlayerIds);
+		this.roomInfoBroadcast();
 
 		// 预存存档数据，将在 handleWorkerReady 发送 LoadGameInfo 时一并传递给 Worker
 		// Worker 在 waitInitFinished() 完成后自动注入存档
@@ -1593,10 +1753,8 @@ export class Room {
 			const mapVersion = useMapData().info?.version ?? "0.0.0";
 			const mapName = useMapData().info?.name ?? "未知地图";
 
-				// 获取玩家名字列表
-				const playerNames = Object.keys(snapshot.playerSnapshots).map(
-					userId => this.userList.get(userId)?.username ?? `Player-${userId.slice(0, 4)}`
-				);
+			// 获取玩家名字列表
+			const playerNames = Object.keys(snapshot.playerSnapshots).map((userId) => this.getUserNameById(userId));
 
 			const record = await this.saveManager.save(snapshot, mapId, mapVersion, mapName, playerNames);
 
@@ -1783,9 +1941,7 @@ export class Room {
 						const mapVersion = useMapData().info?.version ?? "0.0.0";
 						const mapName = useMapData().info?.name ?? "未知地图";
 						// 获取玩家名字列表
-						const playerNames = Object.keys(snapshot.playerSnapshots).map(
-							userId => this.userList.get(userId)?.username ?? `Player-${userId.slice(0, 4)}`
-						);
+						const playerNames = Object.keys(snapshot.playerSnapshots).map((userId) => this.getUserNameById(userId));
 						this.saveManager.save(snapshot, mapId, mapVersion, mapName, playerNames)
 							.then(() => {
 								FPMessage({ type: "success", message: "存档成功！" });
@@ -1872,10 +2028,7 @@ export class Room {
 			data: {
 				setting: this.gameSetting,
 				mapInfo: mapData,
-				userList: Array.from(this.userList.values()).map((u) => {
-					const { socketClient, ...userInfo } = u;
-					return userInfo;
-				}),
+				userList: this.getAllRoomUsers(),
 				roomOwnerId: this.ownerId,
 				saveData: this.pendingSaveData ?? undefined,
 			},

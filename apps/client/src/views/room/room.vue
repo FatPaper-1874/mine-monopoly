@@ -14,7 +14,7 @@
 	import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 	import { copyToClipboard, getDisplayValueByFormSchema } from "@src/utils";
 	import { setRoomPrivate } from "@src/utils/api/room-router";
-	import { FormSchema, GameMapInDb, GameSetting, RoleInRoom } from "@mine-monopoly/types";
+	import { FormSchema, GameMapInDb, GameSetting, RoleInRoom, UserInRoomInfo } from "@mine-monopoly/types";
 	import { loadGameMapFromServer } from "@src/utils/file/game-map";
 	import RolePreviewer from "./components/role-previewer.vue";
 	import { useResourceStore, useMapData } from "@src/store/game";
@@ -33,8 +33,26 @@ import { vStagger } from "@src/directives";
 
 	const roomInfoStore = useRoomInfo();
 	const userInfoStore = useUserInfo();
+	const maxRoomPlayers = 6;
 
 	const playerList = computed(() => roomInfoStore.userList);
+	const roomSlots = computed(() => {
+		const slots: Array<
+			| { type: "player"; user: UserInRoomInfo }
+			| { type: "add-ai" }
+			| { type: "empty"; key: string }
+		> = playerList.value.map((user) => ({ type: "player", user }));
+		const emptyCount = Math.max(0, maxRoomPlayers - slots.length);
+		for (let i = 0; i < emptyCount; i++) {
+			const isFirstEmpty = i === 0;
+			if (isFirstEmpty && canAddAIPlayer.value) {
+				slots.push({ type: "add-ai" });
+				continue;
+			}
+			slots.push({ type: "empty", key: `empty-${i}` });
+		}
+		return slots;
+	});
 	const ownerName = computed(() => roomInfoStore.ownerName);
 	const ownerId = computed(() => roomInfoStore.ownerId);
 	const roomId = computed(() => roomInfoStore.roomId);
@@ -80,16 +98,24 @@ import { vStagger } from "@src/directives";
 	const roleList = computed(() => roomInfoStore.roleList);
 	const roleSelectorVisible = ref(false);
 	const tempRoleSelectedId = ref<string[]>([]);
+	const roleTargetUserId = ref<string>("");
 
-	function handleSelectRole() {
-		const currentUser = roomInfoStore.userList.find((user) => user.userId === userInfoStore.userId);
+	function handleSelectRole(targetUser?: UserInRoomInfo) {
+		const currentUser = targetUser ?? roomInfoStore.userList.find((user) => user.userId === userInfoStore.userId);
+		if (!currentUser) return;
+		roleTargetUserId.value = currentUser.userId;
 		tempRoleSelectedId.value = currentUser?.roleId ? [currentUser.roleId] : [];
 		roleSelectorVisible.value = true;
 	}
 
 	function handleChangeRole() {
 		if (socketClient && tempRoleSelectedId.value.length > 0 && tempRoleSelectedId.value[0] !== undefined) {
-			socketClient.changeRole(tempRoleSelectedId.value[0]);
+			const result = socketClient.changeRoleForUser(roleTargetUserId.value || userInfoStore.userId, tempRoleSelectedId.value[0]);
+			if (!result.success) {
+				FPMessage({ type: "error", message: result.error || "修改角色失败" });
+				return;
+			}
+			roleSelectorVisible.value = false;
 		}
 	}
 
@@ -125,10 +151,13 @@ import { vStagger } from "@src/directives";
 		() =>
 			!(
 				Boolean(roomInfoStore.mapInfo) &&
-				roomInfoStore.userList.every((user) => Boolean(user.roleId) || user.userId === ownerId.value || user.isReady) &&
+				roomInfoStore.userList.every(
+					(user) => Boolean(user.roleId) || Boolean(user.isAI) || user.userId === ownerId.value || user.isReady,
+				) &&
 				!useLoading().loading
 			),
 	);
+	const canAddAIPlayer = computed(() => isOwner.value && playerList.value.length < maxRoomPlayers && !roomInfoStore.isStarted);
 
 	async function handleSetPrivate() {
 		isPrivate.value = !isPrivate.value;
@@ -158,6 +187,14 @@ import { vStagger } from "@src/directives";
 	function handleGameStart() {
 		if (socketClient) {
 			socketClient.startGame();
+		}
+	}
+
+	function handleAddAIPlayer() {
+		if (!socketClient) return;
+		const result = socketClient.addAIPlayer();
+		if (!result.success) {
+			FPMessage({ type: "error", message: result.error || "添加 AI 玩家失败" });
 		}
 	}
 
@@ -317,13 +354,15 @@ import { vStagger } from "@src/directives";
 
 			<div class="right-container">
 				<div class="player-list-container" v-stagger="350">
-					<room-user-card
-						@role-select="handleSelectRole"
-						v-for="player in playerList"
-						:key="player.userId"
-						:user="player"
-					/>
-					<roomUserCard v-for="i in Math.max(0, 6 - playerList.length)" :key="i" :user="undefined" />
+					<template v-for="slot in roomSlots" :key="slot.type === 'player' ? slot.user.userId : slot.type === 'empty' ? slot.key : 'add-ai'">
+						<room-user-card
+							v-if="slot.type === 'player'"
+							@role-select="handleSelectRole"
+							:user="slot.user"
+						/>
+						<roomUserCard v-else-if="slot.type === 'add-ai'" :user="undefined" :add-ai-button="true" @add-ai="handleAddAIPlayer" />
+						<roomUserCard v-else :user="undefined" />
+					</template>
 				</div>
 			</div>
 		</div>
@@ -466,6 +505,7 @@ import { vStagger } from "@src/directives";
 		}
 	}
 }
+
 
 .room-topbar {
 	position: absolute;

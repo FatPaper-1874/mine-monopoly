@@ -6,6 +6,7 @@ import { IPlayer, IProperty, IChanceCard } from "./entities"; // 引用 entities
 import { ChanceCardInfo } from "./infos"; // 引用 infos
 import { IGameRuntimeStack, GameContext, GameEvent, GameRuntimeEvent, RuntimeMapEvent } from "./events"; // 引用 events
 import { ButtonController } from "../button"; // 引用 button
+import { AIDecisionPrompt, AIDecisionSelection, AIDecisionSemanticHint } from "../ai";
 import { MapEvent } from "../item"; // 引用 item
 
 import {
@@ -84,7 +85,12 @@ export interface IGameProcess extends IGameProcessCustomFields {
 	/** 游戏自定义数据（纯主机端内部存储，不同步到客户端） */
 	customData: Record<string, any>;
 
-	/** 游戏结束规则检查函数，返回 false 表示游戏继续，返回玩家ID数组表示游戏结束（数组顺序即为排名） */
+	/**
+	 * 游戏结束规则检查函数
+	 * @param ctx - 当前游戏上下文
+	 * @param gameProcess - 游戏进程实例
+	 * @returns false 表示游戏继续，true 表示已被其他流程终止，玩家 ID 数组表示最终排名
+	 */
 	gameOverRuleFunction: (ctx: GameContext, gameProcess: IGameProcess) => Promise<string[] | true | false>;
 
 	/** 动画完成处理器映射表（animationId -> cleanup函数） */
@@ -354,6 +360,14 @@ export interface IGameProcess extends IGameProcessCustomFields {
 	 */
 	showMessageCard(playerIds: string[], option: MessageCardOption): Promise<void>;
 
+	/**
+	 * 主动向 AI 推送一组合法候选动作，由 AI 返回选择结果
+	 * 仅对 AI 玩家生效；非 AI 玩家返回 null。
+	 * @param playerId - 玩家 ID
+	 * @param prompt - 决策请求
+	 */
+	requestAIDecision(playerId: string, prompt: AIDecisionPrompt): Promise<AIDecisionSelection | null>;
+
 	// ===== 动态按钮管理 =====
 
 	/**
@@ -361,12 +375,14 @@ export interface IGameProcess extends IGameProcessCustomFields {
 	 * @param playerId - 玩家 ID
 	 * @param text - 按钮文案
 	 * @param callback - 点击回调函数
+	 * @param ai - 提供给 AI 的语义提示
 	 * @returns ButtonController - 按钮控制实例
 	 */
 	registerPlayerButton(
 		playerId: string,
 		text: string,
-		callback: () => Promise<void> | void
+		callback: () => Promise<void> | void,
+		ai?: AIDecisionSemanticHint
 	): ButtonController;
 
 	/**

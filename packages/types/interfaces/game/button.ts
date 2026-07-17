@@ -1,22 +1,45 @@
+import { AIDecisionSemanticHint } from "./ai";
+
 /**
  * 按钮配置接口
  */
 export interface ButtonConfig {
-  id: string; // 按钮唯一标识
-  playerId: string; // 所属玩家ID
-  text: string; // 按钮文案
-  enabled: boolean; // 是否启用
-  visible: boolean; // 是否可见
-  callback: () => Promise<void> | void; // 点击回调
+  /** 按钮唯一标识 */
+  id: string;
+
+  /** 所属玩家 ID */
+  playerId: string;
+
+  /** 按钮文案 */
+  text: string;
+
+  /** 是否启用 */
+  enabled: boolean;
+
+  /** 是否可见 */
+  visible: boolean;
+
+  /** AI 辅助语义 */
+  ai?: AIDecisionSemanticHint;
+
+  /** 点击回调 */
+  callback: () => Promise<void> | void;
 }
 
 /**
  * 按钮注册消息
  */
 export interface ButtonRegisterMessage {
+  /** 按钮 ID */
   buttonId: string;
+
+  /** 按钮文案 */
   text: string;
+
+  /** 是否启用 */
   enabled: boolean;
+
+  /** 是否可见 */
   visible: boolean;
 }
 
@@ -24,9 +47,16 @@ export interface ButtonRegisterMessage {
  * 按钮状态变更消息
  */
 export interface ButtonStateChangedMessage {
+  /** 按钮 ID */
   buttonId: string;
+
+  /** 启用状态变更 */
   enabled?: boolean;
+
+  /** 可见状态变更 */
   visible?: boolean;
+
+  /** 文案变更 */
   text?: string;
 }
 
@@ -34,6 +64,7 @@ export interface ButtonStateChangedMessage {
  * 按钮移除消息
  */
 export interface ButtonRemoveMessage {
+  /** 按钮 ID */
   buttonId: string;
 }
 
@@ -41,8 +72,13 @@ export interface ButtonRemoveMessage {
  * 动态按钮点击操作结果
  */
 export interface DynamicButtonClickOperationResult {
+  /** 被点击的按钮 ID */
   buttonId: string;
+
+  /** 是否执行成功 */
   success: boolean;
+
+  /** 失败原因 */
   error?: string;
 }
 

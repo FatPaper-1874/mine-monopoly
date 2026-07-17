@@ -334,10 +334,11 @@ const handleChangeMapInternal: ServerMessageHandler<SocketMsgType.ChangeMap> = a
 		useRoomInfo().gameSettingForm = gameMap.gameSettingForm;
 		// 初始随机选择一个角色
 		if (roles.length > 0) {
-				useMonopolyClient().changeRole(roles[Math.floor(Math.random() * roles.length)].id);
-			}
+			useMonopolyClient().changeRole(roles[Math.floor(Math.random() * roles.length)].id);
+		}
 		// 如果自己是房主,提交默认游戏设置(房间类里不解析游戏数据, 只能靠房主来传)
 		if (useRoomInfo().amIRoomOwner) {
+			client.randomizeAIRoles();
 			const setting: GameSetting = {};
 			gameMap.gameSettingForm.forEach((formSchema) => {
 				setting[formSchema.key] = {

@@ -437,8 +437,51 @@ export class MonopolyClient {
 		this.sendMsg({ type: SocketMsgType.ChangeColor, source: SocketMsgSource.Client, data: newColor });
 	}
 
+	public changeColorForUser(userId: string, newColor: string): { success: boolean; error?: string } {
+		if (this.gameHost && this.gameHost.getRoom().isAiPlayer(userId)) {
+			this.gameHost.getRoom().changeColor(userId, newColor);
+			return { success: true };
+		}
+		if (userId === useUserInfo().userId) {
+			this.changeColor(newColor);
+			return { success: true };
+		}
+		return { success: false, error: "当前只支持房主修改 AI 玩家颜色" };
+	}
+
 	public kickOut(playerId: string) {
+		if (this.gameHost && this.gameHost.getRoom().isAiPlayer(playerId)) {
+			this.gameHost.getRoom().removeAiPlayer(playerId);
+			return;
+		}
 		this.sendMsg({ type: SocketMsgType.KickOut, source: SocketMsgSource.Client, data: playerId });
+	}
+
+	public addAIPlayer(): { success: boolean; error?: string } {
+		if (!this.gameHost) {
+			return { success: false, error: "只有房主才能添加 AI 玩家" };
+		}
+		return this.gameHost.getRoom().addAiPlayer();
+	}
+
+	public randomizeAIRoles(): { success: boolean; error?: string } {
+		if (!this.gameHost) {
+			return { success: false, error: "只有房主才能调整 AI 角色" };
+		}
+		const success = this.gameHost.getRoom().randomizeAiRoles();
+		return success ? { success: true } : { success: false, error: "当前没有可随机分配的 AI 玩家或地图没有角色" };
+	}
+
+	public changeRoleForUser(userId: string, roleId: string): { success: boolean; error?: string } {
+		if (this.gameHost && this.gameHost.getRoom().isAiPlayer(userId)) {
+			this.gameHost.getRoom().changeRole(userId, roleId);
+			return { success: true };
+		}
+		if (userId === useUserInfo().userId) {
+			this.changeRole(roleId);
+			return { success: true };
+		}
+		return { success: false, error: "当前只支持房主修改 AI 玩家角色" };
 	}
 
 	public changeRole(roleId: string) {
