@@ -103,6 +103,181 @@ export interface AIDecisionOption {
  * AI 策略状态
  * 当前实现较轻量，后续可用于远程模型 / 中长期策略。
  */
+export interface AIStrategyEconomyMemory {
+	/** 现金安全线 */
+	reserveCashTarget?: number;
+
+	/** 当前花钱倾向 */
+	spendMode?: "hold_cash" | "balanced" | "invest";
+
+	/** 风险偏好 */
+	riskTolerance?: "low" | "medium" | "high";
+
+	/** 经济层面的警示 */
+	warningFlags?: string[];
+}
+
+export interface AIStrategyThreatModelMemory {
+	/** 当前重点关注的玩家 */
+	focusPlayerId?: string;
+
+	/** 威胁原因 */
+	threatReasons?: string[];
+
+	/** 需要重点规避或关注的危险地产 */
+	dangerousPropertyIds?: string[];
+}
+
+export interface AIStrategyPropertyPlanMemory {
+	/** 当前重点关注的地产 */
+	focusPropertyIds?: string[];
+
+	/** 应避免投入的地产 */
+	avoidPropertyIds?: string[];
+
+	/** 地产相关扩张理由 */
+	expansionReason?: string;
+}
+
+export interface AIStrategySystemPlanMemory {
+	/** 偏好的系统 */
+	preferredSystems?: string[];
+
+	/** 暂时避免的系统 */
+	avoidedSystems?: string[];
+
+	/** 最近一次被视为有效的系统 */
+	lastEffectiveSystem?: string;
+}
+
+export interface AIStrategyMapUnderstandingMemory {
+	/** AI 认为值得注意的地图区域 */
+	keyZones?: string[];
+
+	/** 关键格子 / 事件说明 */
+	specialTileNotes?: string[];
+
+	/** 近期路径理解 */
+	routeNotes?: string[];
+}
+
+export interface AIStrategyShortTermIntentMemory {
+	/** 当前短期目标 */
+	currentGoal?: string;
+
+	/** 下一步倾向 */
+	nextTurnPlan?: string[];
+
+	/** 需要满足的保守条件 */
+	holdConditions?: string[];
+}
+
+export interface AIStrategyShortTermMemory {
+	/** 最近几次决策摘要 */
+	recentDecisions?: string[];
+
+	/** 最近几次失败或不适合继续尝试的记录 */
+	recentFailures?: string[];
+
+	/** 当前回合或最近几步的阻塞提示 */
+	blockedActionHints?: string[];
+
+	/** 需要立刻记住的焦点 */
+	immediateFocus?: string[];
+
+	/** 最近一次选择的系统 */
+	lastChosenSystem?: string;
+
+	/** 最近一次结果 */
+	lastOutcome?: string;
+}
+
+export interface AIStrategyMemoryStat {
+	/** 统计键 */
+	key: string;
+
+	/** 展示标签 */
+	label?: string;
+
+	/** 来源系统 */
+	sourceSystem?: string;
+
+	/** 成功次数 */
+	successCount?: number;
+
+	/** 失败次数 */
+	failureCount?: number;
+
+	/** 中性次数 */
+	neutralCount?: number;
+
+	/** 最近结果 */
+	lastOutcome?: string;
+
+	/** 最近更新回合 */
+	lastRound?: number;
+}
+
+export interface AIStrategyMatchMemory {
+	/** 当前对局里更有效的系统 */
+	effectiveSystems?: string[];
+
+	/** 当前对局里应谨慎对待的系统 */
+	riskySystems?: string[];
+
+	/** 按系统聚合的对局统计 */
+	systemStats?: AIStrategyMemoryStat[];
+
+	/** 按动作聚合的对局统计 */
+	actionStats?: AIStrategyMemoryStat[];
+
+	/** 当前对局归纳出的经验结论 */
+	notableLessons?: string[];
+}
+
+export interface AIStrategyExperienceMemory {
+	/** 最近成功经验 */
+	recentSuccesses?: string[];
+
+	/** 最近失败经验 */
+	recentFailures?: string[];
+
+	/** 压缩后的经验结论 */
+	compressedLessons?: string[];
+}
+
+export interface AIStrategyStructuredMemory {
+	/** 结构版本 */
+	version: number;
+
+	/** 经济与风险记忆 */
+	economy?: AIStrategyEconomyMemory;
+
+	/** 威胁模型 */
+	threatModel?: AIStrategyThreatModelMemory;
+
+	/** 地产计划 */
+	propertyPlan?: AIStrategyPropertyPlanMemory;
+
+	/** 系统偏好 */
+	systemPlan?: AIStrategySystemPlanMemory;
+
+	/** 地图理解 */
+	mapUnderstanding?: AIStrategyMapUnderstandingMemory;
+
+	/** 短期意图 */
+	shortTermIntent?: AIStrategyShortTermIntentMemory;
+
+	/** 短期记忆 */
+	shortTerm?: AIStrategyShortTermMemory;
+
+	/** 对局记忆 */
+	match?: AIStrategyMatchMemory;
+
+	/** 经验记忆 */
+	experience?: AIStrategyExperienceMemory;
+}
+
 export interface AIStrategyState {
 	/** 当前策略姿态 */
 	posture?: "expand" | "balanced" | "conservative" | "desperate" | "speculative";
@@ -129,7 +304,7 @@ export interface AIStrategyState {
 	notes?: string[];
 
 	/** 附加记忆 */
-	memory?: Record<string, unknown>;
+	memory?: AIStrategyStructuredMemory;
 }
 
 export interface AIDecisionPlayerRoleSnapshot {
@@ -310,6 +485,8 @@ export type AIDecisionProviderMode = "local" | "remote";
 export type AIRemoteLLMProviderKind = "openai-compatible" | "anthropic";
 
 export interface AIRemoteLLMConfig {
+	id?: string;
+	name?: string;
 	provider?: AIRemoteLLMProviderKind;
 	baseUrl: string;
 	apiKey: string;
@@ -317,10 +494,114 @@ export interface AIRemoteLLMConfig {
 	timeoutMs?: number;
 }
 
+export interface AIRemoteLLMProfile extends AIRemoteLLMConfig {
+	id: string;
+	name: string;
+}
+
+export interface AIRemoteUsageRecord {
+	traceId: string;
+	playerId: string;
+	title: string;
+	scene?: string;
+	profileId?: string;
+	profileName?: string;
+	provider: AIRemoteLLMProviderKind;
+	model: string;
+	inputTokens?: number;
+	outputTokens?: number;
+	totalTokens?: number;
+	promptChars: number;
+	responseChars: number;
+	timestamp: number;
+	usageAvailable: boolean;
+}
+
+export interface AIRemoteUsageSummary {
+	requestCount: number;
+	usageCount: number;
+	missingUsageCount: number;
+	inputTokens: number;
+	outputTokens: number;
+	totalTokens: number;
+}
+
+export interface AIRemoteUsagePlayerSnapshot {
+	playerId: string;
+	summary: AIRemoteUsageSummary;
+	records: AIRemoteUsageRecord[];
+}
+
+export interface AIRemoteUsageSnapshot {
+	records: AIRemoteUsageRecord[];
+	summary: AIRemoteUsageSummary;
+	byPlayer: Record<string, AIRemoteUsagePlayerSnapshot>;
+}
+
 export interface AIDecisionConfig {
 	mode: AIDecisionProviderMode;
 	remote: AIRemoteLLMConfig;
+	remoteProfiles?: AIRemoteLLMProfile[];
+	defaultRemoteProfileId?: string;
 	contextMemoryLimit?: number;
+}
+
+export interface AIPlayerDecisionBinding {
+	mode: AIDecisionProviderMode;
+	remoteProfileId?: string;
+}
+
+export interface AIControlRoomSnapshot {
+	roomId: string;
+	ownerId: string;
+	isStarted: boolean;
+	mapName: string;
+	canSyncRoomAI: boolean;
+	workerState?: string;
+	lastKnownGameState?: unknown;
+}
+
+export interface AIControlPlayerSnapshot {
+	userId: string;
+	username: string;
+	color?: string;
+	roleId?: string;
+	isReady?: boolean;
+	binding: AIPlayerDecisionBinding;
+	resolvedRemoteProfile: AIRemoteLLMProfile | null;
+	usage?: AIRemoteUsagePlayerSnapshot;
+	strategyState?: AIStrategyState;
+}
+
+export interface AIControlSnapshot {
+	room: AIControlRoomSnapshot;
+	config: AIDecisionConfig;
+	remoteUsage: AIRemoteUsageSnapshot;
+	aiPlayers: AIControlPlayerSnapshot[];
+	debugState?: unknown;
+}
+
+export interface AIControlApplyConfigResult {
+	success: boolean;
+	error?: string;
+	syncedRoomAI?: boolean;
+	config?: AIDecisionConfig;
+}
+
+export interface AIControlMutationResult {
+	success: boolean;
+	error?: string;
+}
+
+export interface AIControlBridge {
+	getSnapshot: () => Promise<AIControlSnapshot>;
+	applyConfig: (config: AIDecisionConfig) => Promise<AIControlApplyConfigResult> | AIControlApplyConfigResult;
+	clearUsage: () => Promise<AIControlMutationResult> | AIControlMutationResult;
+	clearMemory: (playerId?: string) => Promise<AIControlMutationResult> | AIControlMutationResult;
+	setPlayerBinding: (
+		userId: string,
+		binding: Partial<AIPlayerDecisionBinding>,
+	) => Promise<AIControlMutationResult> | AIControlMutationResult;
 }
 
 /**

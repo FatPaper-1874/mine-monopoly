@@ -394,6 +394,9 @@ async function handleMessage(data: WorkerCommMsg) {
 		case WorkerCommType.UpdateAIDecisionConfig:
 			applyAIDecisionConfig(data.data);
 			break;
+		case WorkerCommType.ClearAIStrategyMemory:
+			aiManager.clearStrategyState(data.data?.playerId);
+			break;
 		case WorkerCommType.AIDecisionResponse:
 			resolveAIDecisionResponse(data.data);
 			break;
@@ -2650,17 +2653,21 @@ export class GameProcess implements IGameProcess {
 					? Math.max(1, option.multiple)
 					: 1;
 		const keyName = option?.keyName;
-		const options: AIDecisionOption[] = (option?.itemList || []).map((item: any, index) => ({
-			id: String(item?.id ?? index),
-			label: String(item?.[keyName as string] ?? this.extractDisplayText(item?.display) ?? item?.name ?? item?.id ?? `选项${index + 1}`),
-			description: this.extractDisplayText(item?.display),
-			actionType: "select",
-			semantics: item?.ai,
-			payload: {
-				id: item?.id ?? index,
-				type: "item",
-			},
-		}));
+		const options: AIDecisionOption[] = (option?.itemList || []).map((item: any, index) => {
+			const label = this.buildSelectorItemLabel(item, index, keyName);
+			const description = this.buildSelectorItemDescription(item, label);
+			return {
+				id: String(item?.id ?? index),
+				label,
+				description,
+				actionType: "select",
+				semantics: item?.ai,
+				payload: {
+					id: item?.id ?? index,
+					type: "item",
+				},
+			};
+		});
 
 		if (option?.cancelText) {
 			options.push({
@@ -3039,11 +3046,145 @@ export class GameProcess implements IGameProcess {
 
 	private extractDisplayText(display: unknown): string | undefined {
 		if (typeof display === "string") {
-			return display;
+			const normalized = display.trim();
+			return normalized || undefined;
 		}
-		if (display && typeof display === "object" && "content" in display) {
-			const content = (display as { content?: unknown }).content;
-			return typeof content === "string" ? content : undefined;
+		if (!display || typeof display !== "object") {
+			return undefined;
+		}
+
+		const variableText = this.extractObjectStringByKeys(display, ["description", "summary", "content", "text", "label", "title", "name"]);
+		if (variableText) {
+			return variableText;
+		}
+
+		const record = display as { content?: unknown; variable?: unknown; children?: unknown };
+		if (typeof record.content === "string") {
+			const normalized = record.content.trim();
+			if (normalized) {
+				return normalized;
+			}
+		}
+		if (record.variable && typeof record.variable === "object") {
+			const variableContent = this.extractObjectStringByKeys(record.variable, ["description", "summary", "content", "text", "label", "title", "name"]);
+			if (variableContent) {
+				return variableContent;
+			}
+		}
+		if (Array.isArray(record.children)) {
+			for (const child of record.children) {
+				const childText = this.extractDisplayText(child);
+				if (childText) {
+					return childText;
+				}
+			}
+		}
+		return undefined;
+	}
+
+	private buildSelectorItemLabel(item: any, index: number, keyName?: PropertyKey): string {
+		const explicitLabel =
+			keyName !== undefined && item && typeof item === "object"
+				? item[keyName as keyof typeof item]
+				: undefined;
+		const label =
+			this.normalizeDecisionText(explicitLabel) ??
+			this.normalizeDecisionText(item?.name) ??
+			this.normalizeDecisionText(item?.title) ??
+			this.normalizeDecisionText(item?.label) ??
+			this.normalizeDecisionText(item?.info?.name) ??
+			this.extractDisplayVariableText(item?.display, ["name", "title", "label"]) ??
+			this.extractSemanticMetadataText(item?.ai, ["name", "title", "label", "cardName"]) ??
+			this.extractSummaryHeadline(item?.ai?.summary) ??
+			this.normalizeDecisionText(item?.id);
+		return label || `选项${index + 1}`;
+	}
+
+	private buildSelectorItemDescription(item: any, label: string): string | undefined {
+		const description =
+			this.normalizeDecisionText(item?.description) ??
+			this.normalizeDecisionText(item?.info?.description) ??
+			this.extractDisplayVariableText(item?.display, ["description", "summary", "content", "text"]) ??
+			this.extractDisplayText(item?.display) ??
+			this.extractSemanticMetadataText(item?.ai, ["description", "summary", "detail"]) ??
+			this.normalizeDecisionText(item?.ai?.summary);
+		if (!description || description === label) {
+			return undefined;
+		}
+		return description;
+	}
+
+	private extractDisplayVariableText(display: unknown, keys: string[]): string | undefined {
+		if (!display || typeof display !== "object" || !("variable" in display)) {
+			return undefined;
+		}
+		return this.extractObjectStringByKeys((display as { variable?: unknown }).variable, keys);
+	}
+
+	private extractSemanticMetadataText(semantics: AIDecisionSemanticHint | undefined, keys: string[]): string | undefined {
+		return this.extractObjectStringByKeys(semantics?.metadata, keys);
+	}
+
+	private extractObjectStringByKeys(source: unknown, keys: string[]): string | undefined {
+		return this.findObjectStringByKeys(source, keys, new Set<object>());
+	}
+
+	private normalizeDecisionText(value: unknown): string | undefined {
+		if (typeof value !== "string") {
+			return undefined;
+		}
+		const normalized = value.replace(/\s+/g, " ").trim();
+		return normalized || undefined;
+	}
+
+	private extractSummaryHeadline(summary: string | undefined): string | undefined {
+		const normalized = this.normalizeDecisionText(summary);
+		if (!normalized) {
+			return undefined;
+		}
+		const firstSegment = normalized.split(/[，,。:：;；|]/)[0]?.trim();
+		if (!firstSegment) {
+			return undefined;
+		}
+		const cleaned = firstSegment
+			.replace(/^(?:购买|买入|使用|发动|选择|选中|获取|获得|触发|执行|升级|查看|前往|移动到)\s+/u, "")
+			.replace(/^(?:物品|道具|卡牌|机会卡|地皮|角色|目标)\s+/u, "")
+			.trim();
+		return cleaned || firstSegment;
+	}
+
+	private findObjectStringByKeys(source: unknown, keys: string[], visited: Set<object>): string | undefined {
+		if (!source || typeof source !== "object") {
+			return undefined;
+		}
+		if (visited.has(source as object)) {
+			return undefined;
+		}
+		visited.add(source as object);
+
+		for (const key of keys) {
+			const value = (source as Record<string, unknown>)[key];
+			const normalized = this.normalizeDecisionText(value);
+			if (normalized) {
+				return normalized;
+			}
+		}
+
+		if (Array.isArray(source)) {
+			for (const item of source) {
+				const nested = this.findObjectStringByKeys(item, keys, visited);
+				if (nested) {
+					return nested;
+				}
+			}
+			return undefined;
+		}
+
+		for (const value of Object.values(source as Record<string, unknown>)) {
+			const nested = this.findObjectStringByKeys(value, keys, visited);
+			if (nested) {
+				return nested;
+			}
 		}
 		return undefined;
 	}
@@ -3684,6 +3825,7 @@ export class GameProcess implements IGameProcess {
 			]),
 			animationCompletionHandlers: Array.from(this.animationCompletionHandlers.keys()),
 			rankedPlayerIds: [...this.rankedPlayerIds],
+			aiStrategyStates: aiManager.getAllStrategyStates(),
 		};
 		return JSON.parse(JSON.stringify(raw));
 	}

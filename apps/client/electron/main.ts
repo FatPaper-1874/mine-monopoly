@@ -354,6 +354,26 @@ app.on("activate", () => {
 
 // ===== 游戏进程控制台 (dev only) =====
 let inspectorWin: BrowserWindow | null = null;
+let aiConsoleWin: BrowserWindow | null = null;
+
+async function executeInMainWindow<T>(script: string): Promise<T> {
+	if (!win || win.isDestroyed()) {
+		throw new Error("Main window not available");
+	}
+	return await win.webContents.executeJavaScript(script);
+}
+
+async function executeAIControlBridge<T>(callExpression: string, missingResult: string): Promise<T> {
+	return await executeInMainWindow(
+		"(async function() {" +
+			"  const bridge = window.__aiControlBridge;" +
+			"  if (!bridge) {" +
+			`    return ${missingResult};` +
+			"  }" +
+			`  return await ${callExpression};` +
+			"})()",
+	);
+}
 
 ipcMain.handle("open-inspector", async () => {
 	if (app.isPackaged) return;
@@ -386,12 +406,40 @@ ipcMain.handle("open-inspector", async () => {
 	});
 });
 
-ipcMain.handle("inspector:get-state", async () => {
-	if (!win || win.isDestroyed()) {
-		return { __error: "Main window not available" };
+ipcMain.handle("open-ai-console", async () => {
+	if (aiConsoleWin && !aiConsoleWin.isDestroyed()) {
+		aiConsoleWin.focus();
+		return;
 	}
+
+	aiConsoleWin = new BrowserWindow({
+		width: 1360,
+		height: 820,
+		minWidth: 1040,
+		minHeight: 700,
+		title: "AI 控制台",
+		frame: false,
+		webPreferences: {
+			nodeIntegration: true,
+			contextIsolation: false,
+		},
+	});
+
+	aiConsoleWin.loadFile(path.join(process.env.APP_ROOT!, "electron", "ai-console.html"));
+	aiConsoleWin.on("closed", () => {
+		aiConsoleWin = null;
+	});
+});
+
+ipcMain.on("close-ai-console", () => {
+	if (aiConsoleWin && !aiConsoleWin.isDestroyed()) {
+		aiConsoleWin.close();
+	}
+});
+
+ipcMain.handle("inspector:get-state", async () => {
 	try {
-		const result = await win.webContents.executeJavaScript(
+		const result = await executeInMainWindow(
 			"(function() {" +
 				"  const bridge = window.__gpBridge;" +
 				"  if (!bridge || typeof bridge.requestState !== 'function') {" +
@@ -418,11 +466,8 @@ ipcMain.handle("inspector:get-state", async () => {
 });
 
 ipcMain.handle("inspector:gm-action", async (event, action: GMAction) => {
-	if (!win || win.isDestroyed()) {
-		return { success: false, error: "Main window not available" };
-	}
 	try {
-		const result = await win.webContents.executeJavaScript(
+		const result = await executeInMainWindow(
 			"(function() {" +
 				"  const room = window.__roomInstance;" +
 				"  if (!room || typeof room.gmAction !== 'function') {" +
@@ -434,6 +479,66 @@ ipcMain.handle("inspector:gm-action", async (event, action: GMAction) => {
 				"})()"
 		);
 		return result;
+	} catch (e: any) {
+		return { success: false, error: e.message };
+	}
+});
+
+ipcMain.handle("ai-console:get-state", async () => {
+	try {
+		return await executeAIControlBridge(
+			"bridge.getSnapshot()",
+			"{ __error: 'AI control bridge not available' }",
+		);
+	} catch (e: any) {
+		return { __error: e.message };
+	}
+});
+
+ipcMain.handle("ai-console:apply-config", async (_event, config) => {
+	try {
+		return await executeAIControlBridge(
+			"bridge.applyConfig(" + JSON.stringify(config) + ")",
+			"{ success: false, error: 'AI control bridge not available' }",
+		);
+	} catch (e: any) {
+		return { success: false, error: e.message };
+	}
+});
+
+ipcMain.handle("ai-console:set-player-binding", async (_event, payload: { userId: string; binding: unknown }) => {
+	try {
+		return await executeAIControlBridge(
+			"bridge.setPlayerBinding(" +
+				JSON.stringify(payload?.userId) +
+				", " +
+				JSON.stringify(payload?.binding ?? {}) +
+				")",
+			"{ success: false, error: 'AI control bridge not available' }",
+		);
+	} catch (e: any) {
+		return { success: false, error: e.message };
+	}
+});
+
+ipcMain.handle("ai-console:clear-usage", async () => {
+	try {
+		return await executeAIControlBridge(
+			"bridge.clearUsage()",
+			"{ success: false, error: 'AI control bridge not available' }",
+		);
+	} catch (e: any) {
+		return { success: false, error: e.message };
+	}
+});
+
+ipcMain.handle("ai-console:clear-memory", async (_event, payload: { playerId?: string } | undefined) => {
+	try {
+		const playerId = payload?.playerId ?? null;
+		return await executeAIControlBridge(
+			"bridge.clearMemory(" + JSON.stringify(playerId) + " || undefined)",
+			"{ success: false, error: 'AI control bridge not available' }",
+		);
 	} catch (e: any) {
 		return { success: false, error: e.message };
 	}

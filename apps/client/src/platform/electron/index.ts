@@ -39,5 +39,6 @@ export function createElectronPlatform(): PlatformAPI {
 
 		// 开发者
 		openInspector: api?.openInspector?.bind(api),
+		openAIConsole: api?.openAIConsole?.bind(api),
 	};
 }

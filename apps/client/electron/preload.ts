@@ -46,6 +46,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	logConsole: (data: LogConsoleData) => ipcRenderer.send("log-console", data),
 	logNetwork: (data: LogNetworkData) => ipcRenderer.send("log-network", data),
 	openLogsFolder: () => ipcRenderer.invoke("open-logs-folder"),
+	openAIConsole: () => ipcRenderer.invoke("open-ai-console"),
 	// Inspector (dev only) — only exposed in dev mode
 	...(process.env.VITE_DEV_SERVER_URL ? { openInspector: () => ipcRenderer.invoke("open-inspector") } : {}),
 });

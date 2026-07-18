@@ -21,9 +21,20 @@ const aiSettingVisible = ref(false);
 
 // 暴露 window 对象给模板使用
 const win = window as any;
+const hasStandaloneAIConsole = computed(() => Boolean(win.platformAPI?.openAIConsole));
+const aiEntryLabel = computed(() => (hasStandaloneAIConsole.value ? "打开 AI 控制台" : "打开 AI 设置"));
 
 const openInspector = () => {
 	window.platformAPI?.openInspector?.();
+};
+
+const openAISettings = () => {
+	if (hasStandaloneAIConsole.value) {
+		settingVisible.value = false;
+		window.platformAPI?.openAIConsole?.();
+		return;
+	}
+	aiSettingVisible.value = true;
 };
 
 const openLogsFolder = () => {
@@ -473,7 +484,7 @@ const applySettings = () => {
 				<div class="setting-item">
 					<div class="label">AI</div>
 					<div class="content setting-link-content">
-						<button @click="aiSettingVisible = true" class="btn-small setting-link-button">打开 AI 设置</button>
+						<button @click="openAISettings" class="btn-small setting-link-button">{{ aiEntryLabel }}</button>
 					</div>
 				</div>
 
@@ -506,7 +517,7 @@ const applySettings = () => {
 
 	<!-- 日志面板 -->
 	<LogPanel v-model:visible="logPanelVisible" />
-	<AiSettingPanel v-model:visible="aiSettingVisible" />
+	<AiSettingPanel v-if="!hasStandaloneAIConsole" v-model:visible="aiSettingVisible" />
 </template>
 
 <style lang="scss" scoped>

@@ -660,6 +660,14 @@ export class AIManager {
 		return this.strategyStateManager.getState(playerId);
 	}
 
+	getAllStrategyStates(): Record<string, AIStrategyState> {
+		return this.strategyStateManager.getAllStates();
+	}
+
+	clearStrategyState(playerId?: string): void {
+		this.strategyStateManager.clearState(playerId);
+	}
+
 	setContextMemoryLimit(limit: number): void {
 		this.strategyStateManager.setRecentDecisionLimit(limit);
 	}
@@ -694,6 +702,7 @@ export class AIManager {
 			request: args.request,
 			selectedOptionLabel: selectedOption?.label,
 			selectedSourceSystem: selectedOption?.semantics?.sourceSystem || args.request.semantics?.sourceSystem,
+			selectedIntent: selectedOption?.semantics?.intent || args.request.semantics?.intent,
 			outcome: args.outcome,
 		});
 	}

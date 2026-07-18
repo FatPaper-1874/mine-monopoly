@@ -5,10 +5,12 @@ import type {
 	AIDecisionRequest,
 	AIDecisionSelection,
 	AIRemoteLLMConfig,
+	AIRemoteLLMProfile,
 	AIRemoteLLMProviderKind,
 	AIStrategyState,
 } from "@mine-monopoly/types";
 import { HeuristicDecisionProvider } from "../worker/ai/AIStrategy";
+import { recordAIRemoteUsage } from "./remote-usage-stats";
 
 type OpenAIChatCompletionResponse = {
 	choices?: Array<{
@@ -16,14 +18,33 @@ type OpenAIChatCompletionResponse = {
 			content?: string | Array<{ type?: string; text?: string }>;
 		};
 	}>;
+	usage?: {
+		prompt_tokens?: number;
+		completion_tokens?: number;
+		total_tokens?: number;
+		input_tokens?: number;
+		output_tokens?: number;
+	};
 };
 
 type AnthropicMessagesResponse = {
 	content?: Array<{ type?: string; text?: string }>;
+	usage?: {
+		input_tokens?: number;
+		output_tokens?: number;
+		cache_creation_input_tokens?: number;
+		cache_read_input_tokens?: number;
+	};
+};
+
+type RemoteUsage = {
+	inputTokens?: number;
+	outputTokens?: number;
+	totalTokens?: number;
 };
 
 const SYSTEM_PROMPT =
-	"你是大富翁游戏 AI 决策器。只能基于给定 options 做选择。返回 JSON 对象，不要输出额外文本。优先返回 optionId；多选时返回 optionIds；表单场景可返回 submitted 和 fieldValues。可以额外返回 chatMessages 数组，但最多只能有 1 条，而且只能是一句话，内容必须像玩家在房间聊天里会说的自然短句，用第一人称，口语化，不要提模型、提示词、JSON 或接口，也不要直接输出“确认”“取消”“提交”这类按钮词，或任何 id / 技术标识符，优先说具体对象名称和意图。";
+	"你是大富翁游戏 AI 决策器。只能基于给定 options 做选择。返回 JSON 对象，不要输出额外文本。优先返回 optionId；多选时返回 optionIds；表单场景可返回 submitted 和 fieldValues。你可以选择不返回 chatMessages；只有当你确实有自然、像玩家会说的话时才返回。若返回 chatMessages，1 条即可，用第一人称、口语化，可以带一点情绪、判断或理由，但不要提模型、提示词、JSON 或接口，也不要直接输出“确认”“取消”“提交”这类按钮词，或任何 id / 技术标识符，优先说具体对象名称、意图和原因。";
 
 const GENERIC_CHAT_MESSAGES = new Set(["确认", "取消", "提交", "使用", "继续", "选择", "选项", "目标"]);
 const TECHNICAL_CHAT_MESSAGE_PATTERNS = [
@@ -41,6 +62,41 @@ function clipText(text: string | undefined, maxLength: number): string | undefin
 	const normalized = text.replace(/\s+/g, " ").trim();
 	if (!normalized) return undefined;
 	return normalized.length > maxLength ? `${normalized.slice(0, maxLength)}...` : normalized;
+}
+
+function looksTechnicalOptionText(text: string | undefined): boolean {
+	if (!text) return false;
+	const normalized = text.trim();
+	if (!normalized) return false;
+	if (normalized === "__cancel__" || normalized === "__submit__") {
+		return true;
+	}
+	if (!/^[a-z0-9:_-]+$/i.test(normalized)) {
+		return false;
+	}
+	return (
+		/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(normalized) ||
+		(/[0-9]/.test(normalized) && /[-_:]/.test(normalized) && normalized.length >= 10) ||
+		(/\b(?:id|uuid|option|card|item|target|player|property|button|map)\b/i.test(normalized) && /[-_:]/.test(normalized))
+	);
+}
+
+function buildReadableDecisionLabel(option: AIDecisionOption): string | undefined {
+	const semanticSummary = clipText(option.semantics?.summary, 28);
+	const description = clipText(option.description, 28);
+	const label = clipText(option.label, 28);
+	if (label && !looksTechnicalOptionText(label)) {
+		return label;
+	}
+	return semanticSummary || description || label;
+}
+
+function buildReadableDecisionDescription(option: AIDecisionOption): string | undefined {
+	const description = clipText(option.description, 40);
+	if (description && !looksTechnicalOptionText(description)) {
+		return description;
+	}
+	return clipText(option.semantics?.summary, 40) || description;
 }
 
 function normalizeProviderKind(provider?: AIRemoteLLMProviderKind): AIRemoteLLMProviderKind {
@@ -99,6 +155,9 @@ function summarizeRecentDecisionSummaries(summaries: string[] | undefined) {
 type ContextMapItem = AIDecisionRequest["context"]["mapItems"][number];
 type ContextProperty = AIDecisionRequest["context"]["properties"][number];
 type ContextMapEvent = AIDecisionRequest["context"]["mapEvents"][number];
+type ContextPlayer = AIDecisionRequest["context"]["players"][number];
+
+const LIGHTWEIGHT_MAP_SCENES = new Set<AIDecisionRequest["scene"]>(["confirm-dialog", "form-dialog"]);
 
 function summarizeSemantics(semantics: AIDecisionRequest["semantics"]): Record<string, unknown> | undefined {
 	if (!semantics) return undefined;
@@ -117,6 +176,19 @@ function summarizeSemantics(semantics: AIDecisionRequest["semantics"]): Record<s
 	if (typeof semantics.requiresSetup === "boolean") summary.requiresSetup = semantics.requiresSetup;
 	if (typeof semantics.urgency === "number") summary.urgency = semantics.urgency;
 	if (semantics.comboKey) summary.comboKey = semantics.comboKey;
+	return Object.keys(summary).length > 0 ? summary : undefined;
+}
+
+function summarizeDecisionSemantics(semantics: AIDecisionRequest["semantics"]): Record<string, unknown> | undefined {
+	if (!semantics) return undefined;
+	const summary: Record<string, unknown> = {};
+	if (semantics.intent) summary.intent = semantics.intent;
+	if (semantics.sourceSystem) summary.sourceSystem = semantics.sourceSystem;
+	if (semantics.summary) summary.summary = clipText(semantics.summary, 48);
+	if (typeof semantics.cost === "number") summary.cost = semantics.cost;
+	if (typeof semantics.reward === "number") summary.reward = semantics.reward;
+	if (typeof semantics.risk === "number") summary.risk = semantics.risk;
+	if (semantics.target) summary.target = clipText(semantics.target, 18);
 	return Object.keys(summary).length > 0 ? summary : undefined;
 }
 
@@ -159,6 +231,30 @@ function formatBoardPosition(index: number): string {
 	return `第${index + 1}格`;
 }
 
+function summarizePropertyCompact(
+	property: ContextProperty,
+	options?: {
+		includeOwner?: boolean;
+		includeBuyCost?: boolean;
+	},
+): Record<string, unknown> {
+	const summary: Record<string, unknown> = {
+		name: clipText(property.name, 20),
+		level: `${property.level}/${property.maxLevel}`,
+	};
+	const currentRent = getCurrentRent(property);
+	if (typeof currentRent === "number") {
+		summary.rent = currentRent;
+	}
+	if (options?.includeBuyCost !== false && typeof property.sellCost === "number") {
+		summary.buyCost = property.sellCost;
+	}
+	if (options?.includeOwner) {
+		summary.owner = clipText(property.owner?.username, 18) || "无主";
+	}
+	return summary;
+}
+
 function summarizePropertyBrief(property: ContextProperty, includeOwner = true): Record<string, unknown> {
 	const ownerName = clipText(property.owner?.username, 18);
 	const currentRent = getCurrentRent(property);
@@ -198,6 +294,18 @@ function buildTileDisplayName(item: ContextMapItem, mapEvent?: ContextMapEvent):
 	return clipText(item.property?.name, 24) || clipText(mapEvent?.name, 24) || clipText(item.type?.name, 20) || "未知格子";
 }
 
+function summarizeMapEventCompact(event: ContextMapEvent | undefined, maxDescriptionLength = 24): Record<string, unknown> | undefined {
+	if (!event) return undefined;
+	const summary: Record<string, unknown> = {
+		name: clipText(event.name, 20),
+	};
+	const description = clipText(event.description, maxDescriptionLength);
+	if (description) {
+		summary.description = description;
+	}
+	return summary;
+}
+
 function summarizeLinkedProperty(
 	request: AIDecisionRequest,
 	itemId: string | undefined,
@@ -213,6 +321,25 @@ function summarizeLinkedProperty(
 	};
 }
 
+function summarizeLinkedPropertyCompact(
+	request: AIDecisionRequest,
+	itemId: string | undefined,
+	boardIndexByItemId: Map<string, number>,
+): Record<string, unknown> | undefined {
+	if (!itemId) return undefined;
+	const mapItemById = buildMapItemById(request);
+	const linkedTile = mapItemById.get(itemId);
+	if (!linkedTile?.property) return undefined;
+	const summary: Record<string, unknown> = {
+		index: typeof boardIndexByItemId.get(itemId) === "number" ? boardIndexByItemId.get(itemId)! + 1 : undefined,
+		...summarizePropertyCompact(linkedTile.property, {
+			includeOwner: false,
+			includeBuyCost: false,
+		}),
+	};
+	return summary;
+}
+
 function summarizeAttachedProperties(
 	request: AIDecisionRequest,
 	item: ContextMapItem,
@@ -220,6 +347,25 @@ function summarizeAttachedProperties(
 ): Array<Record<string, unknown>> | undefined {
 	const attached = [item.linkto, item.beLinked]
 		.map((linkedId) => summarizeLinkedProperty(request, linkedId, boardIndexByItemId))
+		.filter((value): value is Record<string, unknown> => Boolean(value));
+	if (attached.length === 0) return undefined;
+	const seen = new Set<string>();
+	const deduped = attached.filter((property) => {
+		const key = JSON.stringify(property);
+		if (seen.has(key)) return false;
+		seen.add(key);
+		return true;
+	});
+	return deduped.length > 0 ? deduped : undefined;
+}
+
+function summarizeAttachedPropertiesCompact(
+	request: AIDecisionRequest,
+	item: ContextMapItem,
+	boardIndexByItemId: Map<string, number>,
+): Array<Record<string, unknown>> | undefined {
+	const attached = [item.linkto, item.beLinked]
+		.map((linkedId) => summarizeLinkedPropertyCompact(request, linkedId, boardIndexByItemId))
 		.filter((value): value is Record<string, unknown> => Boolean(value));
 	if (attached.length === 0) return undefined;
 	const seen = new Set<string>();
@@ -285,6 +431,43 @@ function summarizeTile(
 	return summary;
 }
 
+function summarizeTileCompact(
+	request: AIDecisionRequest,
+	item: ContextMapItem | undefined,
+	boardIndexByItemId: Map<string, number>,
+	boardIndex?: number,
+	options?: {
+		includeOwner?: boolean;
+		includeAttachedProperties?: boolean;
+		includeEventDescription?: boolean;
+	},
+): Record<string, unknown> | undefined {
+	if (!item) return undefined;
+	const mapEventById = buildMapEventById(request);
+	const event = item.mapEventId ? mapEventById.get(item.mapEventId) : undefined;
+	const summary: Record<string, unknown> = {
+		index: typeof boardIndex === "number" ? boardIndex + 1 : undefined,
+		name: buildTileDisplayName(item, event),
+		type: clipText(item.type?.name, 16) || "未知格子",
+	};
+	if (item.property) {
+		summary.property = summarizePropertyCompact(item.property, {
+			includeOwner: options?.includeOwner,
+			includeBuyCost: true,
+		});
+	}
+	if (event) {
+		summary.event = summarizeMapEventCompact(event, options?.includeEventDescription === false ? 16 : 24);
+	}
+	if (options?.includeAttachedProperties !== false) {
+		const attachedProperties = summarizeAttachedPropertiesCompact(request, item, boardIndexByItemId);
+		if (attachedProperties?.length) {
+			summary.attachedProperties = attachedProperties;
+		}
+	}
+	return summary;
+}
+
 function buildBoardIndexByItemId(request: AIDecisionRequest) {
 	return new Map(request.context.mapIndex.map((itemId, index) => [itemId, index]));
 }
@@ -292,10 +475,13 @@ function buildBoardIndexByItemId(request: AIDecisionRequest) {
 function summarizeTileAtPosition(request: AIDecisionRequest, positionIndex: number): Record<string, unknown> | undefined {
 	const itemId = request.context.mapIndex[positionIndex];
 	if (!itemId) return undefined;
-	return summarizeTile(request, buildMapItemById(request).get(itemId), buildBoardIndexByItemId(request), positionIndex);
+	return summarizeTileCompact(request, buildMapItemById(request).get(itemId), buildBoardIndexByItemId(request), positionIndex, {
+		includeOwner: true,
+		includeEventDescription: true,
+	});
 }
 
-function summarizeNearbyTiles(request: AIDecisionRequest, positionIndex: number, maxSteps = 6) {
+function summarizeNearbyTiles(request: AIDecisionRequest, positionIndex: number, maxSteps = 3) {
 	const total = request.context.mapIndex.length;
 	if (total <= 1) return undefined;
 	const mapItemById = buildMapItemById(request);
@@ -304,7 +490,10 @@ function summarizeNearbyTiles(request: AIDecisionRequest, positionIndex: number,
 	const visibleSteps = Math.min(maxSteps, total - 1);
 	for (let step = 1; step <= visibleSteps; step++) {
 		const boardIndex = (positionIndex + step) % total;
-		const tile = summarizeTile(request, mapItemById.get(request.context.mapIndex[boardIndex]), boardIndexByItemId, boardIndex);
+		const tile = summarizeTileCompact(request, mapItemById.get(request.context.mapIndex[boardIndex]), boardIndexByItemId, boardIndex, {
+			includeOwner: true,
+			includeEventDescription: false,
+		});
 		if (!tile) continue;
 		tiles.push({
 			step,
@@ -314,60 +503,291 @@ function summarizeNearbyTiles(request: AIDecisionRequest, positionIndex: number,
 	return tiles.length > 0 ? tiles : undefined;
 }
 
-function summarizeMapStructure(request: AIDecisionRequest): Record<string, unknown> {
+function shouldIncludeFullMapStructure(request: AIDecisionRequest): boolean {
+	return !LIGHTWEIGHT_MAP_SCENES.has(request.scene);
+}
+
+function summarizeMapStructure(request: AIDecisionRequest): Record<string, unknown> | undefined {
+	if (!shouldIncludeFullMapStructure(request)) {
+		return undefined;
+	}
 	const mapItemById = buildMapItemById(request);
 	const boardIndexByItemId = buildBoardIndexByItemId(request);
 	return {
 		totalTiles: request.context.mapIndex.length,
 		orderedTiles: request.context.mapIndex.map((itemId, index) => {
-			const tile = summarizeTile(request, mapItemById.get(itemId), boardIndexByItemId, index, {
+			return summarizeTileCompact(request, mapItemById.get(itemId), boardIndexByItemId, index, {
 				includeOwner: false,
+				includeEventDescription: true,
 			});
-			return {
-				index: index + 1,
-				...tile,
-			};
 		}),
 	};
+}
+
+function sortThreatPlayers(players: ContextPlayer[], currentPlayerId: string): ContextPlayer[] {
+	return players
+		.filter((player) => player.id !== currentPlayerId)
+		.sort((left, right) => {
+			if (Number(right.isBankrupted) !== Number(left.isBankrupted)) {
+				return Number(left.isBankrupted) - Number(right.isBankrupted);
+			}
+			if (right.money !== left.money) {
+				return right.money - left.money;
+			}
+			return right.properties.length - left.properties.length;
+		});
+}
+
+function summarizeStructuredStrategyMemory(
+	request: AIDecisionRequest,
+	state: AIStrategyState,
+): Record<string, unknown> | undefined {
+	const memory = state.memory;
+	if (!memory) return undefined;
+	const playerNameById = new Map(request.context.players.map((item) => [item.id, item.user.username]));
+	const propertyById = buildPropertyById(request);
+	const summary: Record<string, unknown> = {};
+
+	if (memory.economy) {
+		const economy: Record<string, unknown> = {};
+		if (memory.economy.spendMode) economy.spendMode = memory.economy.spendMode;
+		if (memory.economy.riskTolerance) economy.riskTolerance = memory.economy.riskTolerance;
+		if (memory.economy.warningFlags?.length) {
+			economy.warningFlags = memory.economy.warningFlags.map((item) => clipText(item, 24)).filter(Boolean).slice(0, 2);
+		}
+		if (Object.keys(economy).length > 0) {
+			summary.economy = economy;
+		}
+	}
+
+	if (memory.threatModel) {
+		const threat: Record<string, unknown> = {};
+		if (memory.threatModel.focusPlayerId) {
+			threat.focusPlayer = clipText(playerNameById.get(memory.threatModel.focusPlayerId), 20) || "关注目标";
+		}
+		if (memory.threatModel.threatReasons?.length) {
+			threat.reasons = memory.threatModel.threatReasons.map((item) => clipText(item, 20)).filter(Boolean).slice(0, 2);
+		}
+		if (memory.threatModel.dangerousPropertyIds?.length) {
+			const dangerousProperties = memory.threatModel.dangerousPropertyIds
+				.slice(0, 3)
+				.map((id) => clipText(propertyById.get(id)?.name, 20))
+				.filter(Boolean);
+			if (dangerousProperties.length > 0) {
+				threat.dangerousProperties = dangerousProperties;
+			}
+		}
+		if (Object.keys(threat).length > 0) {
+			summary.threat = threat;
+		}
+	}
+
+	if (memory.propertyPlan) {
+		const propertyPlan: Record<string, unknown> = {};
+		if (memory.propertyPlan.focusPropertyIds?.length) {
+			const focusProperties = memory.propertyPlan.focusPropertyIds
+				.slice(0, 3)
+				.map((id) => clipText(propertyById.get(id)?.name, 20))
+				.filter(Boolean);
+			if (focusProperties.length > 0) {
+				propertyPlan.focusProperties = focusProperties;
+			}
+		}
+		if (memory.propertyPlan.avoidPropertyIds?.length) {
+			const avoidProperties = memory.propertyPlan.avoidPropertyIds
+				.slice(0, 3)
+				.map((id) => clipText(propertyById.get(id)?.name, 20))
+				.filter(Boolean);
+			if (avoidProperties.length > 0) {
+				propertyPlan.avoidProperties = avoidProperties;
+			}
+		}
+		if (memory.propertyPlan.expansionReason) {
+			propertyPlan.expansionReason = clipText(memory.propertyPlan.expansionReason, 36);
+		}
+		if (Object.keys(propertyPlan).length > 0) {
+			summary.propertyPlan = propertyPlan;
+		}
+	}
+
+	if (memory.systemPlan) {
+		const systems: Record<string, unknown> = {};
+		if (memory.systemPlan.preferredSystems?.length) {
+			systems.preferred = memory.systemPlan.preferredSystems.slice(-3);
+		}
+		if (memory.systemPlan.avoidedSystems?.length) {
+			systems.avoided = memory.systemPlan.avoidedSystems.slice(-3);
+		}
+		if (memory.systemPlan.lastEffectiveSystem) {
+			systems.lastEffectiveSystem = memory.systemPlan.lastEffectiveSystem;
+		}
+		if (Object.keys(systems).length > 0) {
+			summary.systems = systems;
+		}
+	}
+
+	if (memory.mapUnderstanding) {
+		const mapUnderstanding: Record<string, unknown> = {};
+		if (memory.mapUnderstanding.keyZones?.length) {
+			mapUnderstanding.keyZones = memory.mapUnderstanding.keyZones.map((item) => clipText(item, 30)).filter(Boolean).slice(0, 2);
+		}
+		if (Object.keys(mapUnderstanding).length > 0) {
+			summary.mapUnderstanding = mapUnderstanding;
+		}
+	}
+
+	if (memory.shortTermIntent) {
+		const intent: Record<string, unknown> = {};
+		if (memory.shortTermIntent.currentGoal) {
+			intent.goal = clipText(memory.shortTermIntent.currentGoal, 36);
+		}
+		if (memory.shortTermIntent.nextTurnPlan?.length) {
+			intent.nextTurnPlan = memory.shortTermIntent.nextTurnPlan
+				.map((item) => clipText(item, 24))
+				.filter(Boolean)
+				.slice(0, 3);
+		}
+		if (memory.shortTermIntent.holdConditions?.length) {
+			intent.holdConditions = memory.shortTermIntent.holdConditions
+				.map((item) => clipText(item, 28))
+				.filter(Boolean)
+				.slice(0, 2);
+		}
+		if (Object.keys(intent).length > 0) {
+			summary.intent = intent;
+		}
+	}
+
+	if (memory.shortTerm) {
+		const shortTerm: Record<string, unknown> = {};
+		const recentDecisions = summarizeRecentDecisionSummaries(memory.shortTerm.recentDecisions);
+		if (recentDecisions?.length) {
+			shortTerm.recentDecisions = recentDecisions.slice(-3);
+		}
+		if (memory.shortTerm.recentFailures?.length) {
+			shortTerm.recentFailures = memory.shortTerm.recentFailures
+				.map((item) => clipText(item, 28))
+				.filter(Boolean)
+				.slice(-2);
+		}
+		if (memory.shortTerm.blockedActionHints?.length) {
+			shortTerm.blockedActionHints = memory.shortTerm.blockedActionHints
+				.map((item) => clipText(item, 28))
+				.filter(Boolean)
+				.slice(-2);
+		}
+		if (memory.shortTerm.immediateFocus?.length) {
+			shortTerm.immediateFocus = memory.shortTerm.immediateFocus
+				.map((item) => clipText(item, 24))
+				.filter(Boolean)
+				.slice(-3);
+		}
+		if (memory.shortTerm.lastChosenSystem) {
+			shortTerm.lastChosenSystem = clipText(memory.shortTerm.lastChosenSystem, 20);
+		}
+		if (memory.shortTerm.lastOutcome) {
+			shortTerm.lastOutcome = clipText(memory.shortTerm.lastOutcome, 20);
+		}
+		if (Object.keys(shortTerm).length > 0) {
+			summary.shortTerm = shortTerm;
+		}
+	}
+
+	if (memory.match) {
+		const match: Record<string, unknown> = {};
+		if (memory.match.effectiveSystems?.length) {
+			match.effectiveSystems = memory.match.effectiveSystems
+				.map((item) => clipText(item, 18))
+				.filter(Boolean)
+				.slice(0, 3);
+		}
+		if (memory.match.riskySystems?.length) {
+			match.riskySystems = memory.match.riskySystems
+				.map((item) => clipText(item, 18))
+				.filter(Boolean)
+				.slice(0, 3);
+		}
+		if (memory.match.notableLessons?.length) {
+			match.lessons = memory.match.notableLessons
+				.map((item) => clipText(item, 30))
+				.filter(Boolean)
+				.slice(0, 3);
+		}
+		if (memory.match.systemStats?.length) {
+			match.systemStats = memory.match.systemStats.slice(0, 3).map((stat) => ({
+				system: clipText(stat.label || stat.key, 18),
+				success: stat.successCount || 0,
+				failure: stat.failureCount || 0,
+				lastOutcome: stat.lastOutcome,
+			}));
+		}
+		if (memory.match.actionStats?.length) {
+			match.actionStats = memory.match.actionStats.slice(0, 3).map((stat) => ({
+				action: clipText(stat.label || stat.key, 24),
+				success: stat.successCount || 0,
+				failure: stat.failureCount || 0,
+				lastOutcome: stat.lastOutcome,
+			}));
+		}
+		if (Object.keys(match).length > 0) {
+			summary.match = match;
+		}
+	}
+
+	if (memory.experience) {
+		const experience: Record<string, unknown> = {};
+		if (memory.experience.compressedLessons?.length) {
+			experience.lessons = memory.experience.compressedLessons
+				.map((item) => clipText(item, 28))
+				.filter(Boolean)
+				.slice(0, 3);
+		}
+		if (memory.experience.recentSuccesses?.length) {
+			experience.recentSuccesses = memory.experience.recentSuccesses
+				.map((item) => clipText(item, 28))
+				.filter(Boolean)
+				.slice(-2);
+		}
+		if (memory.experience.recentFailures?.length) {
+			experience.recentFailures = memory.experience.recentFailures
+				.map((item) => clipText(item, 28))
+				.filter(Boolean)
+				.slice(-2);
+		}
+		if (Object.keys(experience).length > 0) {
+			summary.experience = experience;
+		}
+	}
+
+	return Object.keys(summary).length > 0 ? summary : undefined;
 }
 
 function summarizeStrategyState(request: AIDecisionRequest): Record<string, unknown> | undefined {
 	const state = request.strategyState;
 	if (!state) return undefined;
 	const summary: Record<string, unknown> = {};
-	const playerNameById = new Map(request.context.players.map((item) => [item.id, item.user.username]));
-	const propertyById = buildPropertyById(request);
 	if (state.posture) summary.posture = state.posture;
 	if (typeof state.reserveCashTarget === "number") summary.reserveCashTarget = state.reserveCashTarget;
-	if (state.focusPlayerId) {
-		summary.focusPlayer = clipText(playerNameById.get(state.focusPlayerId), 20) || "关注目标";
+	const structuredMemory = summarizeStructuredStrategyMemory(request, state);
+	if (structuredMemory) {
+		summary.memory = structuredMemory;
+	} else {
+		if (state.preferredSystems?.length) summary.preferredSystems = state.preferredSystems.slice(-2);
+		const recentDecisionMemory = summarizeRecentDecisionSummaries(state.recentDecisionSummaries);
+		if (recentDecisionMemory?.length) summary.recentDecisionMemory = recentDecisionMemory.slice(-2);
 	}
-	if (state.focusPropertyIds?.length) {
-		const focusProperties = state.focusPropertyIds
-			.slice(0, 3)
-			.map((id) => clipText(propertyById.get(id)?.name, 20))
-			.filter(Boolean);
-		if (focusProperties.length > 0) {
-			summary.focusProperties = focusProperties;
-		}
-	}
-	if (state.preferredSystems?.length) summary.preferredSystems = state.preferredSystems.slice(-3);
-	if (typeof state.lastDecisionAtRound === "number") summary.lastDecisionAtRound = state.lastDecisionAtRound;
-	if (state.notes?.length) summary.notes = state.notes.map((item) => clipText(item, 18)).filter(Boolean);
-	const recentDecisionMemory = summarizeRecentDecisionSummaries(state.recentDecisionSummaries);
-	if (recentDecisionMemory?.length) summary.recentDecisionMemory = recentDecisionMemory;
 	return Object.keys(summary).length > 0 ? summary : undefined;
 }
 
 function summarizeRequestBase(request: AIDecisionRequest): Record<string, unknown> {
 	return {
 		mapName: request.context.map.name,
-		mapDescription: clipText(request.context.map.description, 120),
+		mapDescription: clipText(request.context.map.description, 80),
 		roles: request.context.map.roles?.map((role) => ({
 			name: clipText(role.name, 20),
-			description: clipText(role.description, 48),
+			description: clipText(role.description, 32),
 		})),
-		enabledSystems: Object.keys(request.context.systems || {}).slice(0, 8),
+		enabledSystems: Object.keys(request.context.systems || {}).slice(0, 6),
 	};
 }
 
@@ -376,6 +796,7 @@ function summarizeTableState(request: AIDecisionRequest): Record<string, unknown
 	const roleByPlayerId = buildRoleByPlayerId(request);
 	const currentPlayerTile = summarizeTileAtPosition(request, currentPlayer.positionIndex);
 	const currentTurnPlayerName = request.context.players.find((item) => item.id === request.context.currentPlayerIdInRound)?.user.username;
+	const opponents = sortThreatPlayers(request.context.players, currentPlayer.id).slice(0, 2);
 	return {
 		currentRound: request.context.currentRound,
 		currentMultiplier: request.context.currentMultiplier,
@@ -383,14 +804,16 @@ function summarizeTableState(request: AIDecisionRequest): Record<string, unknown
 		currentPlayer: {
 			name: currentPlayer.user.username,
 			money: currentPlayer.money,
-			role: getReadableRoleInfo(roleByPlayerId, currentPlayer.id, true),
+			role: getReadableRoleInfo(roleByPlayerId, currentPlayer.id),
 			position: formatBoardPosition(currentPlayer.positionIndex),
 			currentTile: currentPlayerTile,
 			propertyCount: currentPlayer.properties.length,
-			ownedProperties: currentPlayer.properties.slice(0, 8).map((property) => summarizePropertyBrief(property, false)),
-			chanceCards: currentPlayer.chanceCards.slice(0, 6).map((card) => ({
+			ownedProperties: currentPlayer.properties.slice(0, 3).map((property) =>
+				summarizePropertyCompact(property, { includeOwner: false, includeBuyCost: false }),
+			),
+			chanceCards: currentPlayer.chanceCards.slice(0, 3).map((card) => ({
 				name: card.name,
-				description: clipText(card.description, 28),
+				description: clipText(card.description, 20),
 			})),
 			status:
 				currentPlayer.isBankrupted
@@ -399,8 +822,7 @@ function summarizeTableState(request: AIDecisionRequest): Record<string, unknown
 						? `还需暂停 ${currentPlayer.stop} 回合`
 						: undefined,
 		},
-		opponents: request.context.players
-			.filter((player) => player.id !== currentPlayer.id)
+		opponents: opponents
 			.map((player) => {
 				return {
 					name: player.user.username,
@@ -410,13 +832,13 @@ function summarizeTableState(request: AIDecisionRequest): Record<string, unknown
 					currentTile: summarizeTileAtPosition(request, player.positionIndex),
 					propertyCount: player.properties.length,
 					properties: player.properties
-						.slice(0, 3)
+						.slice(0, 2)
 						.map((property) => clipText(property.name, 18))
 						.filter(Boolean),
 					isBankrupted: player.isBankrupted,
 				};
 			}),
-		nearbyTiles: summarizeNearbyTiles(request, currentPlayer.positionIndex),
+		nearbyTiles: summarizeNearbyTiles(request, currentPlayer.positionIndex, 3),
 	};
 }
 
@@ -425,25 +847,36 @@ function summarizeDecision(request: AIDecisionRequest): Record<string, unknown> 
 		operationType: request.operationType,
 		scene: request.scene,
 		title: request.title,
-		summary: clipText(request.summary, 120),
-		semantics: summarizeSemantics(request.semantics),
-		options: pickAvailableOptions(request.options).map((option) => ({
-			optionId: option.id,
-			label: clipText(option.label, 36),
-			actionType: option.actionType,
-			description: clipText(option.description || option.semantics?.summary, 72),
-			semantics: summarizeSemantics(option.semantics),
-		})),
+		summary: clipText(request.summary, 80),
+		semantics: summarizeDecisionSemantics(request.semantics),
+		options: pickAvailableOptions(request.options).map((option) => {
+			const label = buildReadableDecisionLabel(option) || clipText(option.label, 28);
+			const summary: Record<string, unknown> = {
+				optionId: option.id,
+				label,
+				actionType: option.actionType,
+			};
+			const description = buildReadableDecisionDescription(option);
+			if (description) {
+				summary.description = description;
+			}
+			const semantics = summarizeDecisionSemantics(option.semantics);
+			if (semantics) {
+				summary.semantics = semantics;
+			}
+			return summary;
+		}),
 	};
 }
 
 function buildRemotePrompt(request: AIDecisionRequest): string {
-	const sections = [
-		`[game_profile]\n${JSON.stringify(summarizeRequestBase(request))}`,
-		`[map_structure]\n${JSON.stringify(summarizeMapStructure(request))}`,
-		`[board_brief]\n${JSON.stringify(summarizeTableState(request))}`,
-		`[decision]\n${JSON.stringify(summarizeDecision(request))}`,
-	];
+	const sections = [`[game_profile]\n${JSON.stringify(summarizeRequestBase(request))}`];
+	const mapStructure = summarizeMapStructure(request);
+	if (mapStructure) {
+		sections.push(`[map_structure]\n${JSON.stringify(mapStructure)}`);
+	}
+	sections.push(`[board_brief]\n${JSON.stringify(summarizeTableState(request))}`);
+	sections.push(`[decision]\n${JSON.stringify(summarizeDecision(request))}`);
 	const strategyState = summarizeStrategyState(request);
 	if (strategyState) {
 		sections.push(`[strategy_memory]\n${JSON.stringify(strategyState)}`);
@@ -475,6 +908,56 @@ function tryParseJson(text: string): unknown {
 	}
 }
 
+function normalizeTokenCount(value: unknown): number | undefined {
+	return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function sumTokenCounts(...values: Array<number | undefined>): number | undefined {
+	const filtered = values.filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+	if (filtered.length === 0) return undefined;
+	return filtered.reduce((sum, value) => sum + value, 0);
+}
+
+function extractUsage(provider: AIRemoteLLMProviderKind, data: unknown): RemoteUsage | undefined {
+	switch (provider) {
+		case "anthropic": {
+			const usage = (data as AnthropicMessagesResponse)?.usage;
+			if (!usage) return undefined;
+			const inputTokens = sumTokenCounts(
+				normalizeTokenCount(usage.input_tokens),
+				normalizeTokenCount(usage.cache_creation_input_tokens),
+				normalizeTokenCount(usage.cache_read_input_tokens),
+			);
+			const outputTokens = normalizeTokenCount(usage.output_tokens);
+			const totalTokens = sumTokenCounts(inputTokens, outputTokens);
+			if (inputTokens === undefined && outputTokens === undefined && totalTokens === undefined) {
+				return undefined;
+			}
+			return {
+				inputTokens,
+				outputTokens,
+				totalTokens,
+			};
+		}
+		case "openai-compatible":
+		default: {
+			const usage = (data as OpenAIChatCompletionResponse)?.usage;
+			if (!usage) return undefined;
+			const inputTokens = normalizeTokenCount(usage.prompt_tokens) ?? normalizeTokenCount(usage.input_tokens);
+			const outputTokens = normalizeTokenCount(usage.completion_tokens) ?? normalizeTokenCount(usage.output_tokens);
+			const totalTokens = normalizeTokenCount(usage.total_tokens) ?? sumTokenCounts(inputTokens, outputTokens);
+			if (inputTokens === undefined && outputTokens === undefined && totalTokens === undefined) {
+				return undefined;
+			}
+			return {
+				inputTokens,
+				outputTokens,
+				totalTokens,
+			};
+		}
+	}
+}
+
 function logRemoteRequest(request: AIDecisionRequest, remoteRequest: ReturnType<typeof buildRemoteRequest>): void {
 	const traceId = getDecisionTraceId(request);
 	console.groupCollapsed(`[AI Remote] request ${traceId} ${request.title}`);
@@ -488,7 +971,7 @@ function logRemoteRequest(request: AIDecisionRequest, remoteRequest: ReturnType<
 	});
 	console.log("headers", redactHeaders(remoteRequest.headers));
 	console.log("body", tryParseJson(remoteRequest.body));
-	console.log("prompt", buildRemotePrompt(request));
+	console.log("prompt", remoteRequest.prompt);
 	console.groupEnd();
 }
 
@@ -498,6 +981,7 @@ function logRemoteResponse(
 	data: unknown,
 	content: string,
 	selection: AIDecisionSelection,
+	usage?: RemoteUsage,
 ): void {
 	const traceId = getDecisionTraceId(request);
 	console.groupCollapsed(`[AI Remote] response ${traceId} ${request.title}`);
@@ -507,6 +991,9 @@ function logRemoteResponse(
 		playerId: request.playerId,
 	});
 	console.log("rawResponse", data);
+	if (usage) {
+		console.log("usage", usage);
+	}
 	console.log("assistantText", content);
 	console.log("selection", selection);
 	console.groupEnd();
@@ -576,7 +1063,7 @@ function sanitizeChatMessages(value: unknown): string[] | undefined {
 		.filter((item): item is string => typeof item === "string")
 		.map((item) => item.replace(/\s+/g, " ").trim())
 		.filter((item) => item.length > 0 && isNaturalChatMessage(item))
-		.map((item) => (item.length > 48 ? `${item.slice(0, 48)}...` : item))
+		.map((item) => (item.length > 96 ? `${item.slice(0, 96)}...` : item))
 		.slice(0, 1);
 	return normalized.length > 0 ? normalized : undefined;
 }
@@ -637,6 +1124,8 @@ function buildRemoteRequest(config: AIRemoteLLMConfig, request: AIDecisionReques
 	headers: Record<string, string>;
 	body: string;
 	provider: AIRemoteLLMProviderKind;
+	model: string;
+	prompt: string;
 } {
 	const provider = normalizeProviderKind(config.provider);
 	const prompt = buildRemotePrompt(request);
@@ -645,6 +1134,8 @@ function buildRemoteRequest(config: AIRemoteLLMConfig, request: AIDecisionReques
 		case "anthropic":
 			return {
 				provider,
+				model: config.model,
+				prompt,
 				url: buildAnthropicEndpoint(config.baseUrl),
 				headers: {
 					"Content-Type": "application/json",
@@ -668,6 +1159,8 @@ function buildRemoteRequest(config: AIRemoteLLMConfig, request: AIDecisionReques
 		default:
 			return {
 				provider,
+				model: config.model,
+				prompt,
 				url: buildOpenAIEndpoint(config.baseUrl),
 				headers: {
 					"Content-Type": "application/json",
@@ -730,12 +1223,30 @@ class RemoteAIDecisionProvider implements AIDecisionProvider {
 			}
 
 			const data = await response.json();
+			const usage = extractUsage(remoteRequest.provider, data);
 			const content = extractResponseContent(remoteRequest.provider, data);
 			if (!content) {
 				throw new Error("远程模型未返回内容");
 			}
 			const selection = normalizeSelection(request, JSON.parse(extractJsonPayload(content)));
-			logRemoteResponse(request, remoteRequest, data, content, selection);
+			recordAIRemoteUsage({
+				traceId: getDecisionTraceId(request),
+				playerId: request.playerId,
+				title: request.title,
+				scene: request.scene,
+				profileId: this.config.id,
+				profileName: this.config.name,
+				provider: remoteRequest.provider,
+				model: remoteRequest.model,
+				inputTokens: usage?.inputTokens,
+				outputTokens: usage?.outputTokens,
+				totalTokens: usage?.totalTokens,
+				promptChars: remoteRequest.prompt.length,
+				responseChars: content.length,
+				timestamp: Date.now(),
+				usageAvailable: Boolean(usage),
+			});
+			logRemoteResponse(request, remoteRequest, data, content, selection, usage);
 			return selection;
 		} catch (error) {
 			logRemoteFailure(request, remoteRequest, error);
@@ -749,10 +1260,14 @@ class RemoteAIDecisionProvider implements AIDecisionProvider {
 
 export function createAIDecisionProviderFromConfig(config: AIDecisionConfig): AIDecisionProvider {
 	if (config.mode === "remote") {
-		return new RemoteAIDecisionProvider({
-			...config.remote,
-			provider: normalizeProviderKind(config.remote.provider),
-		});
+		return createRemoteAIDecisionProvider(config.remote);
 	}
 	return new HeuristicDecisionProvider();
+}
+
+export function createRemoteAIDecisionProvider(config: AIRemoteLLMConfig | AIRemoteLLMProfile): AIDecisionProvider {
+	return new RemoteAIDecisionProvider({
+		...config,
+		provider: normalizeProviderKind(config.provider),
+	});
 }

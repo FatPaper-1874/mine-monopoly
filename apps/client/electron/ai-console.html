@@ -1,0 +1,692 @@
+<!doctype html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="UTF-8" />
+		<title>AI 控制台</title>
+		<style>
+			:root {
+				--bg: #f4efe6;
+				--panel: rgba(255, 250, 241, 0.95);
+				--panel-alt: rgba(255, 255, 255, 0.72);
+				--line: rgba(115, 90, 52, 0.18);
+				--text: #312414;
+				--muted: #7a6953;
+				--accent: #b46a2d;
+				--accent-soft: rgba(180, 106, 45, 0.12);
+				--good: #2d8051;
+				--bad: #b94737;
+				--shadow: 0 14px 36px rgba(89, 60, 24, 0.13);
+				--sidebar-rail-width: 7rem;
+				--sidebar-open-width: clamp(20rem, 30vw, 25rem);
+			}
+			* {
+				box-sizing: border-box;
+			}
+			body {
+				margin: 0;
+				height: 100vh;
+				overflow: hidden;
+				font-family: "Segoe UI", "Microsoft YaHei UI", sans-serif;
+				color: var(--text);
+				background:
+					radial-gradient(circle at top left, rgba(221, 177, 118, 0.16), transparent 28%),
+					radial-gradient(circle at right 18%, rgba(121, 173, 149, 0.14), transparent 24%),
+					var(--bg);
+			}
+			.shell {
+				display: flex;
+				flex-direction: column;
+				height: 100vh;
+			}
+			.toolbar {
+				display: flex;
+				align-items: center;
+				gap: 10px;
+				padding: 10px 14px;
+				background: rgba(255, 248, 238, 0.94);
+				border-bottom: 1px solid var(--line);
+				-webkit-app-region: drag;
+			}
+			.toolbar__title {
+				font-size: 14px;
+				font-weight: 700;
+				letter-spacing: 0.04em;
+				color: var(--accent);
+			}
+			.toolbar__meta {
+				font-size: 12px;
+				color: var(--muted);
+			}
+			.toolbar__meta.ok {
+				color: var(--good);
+			}
+			.toolbar__meta.err {
+				color: var(--bad);
+			}
+			.toolbar__spacer {
+				flex: 1;
+			}
+			.toolbar button {
+				-webkit-app-region: no-drag;
+			}
+			.layout {
+				position: relative;
+				display: block;
+				padding: 14px;
+				flex: 1;
+				min-height: 0;
+			}
+			.sidebar-backdrop {
+				position: absolute;
+				inset: 14px;
+				border-radius: 18px;
+				background: rgba(49, 36, 20, 0.18);
+				backdrop-filter: blur(1px);
+				opacity: 0;
+				pointer-events: none;
+				transition: opacity 0.18s ease;
+				z-index: 10;
+			}
+			.sidebar {
+				position: absolute;
+				inset: 14px auto 14px 14px;
+				inline-size: var(--sidebar-rail-width);
+				min-width: 0;
+				min-height: 0;
+				z-index: 20;
+				transition: inline-size 0.22s ease;
+			}
+			.sidebar-shell {
+				height: 100%;
+				min-height: 0;
+				display: flex;
+				flex-direction: column;
+				gap: 12px;
+			}
+			.sidebar-head {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 10px;
+			}
+			.sidebar-head__text {
+				min-width: 0;
+			}
+			.sidebar-head__title {
+				font-size: 14px;
+				font-weight: 700;
+			}
+			.sidebar-head__desc {
+				margin-top: 4px;
+				font-size: 12px;
+				line-height: 1.5;
+				color: var(--muted);
+			}
+			.sidebar-scroll {
+				flex: 1;
+				min-height: 0;
+				display: flex;
+				flex-direction: column;
+				gap: 14px;
+				overflow: auto;
+				padding-right: 2px;
+			}
+			.sidebar-mini {
+				display: none;
+				flex-direction: column;
+				gap: 10px;
+			}
+			.sidebar-mini__badge {
+				padding: 10px 8px;
+				border-radius: 14px;
+				background: var(--panel-alt);
+				border: 1px solid rgba(115, 90, 52, 0.12);
+				text-align: center;
+			}
+			.sidebar-mini__label {
+				font-size: 10px;
+				color: var(--muted);
+				letter-spacing: 0.04em;
+				text-transform: uppercase;
+			}
+			.sidebar-mini__value {
+				margin-top: 4px;
+				font-size: 12px;
+				font-weight: 700;
+				line-height: 1.4;
+			}
+			.main-panel {
+				min-width: 0;
+				min-height: 0;
+				height: 100%;
+				margin-inline-start: calc(var(--sidebar-rail-width) + 14px);
+				display: grid;
+				grid-template-rows: auto minmax(0, 1fr);
+				gap: 14px;
+			}
+			.main-top {
+				min-width: 0;
+				min-height: 0;
+				display: flex;
+				flex-direction: column;
+				gap: 10px;
+			}
+			.main-bottom {
+				min-width: 0;
+				min-height: 0;
+				height: 100%;
+				display: grid;
+				grid-template-columns: fit-content(25rem) minmax(0, 1fr);
+				gap: 14px;
+				align-items: stretch;
+			}
+			.main-bottom__right {
+				min-width: 0;
+				min-height: 0;
+				height: 100%;
+				display: grid;
+				grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+				gap: 14px;
+			}
+			.card {
+				min-width: 0;
+				min-height: 0;
+				background: var(--panel);
+				border: 1px solid var(--line);
+				border-radius: 18px;
+				box-shadow: var(--shadow);
+				padding: 14px;
+			}
+			.card--scroll {
+				display: flex;
+				flex-direction: column;
+				overflow: auto;
+			}
+			.card__title {
+				font-size: 14px;
+				font-weight: 700;
+				margin-bottom: 8px;
+			}
+			.card__subtle {
+				font-size: 12px;
+				line-height: 1.5;
+				color: var(--muted);
+				margin-bottom: 10px;
+			}
+			.btn {
+				border: none;
+				border-radius: 999px;
+				padding: 8px 14px;
+				font-size: 12px;
+				font-weight: 700;
+				cursor: pointer;
+				background: var(--accent-soft);
+				color: var(--accent);
+			}
+			.btn--primary {
+				background: var(--accent);
+				color: #fff8ef;
+			}
+			.btn--danger {
+				background: rgba(185, 71, 55, 0.12);
+				color: var(--bad);
+			}
+			.btn--ghost {
+				background: rgba(255, 255, 255, 0.62);
+				border: 1px solid rgba(115, 90, 52, 0.14);
+			}
+			.btn:hover {
+				filter: brightness(0.98);
+			}
+			.actions {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 8px;
+				margin-top: 12px;
+			}
+			.field-grid {
+				display: grid;
+				grid-template-columns: 1fr;
+				gap: 10px;
+			}
+			.field-row {
+				display: grid;
+				grid-template-columns: 110px 1fr;
+				gap: 10px;
+				align-items: center;
+			}
+			.field-row label {
+				font-size: 12px;
+				color: var(--muted);
+			}
+			input,
+			select,
+			textarea {
+				width: 100%;
+				border: 1px solid rgba(115, 90, 52, 0.22);
+				border-radius: 12px;
+				background: rgba(255, 252, 246, 0.94);
+				padding: 10px 12px;
+				font-size: 12px;
+				color: var(--text);
+				outline: none;
+			}
+			textarea {
+				font-family: "Cascadia Code", "Consolas", monospace;
+				line-height: 1.5;
+				resize: vertical;
+			}
+			.section-gap {
+				margin-top: 14px;
+				padding-top: 14px;
+				border-top: 1px solid rgba(115, 90, 52, 0.12);
+			}
+			.metrics,
+			.info-grid {
+				display: grid;
+				grid-template-columns: repeat(2, minmax(0, 1fr));
+				gap: 8px;
+			}
+			.metric,
+			.info-block,
+			.profile-item,
+			.player-item,
+			.list-item {
+				padding: 10px 12px;
+				border-radius: 14px;
+				border: 1px solid rgba(115, 90, 52, 0.1);
+				background: var(--panel-alt);
+			}
+			.metric__label,
+			.info-block__label {
+				font-size: 11px;
+				color: var(--muted);
+			}
+			.metric__value,
+			.info-block__value {
+				margin-top: 4px;
+				font-size: 16px;
+				font-weight: 700;
+			}
+			.profile-list,
+			.list-stack {
+				display: flex;
+				flex-direction: column;
+				gap: 8px;
+			}
+			.player-list {
+				display: grid;
+				grid-auto-flow: column;
+				grid-auto-columns: max-content;
+				gap: 8px;
+				inline-size: max-content;
+				min-inline-size: max-content;
+				max-inline-size: none;
+				padding-bottom: 4px;
+			}
+			.profile-item,
+			.player-item {
+				cursor: pointer;
+			}
+			.profile-item.is-active,
+			.player-item.is-active {
+				border-color: rgba(180, 106, 45, 0.42);
+				background: rgba(180, 106, 45, 0.1);
+			}
+			.profile-item__title,
+			.player-item__title {
+				font-size: 13px;
+				font-weight: 700;
+			}
+			.player-item {
+				inline-size: max-content;
+				min-inline-size: max-content;
+				max-inline-size: none;
+			}
+			.profile-item__meta,
+			.player-item__meta,
+			.list-item {
+				font-size: 12px;
+				line-height: 1.5;
+				color: var(--muted);
+			}
+			.player-item__token {
+				margin-top: 4px;
+				font-size: 12px;
+				line-height: 1.4;
+				color: var(--accent);
+				font-weight: 700;
+			}
+			.tag-line {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 8px;
+				margin-top: 8px;
+			}
+			.tag {
+				padding: 5px 10px;
+				border-radius: 999px;
+				background: rgba(180, 106, 45, 0.12);
+				color: var(--accent);
+				font-size: 11px;
+				font-weight: 700;
+			}
+			.tag--good {
+				background: rgba(45, 128, 81, 0.12);
+				color: var(--good);
+			}
+			.empty {
+				flex: 1 1 auto;
+				padding: 18px 12px;
+				border-radius: 14px;
+				border: 1px dashed rgba(115, 90, 52, 0.24);
+				font-size: 12px;
+				color: var(--muted);
+				line-height: 1.6;
+				text-align: center;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+			}
+			.player-detail-layout,
+			.memory-layout {
+				flex: 1 1 auto;
+				min-height: 0;
+				display: flex;
+				flex-direction: column;
+				gap: 14px;
+			}
+			.player-hero {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 12px;
+				padding: 12px 14px;
+				border-radius: 16px;
+				background: linear-gradient(135deg, rgba(180, 106, 45, 0.12), rgba(255, 255, 255, 0.78));
+				border: 1px solid rgba(180, 106, 45, 0.16);
+			}
+			.player-hero__title {
+				font-size: 16px;
+				font-weight: 700;
+			}
+			.player-hero__meta {
+				margin-top: 4px;
+				font-size: 12px;
+				line-height: 1.5;
+				color: var(--muted);
+			}
+			.player-hero__usage {
+				text-align: right;
+				min-inline-size: 8ch;
+			}
+			.player-hero__usage-value {
+				font-size: 20px;
+				font-weight: 700;
+				color: var(--accent);
+			}
+			.player-form-grid,
+			.memory-grid {
+				display: grid;
+				grid-template-columns: repeat(2, minmax(0, 1fr));
+				gap: 12px;
+			}
+			.player-form-grid .field-row {
+				display: flex;
+				align-items: center;
+				gap: 10px;
+				grid-template-columns: none;
+			}
+			.player-form-grid .field-row label {
+				flex: 0 0 auto;
+				margin-right: 2px;
+				white-space: nowrap;
+			}
+			.player-form-grid .field-row select {
+				flex: 1 1 auto;
+				min-width: 0;
+			}
+			.memory-section {
+				display: flex;
+				flex-direction: column;
+				gap: 8px;
+			}
+			.memory-json {
+				flex: 1 1 auto;
+				block-size: 100%;
+				min-block-size: 24rem;
+			}
+			#player-detail-panel,
+			#memory-panel,
+			#memory-json-panel {
+				flex: 1 1 auto;
+				min-height: 0;
+				display: flex;
+				flex-direction: column;
+			}
+			.player-strip {
+				min-width: 0;
+				padding: 0;
+				background: transparent;
+				border: none;
+				box-shadow: none;
+				overflow-x: auto;
+				overflow-y: hidden;
+				scrollbar-gutter: stable;
+			}
+			body.sidebar-collapsed .sidebar-head__text,
+			body.sidebar-collapsed .sidebar-scroll {
+				display: none;
+			}
+			body.sidebar-collapsed .sidebar-mini {
+				display: flex;
+			}
+			body.sidebar-collapsed .sidebar-head {
+				justify-content: center;
+			}
+			body.sidebar-collapsed .sidebar {
+				inline-size: var(--sidebar-rail-width);
+			}
+			body:not(.sidebar-collapsed) .sidebar {
+				inline-size: var(--sidebar-open-width);
+			}
+			body:not(.sidebar-collapsed) .sidebar-backdrop {
+				opacity: 1;
+				pointer-events: auto;
+			}
+			@media (max-width: 1080px) {
+				.main-bottom {
+					grid-template-columns: 1fr;
+				}
+				.main-bottom__right {
+					grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+				}
+			}
+			@media (max-width: 980px) {
+				:root {
+					--sidebar-open-width: min(24rem, calc(100vw - 2rem));
+				}
+				.sidebar-shell {
+					block-size: auto;
+					max-block-size: 42vh;
+				}
+				.main-panel {
+					margin-inline-start: calc(var(--sidebar-rail-width) + 10px);
+				}
+				.main-bottom__right {
+					grid-template-rows: auto auto;
+				}
+			}
+			@media (max-width: 640px) {
+				.field-row,
+				.player-form-grid,
+				.memory-grid,
+				.metrics,
+				.info-grid {
+					grid-template-columns: 1fr;
+				}
+				.player-hero {
+					flex-direction: column;
+					align-items: flex-start;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<div class="shell">
+			<div class="toolbar">
+				<div class="toolbar__title">AI 控制台</div>
+				<div class="toolbar__meta" id="toolbar-meta">读取中...</div>
+				<div class="toolbar__spacer"></div>
+				<button class="btn btn--ghost" id="toggle-sidebar-btn">收起配置</button>
+				<button class="btn" id="refresh-btn">刷新</button>
+				<button class="btn" id="close-btn">关闭</button>
+			</div>
+			<div class="layout">
+				<div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+				<div class="sidebar">
+					<div class="card sidebar-shell">
+						<div class="sidebar-head">
+							<div class="sidebar-head__text">
+								<div class="sidebar-head__title">配置侧栏</div>
+								<div class="sidebar-head__desc">不需要调整模型和档案时，可以把这里收成窄侧栏。</div>
+							</div>
+							<button class="btn btn--ghost" id="sidebar-pin-btn">收起</button>
+						</div>
+						<div class="sidebar-mini">
+							<div class="sidebar-mini__badge">
+								<div class="sidebar-mini__label">模式</div>
+								<div class="sidebar-mini__value" id="mini-mode-text">--</div>
+							</div>
+							<div class="sidebar-mini__badge">
+								<div class="sidebar-mini__label">档案</div>
+								<div class="sidebar-mini__value" id="mini-profile-count">0</div>
+							</div>
+							<div class="sidebar-mini__badge">
+								<div class="sidebar-mini__label">Token</div>
+								<div class="sidebar-mini__value" id="mini-token-total">--</div>
+							</div>
+						</div>
+						<div class="sidebar-scroll">
+							<div class="card card--scroll">
+								<div class="card__title">默认 AI 配置</div>
+								<div class="card__subtle" id="sync-scope-text">仅当前客户端生效</div>
+								<div class="field-grid">
+									<div class="field-row">
+										<label for="global-mode">默认模式</label>
+										<select id="global-mode">
+											<option value="local">本地</option>
+											<option value="remote">远程</option>
+										</select>
+									</div>
+									<div class="field-row">
+										<label for="global-default-profile">默认远端档案</label>
+										<select id="global-default-profile"></select>
+									</div>
+									<div class="field-row">
+										<label for="global-provider">默认 Provider</label>
+										<select id="global-provider">
+											<option value="openai-compatible">OpenAI 兼容</option>
+											<option value="anthropic">Anthropic</option>
+										</select>
+									</div>
+									<div class="field-row">
+										<label for="global-base-url">默认 Base URL</label>
+										<input id="global-base-url" type="text" placeholder="https://api.openai.com/v1" />
+									</div>
+									<div class="field-row">
+										<label for="global-api-key">默认 API Key</label>
+										<input id="global-api-key" type="password" placeholder="sk-..." />
+									</div>
+									<div class="field-row">
+										<label for="global-model">默认模型名</label>
+										<input id="global-model" type="text" placeholder="gpt-4.1-mini" />
+									</div>
+									<div class="field-row">
+										<label for="global-memory-limit">上下文记忆</label>
+										<input id="global-memory-limit" type="number" min="0" max="20" step="1" />
+									</div>
+								</div>
+								<div class="actions">
+									<button class="btn btn--primary" id="apply-global-config-btn">应用默认配置</button>
+								</div>
+							</div>
+							<div class="card card--scroll">
+								<div class="card__title">远端档案库</div>
+								<div class="card__subtle">保存多套不同平台 / 模型配置，AI 玩家可各自绑定不同档案。</div>
+								<div class="profile-list" id="profile-list"></div>
+								<div class="actions">
+									<button class="btn" id="add-profile-btn">新增远端档案</button>
+									<button class="btn btn--danger" id="delete-profile-btn">删除当前档案</button>
+								</div>
+								<div class="section-gap">
+									<div class="field-grid">
+										<div class="field-row">
+											<label for="profile-name">档案名称</label>
+											<input id="profile-name" type="text" placeholder="例如 OpenAI 4.1 mini / Claude Sonnet" />
+										</div>
+										<div class="field-row">
+											<label for="profile-provider">Provider</label>
+											<select id="profile-provider">
+												<option value="openai-compatible">OpenAI 兼容</option>
+												<option value="anthropic">Anthropic</option>
+											</select>
+										</div>
+										<div class="field-row">
+											<label for="profile-base-url">Base URL</label>
+											<input id="profile-base-url" type="text" placeholder="https://api.openai.com/v1" />
+										</div>
+										<div class="field-row">
+											<label for="profile-api-key">API Key</label>
+											<input id="profile-api-key" type="password" placeholder="sk-..." />
+										</div>
+										<div class="field-row">
+											<label for="profile-model">模型名</label>
+											<input id="profile-model" type="text" placeholder="gpt-4.1-mini" />
+										</div>
+									</div>
+									<div class="actions">
+										<button class="btn btn--primary" id="save-profile-btn">保存当前档案</button>
+									</div>
+								</div>
+							</div>
+							<div class="card card--scroll">
+								<div class="card__title">全局远程 Usage</div>
+								<div class="metrics" id="usage-metrics"></div>
+								<div class="actions">
+									<button class="btn" id="clear-usage-btn">清空统计</button>
+								</div>
+								<div class="list-stack" id="usage-list"></div>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="main-panel">
+					<div class="main-top">
+						<div class="player-strip">
+							<div class="player-list" id="player-list"></div>
+						</div>
+					</div>
+					<div class="main-bottom">
+						<div class="card card--scroll">
+							<div class="card__title">当前选中 AI</div>
+							<div class="card__subtle">绑定、消耗和控制入口都集中在这里。</div>
+							<div id="player-detail-panel"></div>
+						</div>
+						<div class="main-bottom__right">
+							<div class="card card--scroll">
+								<div class="card__title">策略与记忆摘要</div>
+								<div id="memory-panel"></div>
+							</div>
+							<div class="card card--scroll">
+								<div class="card__title">原始记忆 JSON</div>
+								<div id="memory-json-panel"></div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<script src="./ai-console.js"></script>
+	</body>
+</html>

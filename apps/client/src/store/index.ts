@@ -15,6 +15,7 @@ import {
 import { isFullScreen, isLandscape, setTimeOutAsync } from "@src/utils";
 import { getUserByToken } from "@src/utils/api/user";
 import { getPlatformType } from "@src/utils/platform";
+import { normalizeAIDecisionConfig } from "@src/core/ai/ai-decision-config";
 import { useGameData } from "./game";
 
 /**
@@ -279,17 +280,7 @@ export const useSettig = defineStore("setting", {
 			// 阴影开关
 			enableShadow: false,
 			enableModelAnimation: true,
-			aiDecisionConfig: {
-				mode: "local",
-				remote: {
-					provider: "openai-compatible",
-					baseUrl: "",
-					apiKey: "",
-					model: "",
-					timeoutMs: 30000,
-				},
-				contextMemoryLimit: 6,
-			} as AIDecisionConfig,
+			aiDecisionConfig: normalizeAIDecisionConfig(undefined) as AIDecisionConfig,
 		};
 	},
 	actions: {

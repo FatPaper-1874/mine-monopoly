@@ -1,6 +1,9 @@
 import {
 	AIDecisionConfig,
+	AIPlayerDecisionBinding,
 	AIDecisionRequest,
+	AIRemoteLLMConfig,
+	AIRemoteLLMProfile,
 	Role,
 	GameOverRule,
 	ChatMessageType,
@@ -24,11 +27,12 @@ import {
 	MapChunkAbortData,
 } from "@mine-monopoly/types";
 import { WorkerCommType, WorkerState } from "@src/enums/worker";
-import { WorkerCommMsg, HeartbeatData, WorkerStateChangedData, GMAction, GMActionResponseData } from "@src/interfaces/worker";
+import { WorkerCommMsg, HeartbeatData, WorkerStateChangedData, GMAction, GMActionResponseData, GameProcessDebugState } from "@src/interfaces/worker";
 import { useLoading, useDeviceStatus, useSettig } from "@src/store";
 import { randomString } from "@src/utils";
 import { getGameMapById } from "@src/utils/api/map";
 import { setRoomStarted } from "@src/utils/api/room-router";
+import { clearAIRemoteUsageStats, getAIRemoteUsageSnapshot } from "@src/core/ai/remote-usage-stats";
 import { DataConnection } from "peerjs";
 import GameProcessWorker from "@src/core/worker/GameProcessWorker?worker";
 import { getGameMap } from "@src/utils/file/game-map";
@@ -38,21 +42,8 @@ import logService, { ErrorCategory, logWorkerError, logErrorWithOptions } from "
 import { OperateListener } from "../worker/class/OperateListener";
 import { base64ToArrayBuffer } from "@mine-monopoly/utils";
 import { SaveManager, SaveRecord, SaveSnapshot } from "@src/core/save";
-import { createAIDecisionProviderFromConfig } from "@src/core/ai/OpenAICompatibleDecisionProvider";
-
-function cloneAIDecisionConfig(config: AIDecisionConfig): AIDecisionConfig {
-	return {
-		mode: config.mode,
-		contextMemoryLimit: Math.max(0, Math.floor(config.contextMemoryLimit ?? 6)),
-		remote: {
-			provider: config.remote.provider ?? "openai-compatible",
-			baseUrl: config.remote.baseUrl.trim(),
-			apiKey: config.remote.apiKey.trim(),
-			model: config.remote.model.trim(),
-			timeoutMs: config.remote.timeoutMs ?? 30000,
-		},
-	};
-}
+import { createAIDecisionProviderFromConfig, createRemoteAIDecisionProvider } from "@src/core/ai/OpenAICompatibleDecisionProvider";
+import { normalizeAIDecisionConfig, normalizeAIDecisionMode, normalizeRemoteLLMConfig } from "@src/core/ai/ai-decision-config";
 
 interface UserInRoom extends UserInRoomInfo {
 	socketClient: DataConnection;
@@ -87,6 +78,7 @@ export class Room {
 	private ownerId: string = "";
 	private gameSetting: GameSetting;
 	private aiDecisionConfig: AIDecisionConfig;
+	private aiPlayerBindings: Map<string, AIPlayerDecisionBinding>;
 	private gameProcessWorker: Worker | null = null;
 	private gameProcess: any = null; // 存储从worker传递的gameProcess引用
 	public isStarted: boolean;
@@ -95,6 +87,10 @@ export class Room {
 	private pendingSaveData: { snapshot: any; aiPlayerIds: string[] } | null = null;
 	/** GM 操作响应处理 Map */
 	private pendingGMResponses = new Map<string, { resolve: (value: GMActionResponseData) => void, timeout: ReturnType<typeof setTimeout> }>();
+	private pendingDebugStateResolvers = new Set<{
+		resolve: (value: GameProcessDebugState | null) => void;
+		timeout: ReturnType<typeof setTimeout>;
+	}>();
 
 	// 状态管理相关属性
 	private workerState: WorkerState = WorkerState.Uninitialized;
@@ -150,8 +146,9 @@ export class Room {
 		this.isStarted = false;
 		this.userList = new Map();
 		this.aiUserList = new Map();
+		this.aiPlayerBindings = new Map();
 		this.gameSetting = {};
-		this.aiDecisionConfig = cloneAIDecisionConfig(useSettig().aiDecisionConfig);
+		this.aiDecisionConfig = normalizeAIDecisionConfig(useSettig().aiDecisionConfig);
 		this.operationListener = new OperateListener();
 		// 暴露 Room 实例给 Inspector 窗口（dev only）
 		(window as any).__roomInstance = this;
@@ -200,6 +197,7 @@ export class Room {
 		};
 		this.assignRandomRoleToAiUser(aiUser);
 		this.aiUserList.set(aiUser.userId, aiUser);
+		this.aiPlayerBindings.delete(aiUser.userId);
 		this.roomBroadcast({
 			type: SocketMsgType.MsgNotify,
 			source: SocketMsgSource.Server,
@@ -216,6 +214,7 @@ export class Room {
 		if (this.isStarted) return false;
 
 		this.aiUserList.delete(userId);
+		this.aiPlayerBindings.delete(userId);
 		this.roomBroadcast({
 			type: SocketMsgType.MsgNotify,
 			source: SocketMsgSource.Server,
@@ -311,6 +310,9 @@ export class Room {
 				roleId: snapshotRoleId,
 				isAI: true,
 			});
+		}
+		for (const playerId of aiPlayerIds) {
+			this.aiPlayerBindings.delete(playerId);
 		}
 	}
 
@@ -511,13 +513,11 @@ export class Room {
 		},
 	): void {
 		if (selection.chatMessages && selection.chatMessages.length > 0) {
-			const naturalMessage = this.normalizeNaturalAIChatText(selection.chatMessages[0], 48);
+			const naturalMessage = this.normalizeNaturalAIChatText(selection.chatMessages[0], 96);
 			if (naturalMessage) {
 				this.broadcastAIThought(request.playerId, naturalMessage);
-				return;
 			}
 		}
-		this.broadcastAIThought(request.playerId, this.formatAIDecisionResult(request, selection));
 	}
 
 	// public isUserOffLine(userId: string): boolean {
@@ -897,13 +897,122 @@ export class Room {
 	}
 
 	public updateAIDecisionConfig(config: AIDecisionConfig): void {
-		this.aiDecisionConfig = cloneAIDecisionConfig(config);
+		this.aiDecisionConfig = normalizeAIDecisionConfig(config);
 		if (this.gameProcessWorker) {
 			this.gameProcessWorker.postMessage(<WorkerCommMsg>{
 				type: WorkerCommType.UpdateAIDecisionConfig,
 				data: this.aiDecisionConfig,
 			});
 		}
+	}
+
+	public applyAIDecisionConfigFromConsole(config: AIDecisionConfig) {
+		const nextConfig = normalizeAIDecisionConfig(config);
+		useSettig().aiDecisionConfig = nextConfig;
+		this.updateAIDecisionConfig(nextConfig);
+		return {
+			success: true,
+			syncedRoomAI: Boolean(this.gameProcessWorker),
+			config: nextConfig,
+		};
+	}
+
+	public setAIPlayerDecisionBinding(userId: string, binding: Partial<AIPlayerDecisionBinding>) {
+		if (!this.aiUserList.has(userId)) {
+			return { success: false, error: "AI 玩家不存在" };
+		}
+		const nextBinding = this.normalizeAIPlayerDecisionBinding(binding);
+		this.aiPlayerBindings.set(userId, nextBinding);
+		return {
+			success: true,
+			binding: nextBinding,
+		};
+	}
+
+	public clearAIRemoteUsageStatsFromConsole() {
+		clearAIRemoteUsageStats();
+		return { success: true };
+	}
+
+	public clearAIStrategyMemory(playerId?: string) {
+		if (!this.gameProcessWorker) {
+			return { success: false, error: "游戏进程尚未启动" };
+		}
+		this.gameProcessWorker.postMessage(<WorkerCommMsg>{
+			type: WorkerCommType.ClearAIStrategyMemory,
+			data: { playerId },
+		});
+		return { success: true };
+	}
+
+	public async getAIConsoleSnapshot() {
+		const debugState = await this.requestWorkerDebugState();
+		const remoteUsage = getAIRemoteUsageSnapshot();
+		return {
+			room: {
+				roomId: this.roomId,
+				ownerId: this.ownerId,
+				isStarted: this.isStarted,
+				mapName: useMapData().info?.name ?? "",
+				canSyncRoomAI: Boolean(this.gameProcessWorker),
+				workerState: this.workerState,
+				lastKnownGameState: this.lastKnownGameState,
+			},
+			config: normalizeAIDecisionConfig(this.aiDecisionConfig),
+			remoteUsage,
+			aiPlayers: Array.from(this.aiUserList.values()).map((user) => ({
+				userId: user.userId,
+				username: user.username,
+				color: user.color,
+				roleId: user.roleId,
+				isReady: user.isReady,
+				binding: this.getAIPlayerDecisionBinding(user.userId),
+				resolvedRemoteProfile: this.getResolvedAIPlayerRemoteProfile(user.userId),
+				usage: remoteUsage.byPlayer[user.userId],
+				strategyState: debugState?.aiStrategyStates?.[user.userId],
+			})),
+			debugState,
+		};
+	}
+
+	private normalizeAIPlayerDecisionBinding(binding: Partial<AIPlayerDecisionBinding> | undefined): AIPlayerDecisionBinding {
+		return {
+			mode: normalizeAIDecisionMode(binding?.mode),
+			remoteProfileId:
+				typeof binding?.remoteProfileId === "string" && binding.remoteProfileId.trim()
+					? binding.remoteProfileId.trim()
+					: undefined,
+		};
+	}
+
+	private getAIPlayerDecisionBinding(userId: string): AIPlayerDecisionBinding {
+		const binding = this.aiPlayerBindings.get(userId);
+		if (binding) {
+			return this.normalizeAIPlayerDecisionBinding(binding);
+		}
+		return {
+			mode: this.aiDecisionConfig.mode,
+			remoteProfileId: this.aiDecisionConfig.defaultRemoteProfileId,
+		};
+	}
+
+	private getResolvedAIPlayerRemoteProfile(userId: string): AIRemoteLLMProfile | null {
+		const binding = this.getAIPlayerDecisionBinding(userId);
+		if (binding.mode !== "remote") return null;
+		if (!binding.remoteProfileId) return null;
+		return this.aiDecisionConfig.remoteProfiles?.find((profile) => profile.id === binding.remoteProfileId) ?? null;
+	}
+
+	private getResolvedAIRemoteConfig(userId: string): AIRemoteLLMConfig | undefined {
+		const binding = this.getAIPlayerDecisionBinding(userId);
+		if (binding.mode !== "remote") {
+			return undefined;
+		}
+		const profile = this.getResolvedAIPlayerRemoteProfile(userId);
+		if (profile) {
+			return normalizeRemoteLLMConfig(profile);
+		}
+		return normalizeRemoteLLMConfig(this.aiDecisionConfig.remote);
 	}
 
 	public async startGame() {
@@ -928,6 +1037,7 @@ export class Room {
 			return;
 		}
 		if (this.isStarted || this.gameProcessWorker) return;
+		clearAIRemoteUsageStats();
 		this.roomBroadcast({
 			type: SocketMsgType.GameStart,
 			source: SocketMsgSource.Server,
@@ -1428,6 +1538,34 @@ export class Room {
 		if (this.workerState === WorkerState.Running) {
 			this.resetHeartbeatTimer();
 		}
+	}
+
+	private requestWorkerDebugState(timeoutMs: number = 3000): Promise<GameProcessDebugState | null> {
+		if (!this.gameProcessWorker) {
+			return Promise.resolve(null);
+		}
+		return new Promise((resolve) => {
+			const pending = {
+				resolve,
+				timeout: setTimeout(() => {
+					this.pendingDebugStateResolvers.delete(pending);
+					resolve(null);
+				}, timeoutMs),
+			};
+			this.pendingDebugStateResolvers.add(pending);
+			this.gameProcessWorker!.postMessage(<WorkerCommMsg>{
+				type: WorkerCommType.DebugGetState,
+				data: undefined,
+			});
+		});
+	}
+
+	private resolvePendingDebugState(state: GameProcessDebugState | null): void {
+		for (const pending of this.pendingDebugStateResolvers) {
+			clearTimeout(pending.timeout);
+			pending.resolve(state);
+		}
+		this.pendingDebugStateResolvers.clear();
 	}
 
 	/**
@@ -2188,6 +2326,7 @@ export class Room {
 					break;
 				case WorkerCommType.DebugStateResponse:
 					{
+						this.resolvePendingDebugState(msg.data.state);
 						const bridge = (window as any).__gpBridge;
 						if (bridge && typeof bridge.onState === "function") {
 							bridge.onState(msg.data.state);
@@ -2293,7 +2432,15 @@ export class Room {
 		if (!this.gameProcessWorker) return;
 
 		try {
-			const provider = createAIDecisionProviderFromConfig(this.aiDecisionConfig);
+			const binding = this.getAIPlayerDecisionBinding(data.request.playerId);
+			const remoteConfig = binding.mode === "remote" ? this.getResolvedAIRemoteConfig(data.request.playerId) : undefined;
+			const provider =
+				binding.mode === "remote" && remoteConfig
+					? createRemoteAIDecisionProvider(remoteConfig)
+					: createAIDecisionProviderFromConfig({
+						...this.aiDecisionConfig,
+						mode: "local",
+					});
 			const selection = await provider.decide(data.request);
 			this.broadcastAISelectionChat(data.request, selection);
 			this.gameProcessWorker.postMessage(<WorkerCommMsg>{
@@ -2304,14 +2451,6 @@ export class Room {
 				},
 			});
 		} catch (error: any) {
-			this.broadcastAIThought(
-				data.request.playerId,
-				this.pickAIChatLine([
-					"这步我有点拿不准，先走稳一点。",
-					"这一手信息不太够，我先保守点。",
-					"这步先别贪，我按稳的来。",
-				]),
-			);
 			this.gameProcessWorker.postMessage(<WorkerCommMsg>{
 				type: WorkerCommType.AIDecisionResponse,
 				data: {

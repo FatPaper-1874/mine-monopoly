@@ -70,6 +70,7 @@ export interface PlatformAPI {
 
 	// ---- 开发者 ----
 	openInspector?: () => Promise<void>;
+	openAIConsole?: () => Promise<void>;
 }
 
 /** 更新 API 接口 */

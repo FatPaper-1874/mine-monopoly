@@ -44,5 +44,6 @@ export function createWebPlatform(): PlatformAPI {
 
 		// ---- 开发者 ----
 		openInspector: undefined,
+		openAIConsole: undefined,
 	};
 }

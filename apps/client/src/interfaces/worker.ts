@@ -3,6 +3,7 @@ import {
 	AIDecisionConfig,
 	AIDecisionRequest,
 	AIDecisionSelection,
+	AIStrategyState,
 	GameMap,
 	GameSetting,
 	PlayerOperationResult,
@@ -125,6 +126,7 @@ interface WorkerCommDataTypeMap {
 	[WorkerCommType.UserOffLine]: { userId: string };
 	[WorkerCommType.UserReconnect]: { userId: string };
 	[WorkerCommType.UpdateAIDecisionConfig]: AIDecisionConfig;
+	[WorkerCommType.ClearAIStrategyMemory]: { playerId?: string };
 	[WorkerCommType.AIDecisionResponse]: {
 		requestId: string;
 		selection?: AIDecisionSelection;
@@ -191,4 +193,5 @@ export interface GameProcessDebugState {
 	playerButtons: Array<[string, Array<[string, any]>]>;
 	animationCompletionHandlers: string[];
 	rankedPlayerIds: string[];
+	aiStrategyStates: Record<string, AIStrategyState>;
 }

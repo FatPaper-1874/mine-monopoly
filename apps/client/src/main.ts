@@ -7,6 +7,8 @@ import "@src/assets/font/font.css";
 import contentFontUrl from "./assets/font/ContentFont.woff2?url";
 import contentFontAllUrl from "./assets/font/ContentFont-all.woff2?url";
 import { getPlatformType, isPC } from "./utils/platform";
+import { normalizeAIDecisionConfig } from "@src/core/ai/ai-decision-config";
+import { registerAIControlBridge } from "@src/core/ai/ai-control-bridge";
 import App from "./App.vue";
 import { initPlatform } from "./platform";
 
@@ -196,7 +198,8 @@ window.__APP_STARTED__ = true;
 interceptConsole();
 
 initDeviceStatusListener();
-initSettingStore();
+await initSettingStore();
+registerAIControlBridge();
 
 async function initSettingStore() {
 	const settingStore = useSettig();
@@ -204,6 +207,7 @@ async function initSettingStore() {
 	if (savedState) {
 		settingStore.$patch(JSON.parse(savedState));
 	}
+	settingStore.aiDecisionConfig = normalizeAIDecisionConfig(settingStore.aiDecisionConfig);
 
 	// 同步设置到音频管理器
 	const { useAudioManager } = await import("@src/utils/audio");

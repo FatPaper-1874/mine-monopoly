@@ -101,9 +101,9 @@ function handleAddAi() {
 				<input ref="colorPickerEl" type="color" @change="handleColorChange" />
 			</div>
 
-			<button v-if="amIRoomOwner && user && !isMe" type="button" class="kick" @click="handleKickOut">
+			<div v-if="amIRoomOwner && user && !isMe" type="button" class="kick" @click="handleKickOut">
 				<FontAwesomeIcon icon="person-running" />
-			</button>
+			</div>
 		</div>
 
 		<div v-if="user && user.username" class="user-info">

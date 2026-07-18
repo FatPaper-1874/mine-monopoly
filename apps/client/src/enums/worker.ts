@@ -17,6 +17,7 @@ export enum WorkerCommType {
 	UserOffLine,
 	UserReconnect,
 	UpdateAIDecisionConfig,
+	ClearAIStrategyMemory,
 	AIDecisionResponse,
 
 	// Debug (dev only)

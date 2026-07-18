@@ -58,6 +58,10 @@ function getSearchText(request: AIDecisionRequest, option?: AIDecisionOption): s
 		.toLowerCase();
 }
 
+function getPreferredDecisionSummary(request: AIDecisionRequest, option?: AIDecisionOption): string {
+	return option?.semantics?.summary || option?.description || option?.label || request.title;
+}
+
 const stockAdapter: AIDecisionAdapter = {
 	id: "stock-system",
 	supports(request, option) {
@@ -66,7 +70,7 @@ const stockAdapter: AIDecisionAdapter = {
 	buildSemantics(request, option) {
 		const text = getSearchText(request, option);
 		const tags = ["stock"];
-		let summary = option?.description || option?.label || request.title;
+		let summary = getPreferredDecisionSummary(request, option);
 		let reward: number | undefined;
 		let risk: number | undefined;
 
@@ -120,7 +124,7 @@ const lotteryAdapter: AIDecisionAdapter = {
 			category: "economy",
 			sourceSystem: "lottery",
 			tags: ["lottery", free ? "free" : "gamble"],
-			summary: option?.description || option?.label || request.title,
+			summary: getPreferredDecisionSummary(request, option),
 			timing: "short-term",
 			reward: free ? 950 : 650,
 			risk: free ? 250 : 1100,
@@ -141,7 +145,7 @@ const chanceCardAdapter: AIDecisionAdapter = {
 			category: buying ? "economy" : "utility",
 			sourceSystem: buying ? "chance-card-shop" : "chance-card",
 			tags: ["chance-card", buying ? "buy" : "use"],
-			summary: option?.description || option?.label || request.title,
+			summary: getPreferredDecisionSummary(request, option),
 			timing: buying ? "short-term" : "immediate",
 			reward: buying ? 700 : undefined,
 			risk: buying ? 400 : undefined,
@@ -160,7 +164,7 @@ const randomEventAdapter: AIDecisionAdapter = {
 			category: hasAnyKeyword(text, ["获得", "升级", "奖励"]) ? "economy" : "control",
 			sourceSystem: "random-event",
 			tags: ["random-event", hasAnyKeyword(text, ["随机"]) ? "random" : "event"],
-			summary: option?.description || option?.label || request.title,
+			summary: getPreferredDecisionSummary(request, option),
 			timing: "immediate",
 			reward: hasAnyKeyword(text, ["获得", "升级", "奖励", "偷", "抢"]) ? 850 : undefined,
 			risk: hasAnyKeyword(text, ["失去", "损失", "后退", "崩盘", "惩罚"]) ? 950 : 650,
@@ -189,7 +193,7 @@ const propertyAdapter: AIDecisionAdapter = {
 			category: "economy",
 			sourceSystem: "property",
 			tags,
-			summary: option?.description || option?.label || request.title,
+			summary: getPreferredDecisionSummary(request, option),
 			timing: hasAnyKeyword(text, ["收租", "过路费"]) ? "long-term" : "short-term",
 		};
 	},
