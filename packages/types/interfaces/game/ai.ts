@@ -1,5 +1,5 @@
 import { OperateType } from "../../enums/game/game-process";
-import { MapItem } from "./item";
+import { MapEvent, MapItem } from "./item";
 import { PlayerInfo, PropertyInfo } from "./game-process/infos";
 
 /**
@@ -180,7 +180,13 @@ export interface AIDecisionContextSnapshot {
 	properties: PropertyInfo[];
 
 	/** 地图格子精简快照 */
-	mapItems: Pick<MapItem, "id" | "type" | "x" | "y" | "rotation" | "mapEventId" | "property">[];
+	mapItems: Pick<MapItem, "id" | "type" | "x" | "y" | "rotation" | "mapEventId" | "linkto" | "beLinked" | "property">[];
+
+	/** 棋盘路径顺序（仅供 AI 摘要层解析使用） */
+	mapIndex: string[];
+
+	/** 地图事件精简快照 */
+	mapEvents: Pick<MapEvent, "id" | "type" | "name" | "description">[];
 
 	/** 自定义系统快照 */
 	systems?: Record<string, unknown>;

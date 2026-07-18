@@ -96,13 +96,261 @@ function summarizeRecentDecisionSummaries(summaries: string[] | undefined) {
 		.filter(Boolean);
 }
 
-function summarizeStrategyState(state: AIStrategyState | undefined): Record<string, unknown> | undefined {
+type ContextMapItem = AIDecisionRequest["context"]["mapItems"][number];
+type ContextProperty = AIDecisionRequest["context"]["properties"][number];
+type ContextMapEvent = AIDecisionRequest["context"]["mapEvents"][number];
+
+function summarizeSemantics(semantics: AIDecisionRequest["semantics"]): Record<string, unknown> | undefined {
+	if (!semantics) return undefined;
+	const summary: Record<string, unknown> = {};
+	if (semantics.category) summary.category = semantics.category;
+	if (semantics.intent) summary.intent = semantics.intent;
+	if (semantics.summary) summary.summary = clipText(semantics.summary, 72);
+	if (semantics.target) summary.target = clipText(semantics.target, 24);
+	if (semantics.sourceSystem) summary.sourceSystem = semantics.sourceSystem;
+	if (typeof semantics.cost === "number") summary.cost = semantics.cost;
+	if (typeof semantics.reward === "number") summary.reward = semantics.reward;
+	if (typeof semantics.risk === "number") summary.risk = semantics.risk;
+	if (semantics.tags?.length) summary.tags = semantics.tags.slice(0, 4);
+	if (semantics.effects?.length) summary.effects = semantics.effects.map((item) => clipText(item, 24)).filter(Boolean).slice(0, 3);
+	if (semantics.timing) summary.timing = semantics.timing;
+	if (typeof semantics.requiresSetup === "boolean") summary.requiresSetup = semantics.requiresSetup;
+	if (typeof semantics.urgency === "number") summary.urgency = semantics.urgency;
+	if (semantics.comboKey) summary.comboKey = semantics.comboKey;
+	return Object.keys(summary).length > 0 ? summary : undefined;
+}
+
+function buildRoleByPlayerId(request: AIDecisionRequest) {
+	return new Map((request.context.playerRoles || []).map((item) => [item.playerId, item]));
+}
+
+function buildMapItemById(request: AIDecisionRequest) {
+	return new Map(request.context.mapItems.map((item) => [item.id, item]));
+}
+
+function buildPropertyById(request: AIDecisionRequest) {
+	return new Map(request.context.properties.map((item) => [item.id, item]));
+}
+
+function buildMapEventById(request: AIDecisionRequest) {
+	return new Map(request.context.mapEvents.map((item) => [item.id, item]));
+}
+
+function getReadableRoleInfo(
+	roleByPlayerId: Map<string, NonNullable<AIDecisionRequest["context"]["playerRoles"]>[number]>,
+	playerId: string,
+	includeDescription = false,
+) {
+	const role = roleByPlayerId.get(playerId);
+	if (!role?.roleName) return undefined;
+	return {
+		name: clipText(role.roleName, 20),
+		description: includeDescription ? clipText(role.roleDescription, 48) : undefined,
+	};
+}
+
+function getCurrentRent(property: ContextProperty): number | undefined {
+	if (!property.costList.length) return undefined;
+	const rentIndex = Math.min(Math.max(property.level, 0), property.costList.length - 1);
+	return property.costList[rentIndex];
+}
+
+function formatBoardPosition(index: number): string {
+	return `第${index + 1}格`;
+}
+
+function summarizePropertyBrief(property: ContextProperty, includeOwner = true): Record<string, unknown> {
+	const ownerName = clipText(property.owner?.username, 18);
+	const currentRent = getCurrentRent(property);
+	const summaryParts: string[] = [];
+	if (includeOwner) {
+		summaryParts.push(ownerName ? `${ownerName}持有` : "无主地");
+	}
+	if (typeof property.level === "number") {
+		summaryParts.push(`等级 ${property.level}/${property.maxLevel}`);
+	}
+	if (typeof property.sellCost === "number") {
+		summaryParts.push(`购买价 ${property.sellCost}`);
+	}
+	if (typeof currentRent === "number") {
+		summaryParts.push(`当前过路费 ${currentRent}`);
+	}
+	const customDescription = clipText(property.custom?.description, 32);
+	if (customDescription) {
+		summaryParts.push(customDescription);
+	}
+	return {
+		name: clipText(property.name, 24),
+		summary: summaryParts.join("，"),
+	};
+}
+
+function summarizeMapEventBrief(event: ContextMapEvent | undefined): Record<string, unknown> | undefined {
+	if (!event) return undefined;
+	return {
+		name: clipText(event.name, 24),
+		type: String(event.type),
+		description: clipText(event.description, 48),
+	};
+}
+
+function buildTileDisplayName(item: ContextMapItem, mapEvent?: ContextMapEvent): string {
+	return clipText(item.property?.name, 24) || clipText(mapEvent?.name, 24) || clipText(item.type?.name, 20) || "未知格子";
+}
+
+function summarizeLinkedProperty(
+	request: AIDecisionRequest,
+	itemId: string | undefined,
+	boardIndexByItemId: Map<string, number>,
+): Record<string, unknown> | undefined {
+	if (!itemId) return undefined;
+	const mapItemById = buildMapItemById(request);
+	const linkedTile = mapItemById.get(itemId);
+	if (!linkedTile?.property) return undefined;
+	return {
+		position: typeof boardIndexByItemId.get(itemId) === "number" ? formatBoardPosition(boardIndexByItemId.get(itemId)!) : undefined,
+		...summarizePropertyBrief(linkedTile.property),
+	};
+}
+
+function summarizeAttachedProperties(
+	request: AIDecisionRequest,
+	item: ContextMapItem,
+	boardIndexByItemId: Map<string, number>,
+): Array<Record<string, unknown>> | undefined {
+	const attached = [item.linkto, item.beLinked]
+		.map((linkedId) => summarizeLinkedProperty(request, linkedId, boardIndexByItemId))
+		.filter((value): value is Record<string, unknown> => Boolean(value));
+	if (attached.length === 0) return undefined;
+	const seen = new Set<string>();
+	const deduped = attached.filter((property) => {
+		const key = JSON.stringify(property);
+		if (seen.has(key)) return false;
+		seen.add(key);
+		return true;
+	});
+	return deduped.length > 0 ? deduped : undefined;
+}
+
+function summarizeTile(
+	request: AIDecisionRequest,
+	item: ContextMapItem | undefined,
+	boardIndexByItemId: Map<string, number>,
+	boardIndex?: number,
+	options?: {
+		includeOwner?: boolean;
+	},
+): Record<string, unknown> | undefined {
+	if (!item) return undefined;
+	const mapEventById = buildMapEventById(request);
+	const event = item.mapEventId ? mapEventById.get(item.mapEventId) : undefined;
+	const includeOwner = options?.includeOwner !== false;
+	const typeName = clipText(item.type?.name, 20) || "未知格子";
+	const summary: Record<string, unknown> = {
+		name: buildTileDisplayName(item, event),
+		type: typeName,
+	};
+	if (typeof boardIndex === "number") {
+		summary.position = formatBoardPosition(boardIndex);
+	}
+	if (event) {
+		summary.event = summarizeMapEventBrief(event);
+	}
+	if (item.property) {
+		if (includeOwner) {
+			summary.owner = clipText(item.property.owner?.username, 18) || "无主";
+		}
+		summary.property = summarizePropertyBrief(item.property, includeOwner);
+	}
+	const attachedProperties = summarizeAttachedProperties(request, item, boardIndexByItemId);
+	if (attachedProperties) {
+		summary.attachedProperties = attachedProperties;
+	}
+	if (item.property) {
+		summary.summary = summarizePropertyBrief(item.property, includeOwner).summary;
+	} else if (attachedProperties?.length) {
+		summary.summary = `关联地产：${attachedProperties
+			.map((property) => {
+				const name = typeof property.name === "string" ? property.name : undefined;
+				const brief = typeof property.summary === "string" ? property.summary : undefined;
+				return [name, brief].filter(Boolean).join("，");
+			})
+			.filter(Boolean)
+			.join("；")}`;
+	} else if (event?.description) {
+		summary.summary = clipText(event.description, 48);
+	} else {
+		summary.summary = "普通功能格";
+	}
+	return summary;
+}
+
+function buildBoardIndexByItemId(request: AIDecisionRequest) {
+	return new Map(request.context.mapIndex.map((itemId, index) => [itemId, index]));
+}
+
+function summarizeTileAtPosition(request: AIDecisionRequest, positionIndex: number): Record<string, unknown> | undefined {
+	const itemId = request.context.mapIndex[positionIndex];
+	if (!itemId) return undefined;
+	return summarizeTile(request, buildMapItemById(request).get(itemId), buildBoardIndexByItemId(request), positionIndex);
+}
+
+function summarizeNearbyTiles(request: AIDecisionRequest, positionIndex: number, maxSteps = 6) {
+	const total = request.context.mapIndex.length;
+	if (total <= 1) return undefined;
+	const mapItemById = buildMapItemById(request);
+	const boardIndexByItemId = buildBoardIndexByItemId(request);
+	const tiles: Array<Record<string, unknown>> = [];
+	const visibleSteps = Math.min(maxSteps, total - 1);
+	for (let step = 1; step <= visibleSteps; step++) {
+		const boardIndex = (positionIndex + step) % total;
+		const tile = summarizeTile(request, mapItemById.get(request.context.mapIndex[boardIndex]), boardIndexByItemId, boardIndex);
+		if (!tile) continue;
+		tiles.push({
+			step,
+			...tile,
+		});
+	}
+	return tiles.length > 0 ? tiles : undefined;
+}
+
+function summarizeMapStructure(request: AIDecisionRequest): Record<string, unknown> {
+	const mapItemById = buildMapItemById(request);
+	const boardIndexByItemId = buildBoardIndexByItemId(request);
+	return {
+		totalTiles: request.context.mapIndex.length,
+		orderedTiles: request.context.mapIndex.map((itemId, index) => {
+			const tile = summarizeTile(request, mapItemById.get(itemId), boardIndexByItemId, index, {
+				includeOwner: false,
+			});
+			return {
+				index: index + 1,
+				...tile,
+			};
+		}),
+	};
+}
+
+function summarizeStrategyState(request: AIDecisionRequest): Record<string, unknown> | undefined {
+	const state = request.strategyState;
 	if (!state) return undefined;
 	const summary: Record<string, unknown> = {};
+	const playerNameById = new Map(request.context.players.map((item) => [item.id, item.user.username]));
+	const propertyById = buildPropertyById(request);
 	if (state.posture) summary.posture = state.posture;
 	if (typeof state.reserveCashTarget === "number") summary.reserveCashTarget = state.reserveCashTarget;
-	if (state.focusPlayerId) summary.focusPlayerId = state.focusPlayerId;
-	if (state.focusPropertyIds?.length) summary.focusPropertyIds = state.focusPropertyIds.slice(0, 3);
+	if (state.focusPlayerId) {
+		summary.focusPlayer = clipText(playerNameById.get(state.focusPlayerId), 20) || "关注目标";
+	}
+	if (state.focusPropertyIds?.length) {
+		const focusProperties = state.focusPropertyIds
+			.slice(0, 3)
+			.map((id) => clipText(propertyById.get(id)?.name, 20))
+			.filter(Boolean);
+		if (focusProperties.length > 0) {
+			summary.focusProperties = focusProperties;
+		}
+	}
 	if (state.preferredSystems?.length) summary.preferredSystems = state.preferredSystems.slice(-3);
 	if (typeof state.lastDecisionAtRound === "number") summary.lastDecisionAtRound = state.lastDecisionAtRound;
 	if (state.notes?.length) summary.notes = state.notes.map((item) => clipText(item, 18)).filter(Boolean);
@@ -113,71 +361,62 @@ function summarizeStrategyState(state: AIStrategyState | undefined): Record<stri
 
 function summarizeRequestBase(request: AIDecisionRequest): Record<string, unknown> {
 	return {
-		map: {
-			id: request.context.map.id,
-			name: request.context.map.name,
-			description: clipText(request.context.map.description, 120),
-			roles: request.context.map.roles?.map((role) => ({
-				id: role.id,
-				name: clipText(role.name, 20),
-				description: clipText(role.description, 48),
-			})),
-		},
-		systemKeys: Object.keys(request.context.systems || {}),
+		mapName: request.context.map.name,
+		mapDescription: clipText(request.context.map.description, 120),
+		roles: request.context.map.roles?.map((role) => ({
+			name: clipText(role.name, 20),
+			description: clipText(role.description, 48),
+		})),
+		enabledSystems: Object.keys(request.context.systems || {}).slice(0, 8),
 	};
 }
 
 function summarizeTableState(request: AIDecisionRequest): Record<string, unknown> {
 	const currentPlayer = request.context.player;
-	const roleByPlayerId = new Map((request.context.playerRoles || []).map((item) => [item.playerId, item]));
-	const currentPlayerRole = roleByPlayerId.get(currentPlayer.id);
+	const roleByPlayerId = buildRoleByPlayerId(request);
+	const currentPlayerTile = summarizeTileAtPosition(request, currentPlayer.positionIndex);
+	const currentTurnPlayerName = request.context.players.find((item) => item.id === request.context.currentPlayerIdInRound)?.user.username;
 	return {
-		player: {
-			id: currentPlayer.id,
+		currentRound: request.context.currentRound,
+		currentMultiplier: request.context.currentMultiplier,
+		currentTurnPlayer: clipText(currentTurnPlayerName, 20),
+		currentPlayer: {
 			name: currentPlayer.user.username,
 			money: currentPlayer.money,
-			positionIndex: currentPlayer.positionIndex,
-			role: currentPlayerRole
-				? {
-						id: currentPlayerRole.roleId,
-						name: clipText(currentPlayerRole.roleName, 20),
-						description: clipText(currentPlayerRole.roleDescription, 48),
-				  }
-				: undefined,
+			role: getReadableRoleInfo(roleByPlayerId, currentPlayer.id, true),
+			position: formatBoardPosition(currentPlayer.positionIndex),
+			currentTile: currentPlayerTile,
 			propertyCount: currentPlayer.properties.length,
-			properties: currentPlayer.properties.slice(0, 8).map((property) => ({
-				id: property.id,
-				name: property.name,
-				level: property.level,
-			})),
+			ownedProperties: currentPlayer.properties.slice(0, 8).map((property) => summarizePropertyBrief(property, false)),
 			chanceCards: currentPlayer.chanceCards.slice(0, 6).map((card) => ({
-				id: card.id,
 				name: card.name,
 				description: clipText(card.description, 28),
 			})),
+			status:
+				currentPlayer.isBankrupted
+					? "已破产"
+					: currentPlayer.stop > 0
+						? `还需暂停 ${currentPlayer.stop} 回合`
+						: undefined,
 		},
 		opponents: request.context.players
 			.filter((player) => player.id !== currentPlayer.id)
 			.map((player) => {
-				const role = roleByPlayerId.get(player.id);
 				return {
-					id: player.id,
 					name: player.user.username,
 					money: player.money,
-					positionIndex: player.positionIndex,
+					role: getReadableRoleInfo(roleByPlayerId, player.id),
+					position: formatBoardPosition(player.positionIndex),
+					currentTile: summarizeTileAtPosition(request, player.positionIndex),
 					propertyCount: player.properties.length,
+					properties: player.properties
+						.slice(0, 3)
+						.map((property) => clipText(property.name, 18))
+						.filter(Boolean),
 					isBankrupted: player.isBankrupted,
-					role: role
-						? {
-								id: role.roleId,
-								name: clipText(role.roleName, 20),
-							}
-						: undefined,
 				};
 			}),
-		currentRound: request.context.currentRound,
-		currentMultiplier: request.context.currentMultiplier,
-		currentPlayerIdInRound: request.context.currentPlayerIdInRound,
+		nearbyTiles: summarizeNearbyTiles(request, currentPlayer.positionIndex),
 	};
 }
 
@@ -187,14 +426,13 @@ function summarizeDecision(request: AIDecisionRequest): Record<string, unknown> 
 		scene: request.scene,
 		title: request.title,
 		summary: clipText(request.summary, 120),
-		semantics: request.semantics,
+		semantics: summarizeSemantics(request.semantics),
 		options: pickAvailableOptions(request.options).map((option) => ({
-			id: option.id,
+			optionId: option.id,
 			label: clipText(option.label, 36),
 			actionType: option.actionType,
-			description: clipText(option.description, 72),
-			semantics: option.semantics,
-			payload: option.payload,
+			description: clipText(option.description || option.semantics?.summary, 72),
+			semantics: summarizeSemantics(option.semantics),
 		})),
 	};
 }
@@ -202,10 +440,11 @@ function summarizeDecision(request: AIDecisionRequest): Record<string, unknown> 
 function buildRemotePrompt(request: AIDecisionRequest): string {
 	const sections = [
 		`[game_profile]\n${JSON.stringify(summarizeRequestBase(request))}`,
-		`[table_state]\n${JSON.stringify(summarizeTableState(request))}`,
+		`[map_structure]\n${JSON.stringify(summarizeMapStructure(request))}`,
+		`[board_brief]\n${JSON.stringify(summarizeTableState(request))}`,
 		`[decision]\n${JSON.stringify(summarizeDecision(request))}`,
 	];
-	const strategyState = summarizeStrategyState(request.strategyState);
+	const strategyState = summarizeStrategyState(request);
 	if (strategyState) {
 		sections.push(`[strategy_memory]\n${JSON.stringify(strategyState)}`);
 	}
