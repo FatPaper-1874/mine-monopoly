@@ -3607,7 +3607,109 @@ export class GameProcess implements IGameProcess {
 		}
 	}
 
+	private abbreviateAIThought(text: string, maxLength: number): string {
+		const normalized = text.replace(/\s+/g, " ").trim();
+		if (!normalized) return "";
+		if (normalized.length <= maxLength) return normalized;
+		return `${normalized.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
+	}
+
+	private stripMessageCardRichText(text: string): string {
+		return text
+			.replace(/<br\s*\/?>/gi, "，")
+			.replace(/<[^>]+>/g, " ")
+			.replace(/\s+/g, " ")
+			.trim();
+	}
+
+	private extractAIMessageCardSummary(option: MessageCardOption, maxLength: number = 24): string | undefined {
+		const candidates = [
+			option.title,
+			typeof option.content === "string" ? this.stripMessageCardRichText(option.content) : undefined,
+		];
+		const genericTitles = new Set(["提示", "消息", "信息", "通知", "提醒"]);
+		for (const candidate of candidates) {
+			const trimmed = candidate?.trim();
+			if (!trimmed) continue;
+			if (genericTitles.has(trimmed)) continue;
+			return this.abbreviateAIThought(trimmed, maxLength);
+		}
+		return undefined;
+	}
+
+	private buildMessageCardAIReactionPrompt(option: MessageCardOption): AIDecisionPrompt<"scripted-action"> {
+		const title = this.abbreviateAIThought(option.title || "提示", 32) || "提示";
+		const rawContent = typeof option.content === "string" ? this.stripMessageCardRichText(option.content) : "";
+		const contentSummary = this.abbreviateAIThought(rawContent, 160);
+		const humanSummary = this.extractAIMessageCardSummary(option, 36) || title;
+		const summaryParts = [
+			"你刚收到一张 showMessageCard 提示卡，请把它当作游戏内即时信息。",
+			`标题：${title}。`,
+			contentSummary ? `内容：${contentSummary}。` : "内容：这张卡主要是界面化提示，请结合标题理解。",
+			"请用玩家第一人称、口语化地说 1 句即时反应。",
+			"把这句话放进 chatMessages[0]，不要复述按钮词、技术词或 JSON 结构。",
+		];
+		return {
+			operationType: "scripted-action",
+			scene: "scripted-action",
+			title: `收到提示卡：${title}`,
+			summary: summaryParts.join(" "),
+			semantics: {
+				intent: "react_to_message_card",
+				category: "information",
+				tags: ["message-card", "chat-only", "reaction"],
+				summary: `收到提示卡后说一句自然反应：${humanSummary}`,
+				target: humanSummary,
+				sourceSystem: "message-card",
+				timing: "immediate",
+			},
+			options: [
+				{
+					id: "__acknowledge_message_card__",
+					label: "收到信息并说一句自然反应",
+					actionType: "acknowledge",
+					description: "理解提示卡内容，给出一句自然聊天发言，不执行额外游戏动作。",
+					semantics: {
+						intent: "acknowledge_message_card",
+						category: "information",
+						tags: ["message-card", "chat-only", "acknowledge"],
+						summary: `就“${humanSummary}”做出一句即时反应`,
+						target: humanSummary,
+						sourceSystem: "message-card",
+						timing: "immediate",
+					},
+					payload: {
+						title,
+						content: contentSummary,
+					},
+				},
+			],
+			metadata: {
+				messageCardTitle: title,
+				messageCardContent: contentSummary,
+				chatOnly: true,
+			},
+		};
+	}
+
+	private async requestAIMessageCardReaction(playerId: string, option: MessageCardOption): Promise<void> {
+		try {
+			await this.requestAIDecision(playerId, this.buildMessageCardAIReactionPrompt(option));
+		} catch (error) {
+			console.warn(`${AI_LOG_PREFIX} message card reaction failed`, {
+				playerId,
+				title: option.title,
+				error,
+			});
+		}
+	}
+
 	public async showMessageCard(playerIds: string[], option: MessageCardOption): Promise<void> {
+		for (const playerId of playerIds) {
+			const player = this.players.get(playerId);
+			if (!player?.isAI) continue;
+			void this.requestAIMessageCardReaction(playerId, option);
+		}
 		sendToUsers(playerIds, {
 			type: SocketMsgType.MessageCard,
 			source: SocketMsgSource.Server,
