@@ -496,9 +496,7 @@ export class Room {
 	}
 
 	private broadcastAIThought(userId: string, content: string): void {
-		const userInfo = this.aiUserList.get(userId) || this.getChatUserInfo(userId);
-		if (!userInfo) return;
-		this.broadcastChatMessageFromUser(userInfo, content);
+		this.chatBroadcast(content, userId);
 	}
 
 	private broadcastAISelectionChat(

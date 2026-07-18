@@ -1174,6 +1174,9 @@ export class GameProcess implements IGameProcess {
 
 	private async runAIPreRollOperationBroker(playerId: string, sessionId: number): Promise<void> {
 		const blockedChanceCardIds = new Set<string>();
+		// Let the current synchronous phase script finish registering all pre-roll listeners
+		// before we snapshot available actions for the AI.
+		await Promise.resolve();
 
 		while (this.isAIPreRollOperationSessionActive(playerId, sessionId)) {
 			const player = this.players.get(playerId);
@@ -2074,14 +2077,13 @@ export class GameProcess implements IGameProcess {
 				}
 
 				case TargetSelectType.ToMapItem: {
-					const targetPlayers = targetIdList.map((id) => this.players.get(id)).filter((p): p is Player => !!p);
-					if (targetPlayers.length === 0) throw new Error("选中的玩家不存在");
-					await this.executeChanceCardWithAnimation(
-						sourcePlayer,
-						chanceCard,
-						targetPlayers,
-						targetPlayers.map((t) => t.id),
-					);
+					const targetMapItemId = targetIdList[0];
+					if (!targetMapItemId) throw new Error("目标地图项不存在");
+					const targetMapItem = this.mapItems.get(targetMapItemId);
+					if (!targetMapItem) throw new Error("目标地图项不存在");
+					await this.executeChanceCardWithAnimation(sourcePlayer, chanceCard, targetMapItemId, [targetMapItem.id]);
+					this.msgNotifyBroadcast("info", `${sourcePlayer.name} 对格子 ${targetMapItem.type.name} 使用了机会卡: "${cardName}"`);
+					this.gameLogBroadcast(`${sourceLink} 对格子 ${targetMapItem.id} 使用了机会卡: ${cardLink}`);
 					break;
 				}
 
@@ -2912,7 +2914,7 @@ export class GameProcess implements IGameProcess {
 
 		if (optionsConfig.allowUseChanceCard) {
 			for (const card of player.chanceCards) {
-				if (card.getType() === TargetSelectType.ToMapItem || blockedChanceCardIds.has(card.getId())) {
+				if (blockedChanceCardIds.has(card.getId())) {
 					continue;
 				}
 				const cardHint = this.inferChanceCardAIHint(card);
@@ -3002,14 +3004,6 @@ export class GameProcess implements IGameProcess {
 
 		if (chanceCard.getType() === TargetSelectType.ToSelf) {
 			console.log(`${AI_LOG_PREFIX} chance card target self`, {
-				playerId: player.id,
-				chanceCardId,
-			});
-			return [];
-		}
-
-		if (chanceCard.getType() === TargetSelectType.ToMapItem) {
-			console.log(`${AI_LOG_PREFIX} chance card target map-item skipped`, {
 				playerId: player.id,
 				chanceCardId,
 			});
@@ -3296,7 +3290,7 @@ export class GameProcess implements IGameProcess {
 	private async executeChanceCardWithAnimation(
 		sourcePlayer: IPlayer,
 		chanceCard: IChanceCard,
-		target: IPlayer | IProperty | IPlayer[] | IProperty[],
+		target: IPlayer | IProperty | string | IPlayer[] | IProperty[],
 		targetIdListForAnim: string[],
 	) {
 		const animationId = randomString(16);

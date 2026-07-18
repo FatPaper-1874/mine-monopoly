@@ -358,12 +358,12 @@ export interface IChanceCard {
 	/**
 	 * 使用机会卡
 	 * @param sourcePlayer - 使用机会卡的玩家
-	 * @param target - 目标（玩家、地产或它们的数组）
+	 * @param target - 目标（玩家、地产、地图项 ID 或它们的数组）
 	 * @param gameProcess - 游戏进程
 	 */
 	use: (
 		sourcePlayer: IPlayer,
-		target: IPlayer | IProperty | IPlayer[] | IProperty[],
+		target: IPlayer | IProperty | string | IPlayer[] | IProperty[],
 		gameProcess: IGameProcess,
 	) => Promise<void>;
 

@@ -46,7 +46,7 @@ export class ChanceCard implements IChanceCard {
 
 	public async use(
 		sourcePlayer: IPlayer,
-		target: IPlayer | IProperty | IPlayer[] | IProperty[],
+		target: IPlayer | IProperty | string | IPlayer[] | IProperty[],
 		gameProcess: IGameProcess,
 	) {
 		try {

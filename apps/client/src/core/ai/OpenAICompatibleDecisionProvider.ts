@@ -44,7 +44,7 @@ type RemoteUsage = {
 };
 
 const SYSTEM_PROMPT =
-	"你是大富翁游戏 AI 决策器。只能基于给定 options 做选择。返回 JSON 对象，不要输出额外文本。优先返回 optionId；多选时返回 optionIds；表单场景可返回 submitted 和 fieldValues。你可以选择不返回 chatMessages；只有当你确实有自然、像玩家会说的话时才返回。若返回 chatMessages，1 条即可，用第一人称、口语化，可以带一点情绪、判断或理由，但不要提模型、提示词、JSON 或接口，也不要直接输出“确认”“取消”“提交”这类按钮词，或任何 id / 技术标识符，优先说具体对象名称、意图和原因。";
+	"你是大富翁游戏 AI 决策器。只能基于给定 options 做选择。返回 JSON 对象，不要输出额外文本。优先返回 optionId；多选时返回 optionIds；表单场景可返回 submitted 和 fieldValues。你可以选择不返回 chatMessages；只有当你确实有自然、像玩家会说的话时才返回。若返回 chatMessages，1 条即可，用第一人称、口语化，可以带一点情绪、判断或理由，但不要提模型、提示词、JSON 或接口，也不要直接输出“确认”“取消”“提交”这类按钮词，或任何 id / 技术标识符，优先说具体对象名称、意图和原因。chatMessages 必须是字符串数组，例如 {\"chatMessages\":[\"我先买这个，后手更灵活\"]}，不要返回纯字符串。";
 
 const GENERIC_CHAT_MESSAGES = new Set(["确认", "取消", "提交", "使用", "继续", "选择", "选项", "目标"]);
 const TECHNICAL_CHAT_MESSAGE_PATTERNS = [
@@ -1056,10 +1056,11 @@ function isNaturalChatMessage(text: string): boolean {
 }
 
 function sanitizeChatMessages(value: unknown): string[] | undefined {
-	if (!Array.isArray(value)) {
+	const rawMessages = Array.isArray(value) ? value : typeof value === "string" ? [value] : undefined;
+	if (!rawMessages) {
 		return undefined;
 	}
-	const normalized = value
+	const normalized = rawMessages
 		.filter((item): item is string => typeof item === "string")
 		.map((item) => item.replace(/\s+/g, " ").trim())
 		.filter((item) => item.length > 0 && isNaturalChatMessage(item))
