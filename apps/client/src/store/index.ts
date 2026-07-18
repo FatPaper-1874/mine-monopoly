@@ -275,6 +275,7 @@ export const useSettig = defineStore("setting", {
 			sfxMuted: false,
 			musicMuted: false,
 			lockRole: true,
+			chatRenderMode: "danmaku" as "danmaku" | "bubble",
 			// 画面质量设置：低/中/高三档
 			graphicQuality: "medium" as "low" | "medium" | "high",
 			// 阴影开关

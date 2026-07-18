@@ -3,6 +3,8 @@ import gsap from "gsap";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import {
 	ChanceCardInfo,
+	ChatMessage,
+	ChatMessageType,
 	MapItemType,
 	MapItem,
 	PlayerInfo,
@@ -10,7 +12,7 @@ import {
 	GameMap,
 	DiceResult,
 } from "@mine-monopoly/types";
-import { useDeviceStatus, useLoading, useSettig, useUserInfo, useUtil } from "@src/store";
+import { useChat, useDeviceStatus, useLoading, useSettig, useUserInfo, useUtil } from "@src/store";
 import { Component, ComponentPublicInstance, createApp, toRaw, watch, WatchStopHandle } from "vue";
 import { loadItemTypeModules } from "@src/utils/three/itemtype-loader";
 import { useMonopolyClient } from "@src/core/monopoly-client/MonopolyClient";
@@ -19,6 +21,7 @@ import PropertyInfoCard from "@src/views/game/utils/components/property-info-car
 import MapEventCard from "@src/views/game/utils/components/map-event-card.vue";
 import moneyPopTip from "@src/views/game/components/money-pop-tip.vue";
 import MoneyParticle3D from "@src/views/game/components/money-particle-3d.vue";
+import PlayerSpeechBubble3D from "@src/views/game/components/player-speech-bubble-3d.vue";
 import { loadHouseModels } from "@src/views/game/utils/house-loader";
 import { debounce, getScreenPosition, isMobileDevice, throttle } from "@src/utils";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer";
@@ -102,6 +105,7 @@ export class GameRenderer {
 
 	private diceManager: DiceManager | null = null;
 	private activeMoneyParticles: Map<string, CSS2DObject[]> = new Map();
+	private activeSpeechBubbles: Map<string, { bubble: CSS2DObject; unmount: () => void; timeoutId: number }> = new Map();
 	private isRenderDice = false;
 	private diceRollQueue: DiceResult[][] = []; // 骰子动画队列
 	private isProcessingDiceRoll: boolean = false; // 是否正在处理骰子动画
@@ -1114,6 +1118,27 @@ export class GameRenderer {
 			this.reloadScene();
 		});
 
+		this.commonWatchers.push(
+			watch(
+				() => useChat().newMessage,
+				(message) => {
+					if (!message || useSettig().chatRenderMode !== "bubble") return;
+					this.showPlayerSpeechBubble(message);
+				},
+			),
+		);
+
+		this.commonWatchers.push(
+			watch(
+				() => useSettig().chatRenderMode,
+				(mode) => {
+					if (mode !== "bubble") {
+						this.clearAllSpeechBubbles();
+					}
+				},
+			),
+		);
+
 		useEventBus().on(
 			"player-walk",
 			async (walkPlayerId: string, step: number, walkId: string, totalSteps?: number, startStep?: number) => {
@@ -1354,6 +1379,7 @@ export class GameRenderer {
 		});
 		useEventBus().removeAll();
 		this.commonWatchers.forEach((f) => f());
+		this.clearAllSpeechBubbles();
 			this.diceManager && this.diceManager.dispose();
 			// 释放动画管理器
 			this.animationManager.dispose();
@@ -2115,6 +2141,48 @@ export class GameRenderer {
 				duration: delay / 1000,
 			});
 		delay && setTimeout(unmount, delay);
+	}
+
+	private showPlayerSpeechBubble(message: ChatMessage) {
+		if (message.type !== ChatMessageType.Text) return;
+		const playerId = message.user.userId;
+		const playerEntity = this.playerEntities.get(playerId);
+		if (!playerEntity || !message.content?.trim()) return;
+
+		this.clearSpeechBubble(playerId);
+
+		const { css2DObject, unmount } = createCSS2DObjectFromVue(PlayerSpeechBubble3D, {
+			username: message.user.username,
+			color: message.user.color,
+			content: message.content.trim(),
+		});
+
+		css2DObject.position.set(0, PLAY_MODEL_SIZE * 2.15, 0);
+		playerEntity.model.add(css2DObject);
+
+		const timeoutId = window.setTimeout(() => {
+			this.clearSpeechBubble(playerId);
+		}, 3600);
+
+		this.activeSpeechBubbles.set(playerId, {
+			bubble: css2DObject,
+			unmount,
+			timeoutId,
+		});
+	}
+
+	private clearSpeechBubble(playerId: string) {
+		const activeBubble = this.activeSpeechBubbles.get(playerId);
+		if (!activeBubble) return;
+
+		window.clearTimeout(activeBubble.timeoutId);
+		activeBubble.bubble.parent?.remove(activeBubble.bubble);
+		activeBubble.unmount();
+		this.activeSpeechBubbles.delete(playerId);
+	}
+
+	private clearAllSpeechBubbles() {
+		Array.from(this.activeSpeechBubbles.keys()).forEach((playerId) => this.clearSpeechBubble(playerId));
 	}
 
 	//让摄像机看自己

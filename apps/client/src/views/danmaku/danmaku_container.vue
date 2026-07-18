@@ -1,17 +1,28 @@
 <script setup lang="ts">
-import { useChat } from "@src/store";
+import { useChat, useSettig } from "@src/store";
 import { ChatMessage } from "@mine-monopoly/types";
 import DanmakuItem from "@src/views/danmaku/components/danmaku_item.vue";
-import { reactive, ref, watch } from "vue";
+import { reactive, watch } from "vue";
 
 const chatStore = useChat();
+const settingStore = useSettig();
 
 const messageQueue = reactive<ChatMessage[]>([]);
 
 watch(
 	() => chatStore.newMessage,
 	(newMessage) => {
+		if (settingStore.chatRenderMode !== "danmaku") return;
 		newMessage && messageQueue.push(newMessage);
+	},
+);
+
+watch(
+	() => settingStore.chatRenderMode,
+	(mode) => {
+		if (mode !== "danmaku") {
+			messageQueue.splice(0, messageQueue.length);
+		}
 	},
 );
 

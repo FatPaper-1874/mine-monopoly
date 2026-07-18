@@ -92,6 +92,7 @@ const qualityLabels = {
 
 // 临时状态：用户选择但未应用
 const tempLockRole = ref(settingStore.lockRole);
+const tempChatRenderMode = ref<"danmaku" | "bubble">(settingStore.chatRenderMode);
 const tempGraphicQuality = ref<"low" | "medium" | "high">(settingStore.graphicQuality);
 const tempEnableShadow = ref(settingStore.enableShadow);
 const tempEnableModelAnimation = ref(settingStore.enableModelAnimation);
@@ -106,6 +107,7 @@ const tempMusicMuted = ref(settingStore.musicMuted);
 watch(settingVisible, (isOpen) => {
 	if (isOpen) {
 		tempLockRole.value = settingStore.lockRole;
+		tempChatRenderMode.value = settingStore.chatRenderMode;
 		tempGraphicQuality.value = settingStore.graphicQuality;
 		tempEnableModelAnimation.value = settingStore.enableModelAnimation;
 		tempEnableShadow.value = settingStore.enableShadow;
@@ -122,6 +124,7 @@ watch(settingVisible, (isOpen) => {
 const hasChanges = computed(() => {
 	return (
 		tempLockRole.value !== settingStore.lockRole ||
+		tempChatRenderMode.value !== settingStore.chatRenderMode ||
 		tempGraphicQuality.value !== settingStore.graphicQuality ||
 		tempEnableShadow.value !== settingStore.enableShadow ||
 		tempEnableModelAnimation.value !== settingStore.enableModelAnimation ||
@@ -171,6 +174,10 @@ const applySettings = () => {
 	if (tempLockRole.value !== settingStore.lockRole) {
 		settingStore.lockRole = tempLockRole.value;
 		eventBus.emit("graphics:lockRole:change", { lockRole: tempLockRole.value });
+	}
+
+	if (tempChatRenderMode.value !== settingStore.chatRenderMode) {
+		settingStore.chatRenderMode = tempChatRenderMode.value;
 	}
 
 	// 应用画质设置
@@ -346,6 +353,40 @@ const applySettings = () => {
 							<label for="lock-role-mode-false">
 								<FontAwesomeIcon icon="square-check" v-if="!tempLockRole" />
 								自由</label
+							>
+						</div>
+					</div>
+				</div>
+
+				<div class="setting-item">
+					<div class="label">发言显示</div>
+					<div class="content">
+						<div>
+							<input
+								type="radio"
+								name="chat-render-mode"
+								value="danmaku"
+								id="chat-render-mode-danmaku"
+								v-model="tempChatRenderMode"
+								hidden
+							/>
+							<label for="chat-render-mode-danmaku">
+								<FontAwesomeIcon icon="square-check" v-if="tempChatRenderMode === 'danmaku'" />
+								弹幕</label
+							>
+						</div>
+						<div>
+							<input
+								type="radio"
+								name="chat-render-mode"
+								value="bubble"
+								id="chat-render-mode-bubble"
+								v-model="tempChatRenderMode"
+								hidden
+							/>
+							<label for="chat-render-mode-bubble">
+								<FontAwesomeIcon icon="square-check" v-if="tempChatRenderMode === 'bubble'" />
+								对话框气泡</label
 							>
 						</div>
 					</div>
