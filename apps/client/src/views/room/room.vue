@@ -266,9 +266,7 @@ import { vStagger } from "@src/directives";
 		if (!socketClient) return;
 		//传输需要将地图从ArrayBuffer编码为Base64字符串
 		const mapData = { from: "custom" as const, data: arrayBufferToBase64(file) };
-		console.log("[ChangeMap] 1.room.vue: 准备发送自定义地图, dataLen=", mapData.data.length);
 		socketClient.changeGameMap(mapData);
-		console.log("[ChangeMap] 2.room.vue: changeGameMap 调用完成, 显示loading");
 		useLoading().showLoading("等待其他玩家确认");
 	}
 </script>

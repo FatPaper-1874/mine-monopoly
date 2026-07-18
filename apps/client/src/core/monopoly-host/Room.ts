@@ -774,7 +774,6 @@ export class Room {
 
 	public async changeMap(data: RoomMapInfo) {
 		const _this = this;
-		console.log("[ChangeMap] 7.Room.changeMap: 开始处理, from=", data.from, "dataLen=", (data.data as string)?.length);
 		this.aiUserList.forEach((user) => {
 			user.isReady = true;
 			user.roleId = "";
@@ -794,11 +793,8 @@ export class Room {
 			//如果地图来源为玩家 (有风险的)
 			//需要其他玩家确定
 			const otherPlayers = Array.from(this.userList.values()).filter((user) => user.userId !== this.ownerId);
-			console.log("[ChangeMap] 8.Room.changeMap: custom分支, otherPlayers.length=", otherPlayers.length, "userList.size=", this.userList.size);
 
 			if (otherPlayers.length === 0) {
-				// 没有其他玩家，直接加载地图
-				console.log("[ChangeMap] 9.Room.changeMap: 无其他玩家, 直接加载地图");
 				this.roomBroadcast({
 					type: SocketMsgType.LoadingControl,
 					source: SocketMsgSource.Server,
@@ -850,11 +846,9 @@ export class Room {
 		}
 
 		function sendChangeMapMessage() {
-			console.log("[ChangeMap] 10.sendChangeMapMessage: 开始发送 ChangeMap, userList.size=", _this.userList.size);
 			_this.userList.forEach((u) => (u.isReady = false));
 			// 使用分块传输发送给所有玩家（含房主，避免单条大消息被不可靠信道丢弃）
 			for (const [userId, user] of _this.userList) {
-				console.log("[ChangeMap] 11.sendChangeMapMessage: 发送给 userId=", userId, "isOwner=", userId === _this.ownerId);
 				_this.startMapChunkTransfer(userId, data);
 			}
 			_this.roomBroadcast({
@@ -1198,7 +1192,6 @@ export class Room {
 	 * 开始分块传输地图数据
 	 */
 	private startMapChunkTransfer(clientId: string, mapInfo: RoomMapInfo): void {
-		console.log("[ChangeMap] 12.startMapChunkTransfer: clientId=", clientId, "from=", mapInfo.from, "dataLen=", (mapInfo.data as string)?.length);
 		// 清理现有状态
 		this.clearTransferState(clientId);
 
@@ -1237,12 +1230,10 @@ export class Room {
 		// 发送 MapChunkStart
 		const user = this.userList.get(clientId);
 		if (!user || !user.socketClient.open) {
-			console.warn("[ChangeMap] 13.startMapChunkTransfer: user 不可用, user=", !!user, "open=", user?.socketClient?.open);
 			this.clearTransferState(clientId);
 			return;
 		}
 
-		console.log("[ChangeMap] 13.startMapChunkTransfer: 发送 MapChunkStart, totalChunks=", chunks.length, "chunkSize=", this.CHUNK_SIZE);
 		this.sendToClient(
 			user.socketClient,
 			SocketMsgType.MapChunkStart,
