@@ -27,6 +27,10 @@ function safeNumber(value: unknown, fallback: number = 0): number {
 	return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
+function hasSemanticTag(semantics: AIDecisionOption["semantics"] | undefined, tag: string): boolean {
+	return (semantics?.tags || []).includes(tag);
+}
+
 function getLeadingOpponent(playerId: string, players: PlayerInfo[]): PlayerInfo | undefined {
 	return players
 		.filter((player) => player.id !== playerId && !player.isBankrupted)
@@ -234,7 +238,22 @@ export class HeuristicDecisionProvider implements AIDecisionProvider {
 		const risk = safeNumber(semantics.risk);
 		const isBuyProperty = semantics.intent === "buy_property" || hasAnyKeyword(optionText, ["购买", "买下", "买！"]);
 		const isUpgradeProperty = semantics.intent === "upgrade_property" || hasAnyKeyword(optionText, ["升级", "升！"]);
-		let score = reward * 0.01 - cost * 0.008 - risk * 0.01;
+		const isInspectAction = hasSemanticTag(semantics, "inspect") || hasSemanticTag(semantics, "information");
+		const hasDirectStockOperation =
+			hasSemanticTag(semantics, "buy") ||
+			hasSemanticTag(semantics, "sell") ||
+			hasSemanticTag(semantics, "manipulate") ||
+			hasSemanticTag(semantics, "bullish") ||
+			hasSemanticTag(semantics, "bearish");
+		const isInformationOnlyAction =
+			isInspectAction &&
+			!hasDirectStockOperation &&
+			semantics.intent !== "use_card" &&
+			!isBuyProperty &&
+			!isUpgradeProperty;
+		const rewardWeight = isInformationOnlyAction ? 0.0008 : 0.01;
+		const riskWeight = isInformationOnlyAction ? 0.002 : 0.01;
+		let score = reward * rewardWeight - cost * 0.008 - risk * riskWeight;
 
 		// 地产投资类动作会在专门函数里结合资金余量和回报再次评估，
 		// 这里先抵消通用成本惩罚，避免“花钱”被重复扣分。
@@ -244,6 +263,11 @@ export class HeuristicDecisionProvider implements AIDecisionProvider {
 
 		if (option.actionType === "cancel") {
 			score += 0.2;
+		}
+
+		if (isInformationOnlyAction) {
+			// 纯信息动作不应被当成立刻兑现收益的高价值操作，避免每回合机械重复点击。
+			score -= 0.35;
 		}
 
 		if (isBuyProperty) {
@@ -288,7 +312,7 @@ export class HeuristicDecisionProvider implements AIDecisionProvider {
 			score -= 0.8;
 		}
 
-		if (semantics.sourceSystem === "stock" && playerMoney > 6000) {
+		if (semantics.sourceSystem === "stock" && playerMoney > 6000 && !isInformationOnlyAction) {
 			score += 0.45;
 		}
 
@@ -411,6 +435,12 @@ export class HeuristicDecisionProvider implements AIDecisionProvider {
 
 		const intent = semantics?.intent;
 		const sourceSystem = semantics?.sourceSystem;
+		const isInformationOnlyAction =
+			(hasSemanticTag(semantics, "inspect") || hasSemanticTag(semantics, "information")) &&
+			!hasSemanticTag(semantics, "buy") &&
+			!hasSemanticTag(semantics, "sell") &&
+			!hasSemanticTag(semantics, "manipulate") &&
+			intent !== "use_card";
 
 		if (posture === "desperate") {
 			if (intent === "buy_property" || intent === "upgrade_property") {
@@ -434,7 +464,7 @@ export class HeuristicDecisionProvider implements AIDecisionProvider {
 		}
 
 		if (posture === "speculative") {
-			if (sourceSystem === "stock") {
+			if (sourceSystem === "stock" && !isInformationOnlyAction) {
 				return 1.1;
 			}
 			if (sourceSystem === "lottery") {
@@ -628,6 +658,10 @@ export class AIManager {
 
 	getStrategyState(playerId: string): AIStrategyState | undefined {
 		return this.strategyStateManager.getState(playerId);
+	}
+
+	setContextMemoryLimit(limit: number): void {
+		this.strategyStateManager.setRecentDecisionLimit(limit);
 	}
 
 	async decide(request: AIDecisionRequest): Promise<AIDecisionSelection> {

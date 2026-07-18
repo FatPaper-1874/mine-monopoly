@@ -1,4 +1,6 @@
 import {
+	AIDecisionConfig,
+	AIDecisionRequest,
 	Role,
 	GameOverRule,
 	ChatMessageType,
@@ -23,7 +25,7 @@ import {
 } from "@mine-monopoly/types";
 import { WorkerCommType, WorkerState } from "@src/enums/worker";
 import { WorkerCommMsg, HeartbeatData, WorkerStateChangedData, GMAction, GMActionResponseData } from "@src/interfaces/worker";
-import { useLoading, useDeviceStatus } from "@src/store";
+import { useLoading, useDeviceStatus, useSettig } from "@src/store";
 import { randomString } from "@src/utils";
 import { getGameMapById } from "@src/utils/api/map";
 import { setRoomStarted } from "@src/utils/api/room-router";
@@ -36,6 +38,21 @@ import logService, { ErrorCategory, logWorkerError, logErrorWithOptions } from "
 import { OperateListener } from "../worker/class/OperateListener";
 import { base64ToArrayBuffer } from "@mine-monopoly/utils";
 import { SaveManager, SaveRecord, SaveSnapshot } from "@src/core/save";
+import { createAIDecisionProviderFromConfig } from "@src/core/ai/OpenAICompatibleDecisionProvider";
+
+function cloneAIDecisionConfig(config: AIDecisionConfig): AIDecisionConfig {
+	return {
+		mode: config.mode,
+		contextMemoryLimit: Math.max(0, Math.floor(config.contextMemoryLimit ?? 6)),
+		remote: {
+			provider: config.remote.provider ?? "openai-compatible",
+			baseUrl: config.remote.baseUrl.trim(),
+			apiKey: config.remote.apiKey.trim(),
+			model: config.remote.model.trim(),
+			timeoutMs: config.remote.timeoutMs ?? 30000,
+		},
+	};
+}
 
 interface UserInRoom extends UserInRoomInfo {
 	socketClient: DataConnection;
@@ -69,6 +86,7 @@ export class Room {
 	private aiUserList: Map<string, UserInRoomInfo>;
 	private ownerId: string = "";
 	private gameSetting: GameSetting;
+	private aiDecisionConfig: AIDecisionConfig;
 	private gameProcessWorker: Worker | null = null;
 	private gameProcess: any = null; // 存储从worker传递的gameProcess引用
 	public isStarted: boolean;
@@ -104,12 +122,26 @@ export class Room {
 	private static readonly INIT_TIMEOUT = 30000;
 	private static readonly MAX_ROOM_PLAYERS = 6;
 	private static readonly AI_COLOR_PALETTE = [
-		"#5b8def",
-		"#43aa8b",
-		"#f4a261",
-		"#e76f51",
-		"#9c6ade",
-		"#f72585",
+		"#4f83ff",
+		"#00a6a6",
+		"#ff8a3d",
+		"#e85d75",
+		"#7c6cff",
+		"#ff5d8f",
+		"#22c55e",
+		"#eab308",
+		"#06b6d4",
+		"#ef4444",
+		"#8b5cf6",
+		"#14b8a6",
+		"#f97316",
+		"#ec4899",
+		"#3b82f6",
+		"#84cc16",
+		"#f43f5e",
+		"#6366f1",
+		"#10b981",
+		"#f59e0b",
 	];
 
 	constructor(roomId: string) {
@@ -119,6 +151,7 @@ export class Room {
 		this.userList = new Map();
 		this.aiUserList = new Map();
 		this.gameSetting = {};
+		this.aiDecisionConfig = cloneAIDecisionConfig(useSettig().aiDecisionConfig);
 		this.operationListener = new OperateListener();
 		// 暴露 Room 实例给 Inspector 窗口（dev only）
 		(window as any).__roomInstance = this;
@@ -161,7 +194,7 @@ export class Room {
 			username: `AI玩家${aiIndex}`,
 			isReady: true,
 			avatar: "",
-			color: Room.AI_COLOR_PALETTE[(aiIndex - 1) % Room.AI_COLOR_PALETTE.length],
+			color: this.getNextAiColor(),
 			roleId: "",
 			isAI: true,
 		};
@@ -212,6 +245,21 @@ export class Room {
 		];
 	}
 
+	private getNextAiColor(): string {
+		const usedColors = new Set(
+			this.getAllRoomUsers()
+				.map((user) => user.color?.trim().toLowerCase())
+				.filter(Boolean),
+		);
+		const availableColors = Room.AI_COLOR_PALETTE.filter((color) => !usedColors.has(color.toLowerCase()));
+
+		if (availableColors.length > 0) {
+			return availableColors[Math.floor(Math.random() * availableColors.length)];
+		}
+
+		return Room.AI_COLOR_PALETTE[Math.floor(Math.random() * Room.AI_COLOR_PALETTE.length)];
+	}
+
 	private getRandomRoleId(): string | null {
 		const roles = useMapData().roles;
 		if (roles.length === 0) return null;
@@ -259,7 +307,7 @@ export class Room {
 				username: record.playerNames[nameIndex] || `AI玩家-${playerId.slice(0, 4)}`,
 				isReady: true,
 				avatar: "",
-				color: Room.AI_COLOR_PALETTE[this.aiUserList.size % Room.AI_COLOR_PALETTE.length],
+				color: this.getNextAiColor(),
 				roleId: snapshotRoleId,
 				isAI: true,
 			});
@@ -268,6 +316,208 @@ export class Room {
 
 	private getUserNameById(userId: string): string {
 		return this.userList.get(userId)?.username ?? this.aiUserList.get(userId)?.username ?? `Player-${userId.slice(0, 4)}`;
+	}
+
+	private abbreviateAIChatText(text: string | undefined, maxLength: number): string {
+		const normalized = (text || "").replace(/\s+/g, " ").trim();
+		if (!normalized) return "";
+		return normalized.length > maxLength ? `${normalized.slice(0, maxLength)}...` : normalized;
+	}
+
+	private getChatUserInfo(userId: string): UserInRoomInfo | undefined {
+		const roomUser = this.userList.get(userId);
+		if (roomUser) {
+			return this.getRoomUserInfo(roomUser);
+		}
+		const aiUser = this.aiUserList.get(userId);
+		if (aiUser) {
+			return { ...aiUser };
+		}
+		return undefined;
+	}
+
+	private broadcastChatMessageFromUser(userInfo: UserInRoomInfo, content: string): void {
+		const trimmed = content.trim();
+		if (!trimmed) return;
+		const message: ChatMessage = {
+			id: randomString(16),
+			type: ChatMessageType.Text,
+			content: trimmed,
+			user: userInfo,
+			time: Date.now(),
+		};
+		this.roomBroadcast({
+			type: SocketMsgType.RoomChat,
+			data: message,
+			source: SocketMsgSource.Server,
+		});
+	}
+
+	private humanizeAIReason(reason?: string): string | undefined {
+		if (!reason) return undefined;
+		const knownReasonMap: Record<string, string> = {
+			no_available_option: "这步先没必要动",
+			fallback_first_option: "我先走个稳的",
+			confirm_score_not_good_enough: "现在接这个不太赚",
+			cancel_empty_selectable: "眼下没合适的目标",
+			cancel_low_value_options: "这些选择都一般",
+			missing_submit_option: "这一步条件还不太够",
+			cancel_form: "这一步先不急着交",
+			no_button_good_enough: "还没到值得按的时候",
+			no_card_available: "手里暂时没合适的牌",
+			no_card_good_enough: "这张牌现在打出去有点亏",
+		};
+		if (knownReasonMap[reason]) {
+			return knownReasonMap[reason];
+		}
+		if (/^[a-z0-9_:-]+$/i.test(reason)) {
+			return undefined;
+		}
+		const normalized = this.abbreviateAIChatText(reason.replace(/[。.!?]+$/g, ""), 42);
+		return normalized ? normalized : undefined;
+	}
+
+	private pickAIChatLine(candidates: string[]): string {
+		const filtered = candidates.map((item) => item.trim()).filter(Boolean);
+		if (filtered.length === 0) return "";
+		return filtered[Math.floor(Math.random() * filtered.length)] || filtered[0];
+	}
+
+	private isGenericAIChatText(text: string): boolean {
+		const compact = text.replace(/[「」"'`，。！？、,.!?：:\s]/g, "");
+		return ["确认", "取消", "提交", "使用", "继续", "选择", "选项", "目标", "确认操作", "选择目标"].includes(compact);
+	}
+
+	private isTechnicalAIChatText(text: string): boolean {
+		if (!text.trim()) return true;
+		if (this.isGenericAIChatText(text)) return true;
+		return [
+			/__[a-z0-9:_-]+__/i,
+			/\b(?:optionid|fieldvalues|confirmdialog|targetselect|itemselect|payload|sourceid|propertyid|playerid|mapitemid)\b/i,
+			/\b(?:button|chance-card|property|player|map-item):[a-z0-9_-]+\b/i,
+			/\b[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\b/i,
+			/机会卡.{0,4}id/i,
+			/地皮.{0,4}id/i,
+			/玩家.{0,4}id/i,
+		].some((pattern) => pattern.test(text));
+	}
+
+	private normalizeNaturalAIChatText(text: string | undefined, maxLength: number): string | undefined {
+		const normalized = this.abbreviateAIChatText(text, maxLength);
+		if (!normalized || this.isTechnicalAIChatText(normalized)) {
+			return undefined;
+		}
+		return normalized;
+	}
+
+	private extractReadableAIPayloadText(payload?: Record<string, unknown>, maxLength: number = 28): string | undefined {
+		if (!payload) return undefined;
+		const candidateKeys = ["name", "title", "label", "text", "displayName", "cardName", "playerName", "propertyName", "targetName", "buttonText"];
+		for (const key of candidateKeys) {
+			const value = payload[key];
+			if (typeof value !== "string") continue;
+			const normalized = this.normalizeNaturalAIChatText(value, maxLength);
+			if (normalized) return normalized;
+		}
+		return undefined;
+	}
+
+	private getReadableAIOptionText(request: AIDecisionRequest, optionId: string, maxLength: number = 28): string | undefined {
+		const option = request.options.find((item) => item.id === optionId);
+		if (!option) return undefined;
+
+		const candidates: Array<string | undefined> = [
+			this.extractReadableAIPayloadText(option.payload, maxLength),
+			typeof option.semantics?.target === "string" ? option.semantics.target : undefined,
+			this.isGenericAIChatText(option.label) ? undefined : option.label,
+			option.semantics?.summary,
+			option.description,
+		];
+
+		for (const candidate of candidates) {
+			const normalized = this.normalizeNaturalAIChatText(candidate, maxLength);
+			if (normalized) {
+				return normalized;
+			}
+		}
+
+		return undefined;
+	}
+
+	private formatAIDecisionResult(request: AIDecisionRequest, selection: { optionId?: string; optionIds?: string[]; submitted?: boolean; fieldValues?: Record<string, unknown>; reason?: string }): string {
+		const reasonText = this.humanizeAIReason(selection.reason);
+		const withReason = (base: string) => (reasonText ? `${base}，${reasonText}。` : `${base}。`);
+
+		if (selection.optionId) {
+			const label = this.getReadableAIOptionText(request, selection.optionId, 28);
+			switch (request.scene) {
+				case "confirm-dialog":
+					return label
+						? withReason(this.pickAIChatLine([`这步我准备 ${label}`, `这手我决定 ${label}`, `我先按 ${label} 来`]))
+						: withReason(this.pickAIChatLine(["这步我就这么定了", "这手我准备直接上", "我先按这个思路走"]));
+				case "target-select":
+					return label
+						? withReason(this.pickAIChatLine([`我盯上 ${label} 了`, `这步先找 ${label}`, `目标就定 ${label} 吧`]))
+						: withReason(this.pickAIChatLine(["这步先挑个顺手的目标", "我先找个合适的目标", "这手先锁一个目标"]));
+				case "item-select":
+					return label
+						? withReason(this.pickAIChatLine([`这步我拿 ${label}`, `先选 ${label} 试试`, `我更倾向 ${label}`]))
+						: withReason(this.pickAIChatLine(["这步我先拿一个更稳的", "我先挑个顺手的", "这手先选这个"]));
+				case "active-action":
+				case "scripted-action":
+				default:
+					return label
+						? withReason(this.pickAIChatLine([`我这步准备用 ${label}`, `先按 ${label} 来`, `这手我打算走 ${label}`]))
+						: withReason(this.pickAIChatLine(["我这步先稳着来", "这手先走个顺的", "我先按现在这个思路处理"]));
+			}
+		}
+
+		if (selection.optionIds && selection.optionIds.length > 0) {
+			const labels = selection.optionIds
+				.map((id) => this.getReadableAIOptionText(request, id, 16))
+				.filter(Boolean)
+				.join("、");
+			return labels
+				? withReason(this.pickAIChatLine([`这几个我都要：${labels}`, `我先拿这几项：${labels}`, `我这步会选 ${labels}`]))
+				: withReason(this.pickAIChatLine(["这几个我先一起收下", "这手我会多拿几项", "我先把这几项一起处理"]));
+		}
+
+		if (selection.submitted) {
+			return withReason(this.pickAIChatLine(["我就按这个提交了", "这样填差不多", "这步我这么交"]));
+		}
+
+		if (selection.fieldValues && Object.keys(selection.fieldValues).length > 0) {
+			return withReason(this.pickAIChatLine(["我先按这个填", "这步我这么填更顺", "先这样写进去"]));
+		}
+
+		return withReason(this.pickAIChatLine(["我先这么走", "这步我稳一点", "先这样处理"]));
+	}
+
+	private broadcastAIThought(userId: string, content: string): void {
+		const userInfo = this.aiUserList.get(userId) || this.getChatUserInfo(userId);
+		if (!userInfo) return;
+		this.broadcastChatMessageFromUser(userInfo, content);
+	}
+
+	private broadcastAISelectionChat(
+		request: AIDecisionRequest,
+		selection: {
+			optionId?: string;
+			optionIds?: string[];
+			submitted?: boolean;
+			fieldValues?: Record<string, unknown>;
+			reason?: string;
+			chatMessages?: string[];
+		},
+	): void {
+		if (selection.chatMessages && selection.chatMessages.length > 0) {
+			const naturalMessage = this.normalizeNaturalAIChatText(selection.chatMessages[0], 48);
+			if (naturalMessage) {
+				this.broadcastAIThought(request.playerId, naturalMessage);
+				return;
+			}
+		}
+		this.broadcastAIThought(request.playerId, this.formatAIDecisionResult(request, selection));
 	}
 
 	// public isUserOffLine(userId: string): boolean {
@@ -281,28 +531,9 @@ export class Room {
 
 	public chatBroadcast(content: string, userId: string) {
 		if (!content) return;
-		const user = this.userList.get(userId);
-		if (!user) return;
-		const userInfo: UserInRoomInfo = {
-			userId: user.userId,
-			username: user.username,
-			avatar: user.avatar,
-			color: user.color,
-			roleId: user.roleId,
-			isReady: user.isReady,
-		};
-		const message: ChatMessage = {
-			id: randomString(16),
-			type: ChatMessageType.Text,
-			content,
-			user: userInfo,
-			time: Date.now(),
-		};
-		this.roomBroadcast({
-			type: SocketMsgType.RoomChat,
-			data: message,
-			source: SocketMsgSource.Server,
-		});
+		const userInfo = this.getChatUserInfo(userId);
+		if (!userInfo) return;
+		this.broadcastChatMessageFromUser(userInfo, content);
 	}
 
 	/**
@@ -669,6 +900,16 @@ export class Room {
 			msg: { type: "info", content: "地图设置有变更" },
 		});
 		this.roomInfoBroadcast();
+	}
+
+	public updateAIDecisionConfig(config: AIDecisionConfig): void {
+		this.aiDecisionConfig = cloneAIDecisionConfig(config);
+		if (this.gameProcessWorker) {
+			this.gameProcessWorker.postMessage(<WorkerCommMsg>{
+				type: WorkerCommType.UpdateAIDecisionConfig,
+				data: this.aiDecisionConfig,
+			});
+		}
 	}
 
 	public async startGame() {
@@ -1908,6 +2149,9 @@ export class Room {
 				case WorkerCommType.GameProcessReady:
 					this.handleGameProcessReady();
 					break;
+				case WorkerCommType.RequestAIDecision:
+					void this.handleWorkerAIDecisionRequest(msg.data);
+					break;
 				case WorkerCommType.WorkerStateChanged:
 					this.handleWorkerStateChanged(msg.data);
 					break;
@@ -2030,6 +2274,7 @@ export class Room {
 				mapInfo: mapData,
 				userList: this.getAllRoomUsers(),
 				roomOwnerId: this.ownerId,
+				aiConfig: this.aiDecisionConfig,
 				saveData: this.pendingSaveData ?? undefined,
 			},
 		});
@@ -2048,6 +2293,42 @@ export class Room {
 					},
 				});
 		});
+	}
+
+	private async handleWorkerAIDecisionRequest(data: {
+		requestId: string;
+		request: AIDecisionRequest;
+	}): Promise<void> {
+		if (!this.gameProcessWorker) return;
+
+		try {
+			const provider = createAIDecisionProviderFromConfig(this.aiDecisionConfig);
+			const selection = await provider.decide(data.request);
+			this.broadcastAISelectionChat(data.request, selection);
+			this.gameProcessWorker.postMessage(<WorkerCommMsg>{
+				type: WorkerCommType.AIDecisionResponse,
+				data: {
+					requestId: data.requestId,
+					selection,
+				},
+			});
+		} catch (error: any) {
+			this.broadcastAIThought(
+				data.request.playerId,
+				this.pickAIChatLine([
+					"这步我有点拿不准，先走稳一点。",
+					"这一手信息不太够，我先保守点。",
+					"这步先别贪，我按稳的来。",
+				]),
+			);
+			this.gameProcessWorker.postMessage(<WorkerCommMsg>{
+				type: WorkerCommType.AIDecisionResponse,
+				data: {
+					requestId: data.requestId,
+					error: error?.message || "AI decision failed",
+				},
+			});
+		}
 	}
 
 	/**

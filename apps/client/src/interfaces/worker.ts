@@ -1,5 +1,14 @@
 import { WorkerCommType, WorkerState } from "@src/enums/worker";
-import { GameMap, GameSetting, PlayerOperationResult, ServerSocketMessage, UserInRoomInfo } from "@mine-monopoly/types";
+import {
+	AIDecisionConfig,
+	AIDecisionRequest,
+	AIDecisionSelection,
+	GameMap,
+	GameSetting,
+	PlayerOperationResult,
+	ServerSocketMessage,
+	UserInRoomInfo,
+} from "@mine-monopoly/types";
 import { OperateType } from "@mine-monopoly/types";
 import { SaveSnapshot } from "@src/core/save/types";
 
@@ -109,11 +118,18 @@ interface WorkerCommDataTypeMap {
 		mapInfo: GameMap;
 		userList: UserInRoomInfo[];
 		roomOwnerId: string;
+		aiConfig: AIDecisionConfig;
 		saveData?: { snapshot: SaveSnapshot; aiPlayerIds: string[] };
 	};
 	[WorkerCommType.EmitOperation]: EmitOperationResult<OperateType>;
 	[WorkerCommType.UserOffLine]: { userId: string };
 	[WorkerCommType.UserReconnect]: { userId: string };
+	[WorkerCommType.UpdateAIDecisionConfig]: AIDecisionConfig;
+	[WorkerCommType.AIDecisionResponse]: {
+		requestId: string;
+		selection?: AIDecisionSelection;
+		error?: string;
+	};
 
 	// Debug (dev only)
 	[WorkerCommType.DebugGetState]: undefined;
@@ -125,6 +141,10 @@ interface WorkerCommDataTypeMap {
 	[WorkerCommType.GameStart]: undefined;
 	[WorkerCommType.GameOver]: undefined;
 	[WorkerCommType.GameProcessReady]: undefined;
+	[WorkerCommType.RequestAIDecision]: {
+		requestId: string;
+		request: AIDecisionRequest;
+	};
 
 	// 存档相关
 	[WorkerCommType.RequestSnapshot]: undefined;

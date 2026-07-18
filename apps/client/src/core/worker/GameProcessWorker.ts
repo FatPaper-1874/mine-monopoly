@@ -10,6 +10,7 @@ import {
 } from "@src/interfaces/worker";
 import { WorkerCommType } from "@src/enums/worker";
 import {
+	AIDecisionConfig,
 	ChanceCardInfo,
 	TargetSelectType,
 	ConfirmDialogOption,
@@ -58,6 +59,7 @@ import {
 	AIDecisionRequest,
 	AIDecisionSelection,
 	AIDecisionSemanticHint,
+	AIDecisionProvider,
 } from "@mine-monopoly/types";
 import { allRuntimeEnums } from "./runtime-enums";
 import { ButtonController } from "./ButtonController";
@@ -71,7 +73,7 @@ import { GameRuntimeStack } from "@src/core/worker/class/GameRuntimeStack";
 import GameProcessTypes from "./editor-lib.d.ts?raw";
 import { generatePropertySchema } from "@src/utils/html";
 import mitt from "mitt";
-import { aiManager } from "./ai";
+import { aiManager, HeuristicDecisionProvider } from "./ai";
 import type { Emitter } from "mitt";
 import { SaveSnapshot, PlayerSnapshot, PropertySnapshot } from "@src/core/save/types";
 import { applyWorkerSandbox } from "./security";
@@ -83,11 +85,80 @@ applyWorkerSandbox();
 const operationListener = new OperateListener();
 let gameProcess: GameProcess | null = null;
 const AI_LOG_PREFIX = "[AI Flow]";
+let aiDecisionRequestSeq = 0;
+const pendingAIDecisionRequests = new Map<
+	string,
+	{
+		resolve: (selection: AIDecisionSelection) => void;
+		reject: (error: Error) => void;
+		timeoutId: ReturnType<typeof setTimeout>;
+	}
+>();
 
 type AITurnActionState = {
-	usedChanceCard: boolean;
 	attemptedDynamicButtons: Record<string, string>;
 };
+
+type AIPreRollOperationTask = {
+	sessionId: number;
+	task: Promise<void>;
+};
+
+class HostBridgeDecisionProvider implements AIDecisionProvider {
+	private readonly fallback = new HeuristicDecisionProvider();
+
+	constructor(private readonly config: AIDecisionConfig) {}
+
+	async decide(request: AIDecisionRequest): Promise<AIDecisionSelection> {
+		const timeoutMs = this.config.remote.timeoutMs ?? 30000;
+		const requestId = `ai-request-${++aiDecisionRequestSeq}`;
+		try {
+			return await new Promise<AIDecisionSelection>((resolve, reject) => {
+				const timeoutId = setTimeout(() => {
+					pendingAIDecisionRequests.delete(requestId);
+					reject(new Error("AI decision bridge timeout"));
+				}, timeoutMs);
+
+				pendingAIDecisionRequests.set(requestId, { resolve, reject, timeoutId });
+				self.postMessage(<WorkerCommMsg>{
+					type: WorkerCommType.RequestAIDecision,
+					data: {
+						requestId,
+						request,
+					},
+				});
+			});
+		} catch (error) {
+			console.warn("[AI Remote] bridge failed, fallback to heuristic provider", error);
+			return this.fallback.decide(request);
+		}
+	}
+}
+
+function applyAIDecisionConfig(config: AIDecisionConfig): void {
+	aiManager.setContextMemoryLimit(config.contextMemoryLimit ?? 6);
+	if (config.mode === "remote") {
+		aiManager.setProvider(new HostBridgeDecisionProvider(config));
+		return;
+	}
+	aiManager.setProvider(new HeuristicDecisionProvider());
+}
+
+function resolveAIDecisionResponse(data: {
+	requestId: string;
+	selection?: AIDecisionSelection;
+	error?: string;
+}): void {
+	const pending = pendingAIDecisionRequests.get(data.requestId);
+	if (!pending) return;
+	clearTimeout(pending.timeoutId);
+	pendingAIDecisionRequests.delete(data.requestId);
+	if (data.error) {
+		pending.reject(new Error(data.error));
+		return;
+	}
+	pending.resolve(data.selection || {});
+}
 
 // ========== Web Worker 错误捕获 ==========
 
@@ -300,7 +371,8 @@ async function handleMessage(data: WorkerCommMsg) {
 		case WorkerCommType.LoadGameInfo:
 			{
 				try {
-					const { mapInfo, setting, userList, roomOwnerId, saveData } = data.data;
+					const { mapInfo, setting, userList, roomOwnerId, aiConfig, saveData } = data.data;
+					applyAIDecisionConfig(aiConfig);
 					gameProcess = new GameProcess(mapInfo, setting, userList, roomOwnerId);
 					if (saveData) {
 						gameProcess.setPendingSaveData(saveData);
@@ -318,6 +390,12 @@ async function handleMessage(data: WorkerCommMsg) {
 					throw e;
 				}
 			}
+			break;
+		case WorkerCommType.UpdateAIDecisionConfig:
+			applyAIDecisionConfig(data.data);
+			break;
+		case WorkerCommType.AIDecisionResponse:
+			resolveAIDecisionResponse(data.data);
 			break;
 		case WorkerCommType.EmitOperation:
 			{
@@ -495,6 +573,14 @@ export class GameProcess implements IGameProcess {
 	private aiDynamicButtonSchedulingSuppressed: Set<string> = new Set();
 	/** AI 当前回合的主动动作状态 */
 	private aiTurnActionState: Map<string, AITurnActionState> = new Map();
+	/** AI 预掷骰操作 session 号 */
+	private aiPreRollOperationSessionSeq: number = 0;
+	/** AI 预掷骰操作当前 session */
+	private aiPreRollOperationSessions: Map<string, number> = new Map();
+	/** AI 预掷骰操作 broker 任务 */
+	private aiPreRollOperationTasks: Map<string, AIPreRollOperationTask> = new Map();
+	/** AI 当前是否处于预掷骰操作 broker 中 */
+	private aiPreRollOperationPlayers: Set<string> = new Set();
 	/** 按钮ID计数器 */
 	private buttonIdCounter: number = 0;
 	/** 缓存的 UI 替换规则（用于运行时动态创建的 modifier） */
@@ -925,7 +1011,7 @@ export class GameProcess implements IGameProcess {
 
 	private scheduleAIDynamicButtonDecision(playerId: string): void {
 		const player = this.players.get(playerId);
-		if (!player?.isAI || this.currentRoundPlayer?.id !== playerId) {
+		if (!player?.isAI || this.currentRoundPlayer?.id !== playerId || this.aiPreRollOperationPlayers.has(playerId)) {
 			return;
 		}
 
@@ -943,21 +1029,187 @@ export class GameProcess implements IGameProcess {
 
 	private async tryAIDynamicButtonDecision(playerId: string): Promise<void> {
 		const player = this.players.get(playerId);
-		if (!player?.isAI || this.currentRoundPlayer?.id !== playerId || this.aiDynamicButtonInFlight.has(playerId)) {
+		if (
+			!player?.isAI ||
+			this.currentRoundPlayer?.id !== playerId ||
+			this.aiDynamicButtonInFlight.has(playerId) ||
+			this.aiPreRollOperationPlayers.has(playerId)
+		) {
 			return;
 		}
 
-		const request = this.buildAIActiveActionRequest(player);
+		const request = this.buildDynamicButtonDecisionRequest(player, this.buildAIDecisionContext(player));
 		if (!request) {
 			return;
 		}
-		this.ensureAIDecisionMetadata(request, playerId, `active-action:${request.title}`);
+		this.ensureAIDecisionMetadata(request, playerId, `dynamic-button:${request.title}`);
 
 		this.aiDynamicButtonInFlight.add(playerId);
 		try {
-			console.log(`${AI_LOG_PREFIX} active-action request`, {
+			console.log(`${AI_LOG_PREFIX} dynamic-button request`, {
 				decisionId: request.metadata?.decisionId,
 				playerId,
+				title: request.title,
+				scene: request.scene,
+				options: request.options.map((option) => ({
+					id: option.id,
+					label: option.label,
+					actionType: option.actionType,
+					intent: option.semantics?.intent,
+				})),
+			});
+			const selection = await aiManager.decide(request);
+			console.log(`${AI_LOG_PREFIX} dynamic-button selection`, {
+				decisionId: request.metadata?.decisionId,
+				playerId,
+				selection,
+			});
+			const selectedOptionId = selection.optionId;
+			const selectedOption = request.options.find((option) => option.id === selectedOptionId);
+			const buttonId = String(selectedOption?.payload?.id || selectedOptionId || "");
+			if (!selectedOption || !buttonId) {
+				return;
+			}
+
+			this.markAITurnDynamicButtonAttempt(playerId, buttonId, selectedOption.label, selectedOption.semantics);
+			aiManager.feedback({
+				playerId,
+				request,
+				selection,
+				outcome: "dynamic-button",
+			});
+			console.log(`${AI_LOG_PREFIX} execute dynamic button`, {
+				decisionId: request.metadata?.decisionId,
+				playerId,
+				buttonId,
+				label: selectedOption.label,
+			});
+			await this.handleDynamicButtonClick(playerId, buttonId);
+		} finally {
+			this.aiDynamicButtonInFlight.delete(playerId);
+		}
+	}
+
+	private ensureAIPreRollOperationSession(playerId: string): number {
+		const currentSessionId = this.aiPreRollOperationSessions.get(playerId);
+		if (currentSessionId) {
+			return currentSessionId;
+		}
+
+		const sessionId = ++this.aiPreRollOperationSessionSeq;
+		this.aiPreRollOperationSessions.set(playerId, sessionId);
+		return sessionId;
+	}
+
+	private isAIPreRollOperationSessionActive(playerId: string, sessionId: number): boolean {
+		return this.currentRoundPlayer?.id === playerId && this.aiPreRollOperationSessions.get(playerId) === sessionId;
+	}
+
+	private invalidateAIPreRollOperationSession(playerId: string): void {
+		this.aiPreRollOperationSessions.delete(playerId);
+		this.aiPreRollOperationPlayers.delete(playerId);
+		this.aiPreRollOperationTasks.delete(playerId);
+	}
+
+	private syncAIPreRollOperationSession(playerId: string): void {
+		const hasRollDiceListener = operationListener.hasListener(playerId, OperateType.RollDice);
+		const hasUseChanceCardListener = operationListener.hasListener(playerId, OperateType.UseChanceCard);
+		if (!hasRollDiceListener && !hasUseChanceCardListener) {
+			this.invalidateAIPreRollOperationSession(playerId);
+		}
+	}
+
+	private closeAIPreRollOperationSessionAndEmit<T extends OperateType>(
+		playerId: string,
+		sessionId: number,
+		operationType: T,
+		data: PlayerOperationResult[T],
+	): void {
+		if (!this.isAIPreRollOperationSessionActive(playerId, sessionId)) {
+			return;
+		}
+		this.invalidateAIPreRollOperationSession(playerId);
+		this.emitPlayerOperation(playerId, operationType, data);
+	}
+
+	private ensureAIPreRollOperationBroker(player: Player): void {
+		if (!player.isAI || this.currentRoundPlayer?.id !== player.id) {
+			return;
+		}
+		const sessionId = this.ensureAIPreRollOperationSession(player.id);
+		if (this.aiPreRollOperationTasks.has(player.id)) {
+			return;
+		}
+
+		const pendingTimer = this.aiDynamicButtonTimers.get(player.id);
+		if (pendingTimer) {
+			clearTimeout(pendingTimer);
+			this.aiDynamicButtonTimers.delete(player.id);
+		}
+
+		this.aiPreRollOperationPlayers.add(player.id);
+		const task = this.runAIPreRollOperationBroker(player.id, sessionId)
+			.catch((error) => {
+				console.error(`${AI_LOG_PREFIX} pre-roll broker failed`, {
+					playerId: player.id,
+					sessionId,
+					error,
+				});
+			})
+			.finally(() => {
+				const currentTask = this.aiPreRollOperationTasks.get(player.id);
+				if (currentTask?.sessionId === sessionId) {
+					this.aiPreRollOperationPlayers.delete(player.id);
+					this.aiPreRollOperationTasks.delete(player.id);
+				}
+			});
+		this.aiPreRollOperationTasks.set(player.id, {
+			sessionId,
+			task,
+		});
+	}
+
+	private async runAIPreRollOperationBroker(playerId: string, sessionId: number): Promise<void> {
+		const blockedChanceCardIds = new Set<string>();
+
+		while (this.isAIPreRollOperationSessionActive(playerId, sessionId)) {
+			const player = this.players.get(playerId);
+			if (!player?.isAI) {
+				return;
+			}
+
+			const allowRollDice = operationListener.hasListener(playerId, OperateType.RollDice);
+			const allowUseChanceCard = operationListener.hasListener(playerId, OperateType.UseChanceCard);
+			if (!allowRollDice && !allowUseChanceCard) {
+				return;
+			}
+
+			const request = this.buildAIPreRollOperationRequest(player, {
+				allowRollDice,
+				allowUseChanceCard,
+				blockedChanceCardIds,
+			});
+			if (!request) {
+				if (allowRollDice) {
+					console.log(`${AI_LOG_PREFIX} pre-roll broker auto-roll`, {
+						playerId,
+						reason: "no_active_actions",
+					});
+					this.closeAIPreRollOperationSessionAndEmit(
+						playerId,
+						sessionId,
+						OperateType.RollDice,
+						undefined as PlayerOperationResult[OperateType.RollDice],
+					);
+				}
+				return;
+			}
+			this.ensureAIDecisionMetadata(request, playerId, `pre-roll:${request.title}`);
+
+			console.log(`${AI_LOG_PREFIX} pre-roll request`, {
+				decisionId: request.metadata?.decisionId,
+				playerId,
+				sessionId,
 				title: request.title,
 				scene: request.scene,
 				options: request.options.map((option) => ({
@@ -969,101 +1221,164 @@ export class GameProcess implements IGameProcess {
 				})),
 			});
 			const selection = await aiManager.decide(request);
-			console.log(`${AI_LOG_PREFIX} active-action selection`, {
+			console.log(`${AI_LOG_PREFIX} pre-roll selection`, {
 				decisionId: request.metadata?.decisionId,
 				playerId,
+				sessionId,
 				selection,
 			});
+			if (!this.isAIPreRollOperationSessionActive(playerId, sessionId)) {
+				console.log(`${AI_LOG_PREFIX} stale pre-roll selection ignored`, {
+					playerId,
+					sessionId,
+				});
+				return;
+			}
+
 			const selectedOptionId = selection.optionId;
-			if (!selectedOptionId || selectedOptionId === "__cancel__") {
+			if (!selectedOptionId || selectedOptionId === "__finish_pre_roll__" || selectedOptionId === "__cancel__") {
 				aiManager.feedback({
 					playerId,
 					request,
 					selection,
-					outcome: "active-action-skip",
+					outcome: "finish-pre-roll",
 				});
-				console.log(`${AI_LOG_PREFIX} active-action skipped`, {
-					decisionId: request.metadata?.decisionId,
-					playerId,
-					reason: "empty_or_cancel",
-				});
+				if (allowRollDice) {
+					this.closeAIPreRollOperationSessionAndEmit(
+						playerId,
+						sessionId,
+						OperateType.RollDice,
+						undefined as PlayerOperationResult[OperateType.RollDice],
+					);
+				}
 				return;
 			}
 
 			const selectedOption = request.options.find((option) => option.id === selectedOptionId);
 			if (!selectedOption) {
+				if (allowRollDice) {
+					this.closeAIPreRollOperationSessionAndEmit(
+						playerId,
+						sessionId,
+						OperateType.RollDice,
+						undefined as PlayerOperationResult[OperateType.RollDice],
+					);
+				}
 				return;
 			}
 
 			const actionKind = String(selectedOption.payload?.actionKind || "");
 			if (actionKind === "dynamic-button") {
 				const buttonId = String(selectedOption.payload?.id || "");
-				if (buttonId) {
-					this.markAITurnDynamicButtonAttempt(playerId, buttonId, selectedOption.label, selectedOption.semantics);
-					aiManager.feedback({
-						playerId,
-						request,
-						selection,
-						outcome: "dynamic-button",
-					});
-					console.log(`${AI_LOG_PREFIX} execute dynamic button`, {
-						decisionId: request.metadata?.decisionId,
-						playerId,
-						buttonId,
-						label: selectedOption.label,
-					});
-					await this.handleDynamicButtonClick(playerId, buttonId);
-				}
-				return;
-			}
-
-			if (actionKind === "use-chance-card") {
-				const chanceCardId = String(selectedOption.payload?.id || "");
-				if (!chanceCardId || this.aiTurnActionState.get(playerId)?.usedChanceCard) {
-					aiManager.feedback({
-						playerId,
-						request,
-						selection,
-						outcome: "chance-card-skip",
-					});
-					console.log(`${AI_LOG_PREFIX} skip chance card`, {
-						decisionId: request.metadata?.decisionId,
-						playerId,
-						chanceCardId,
-						usedChanceCard: this.aiTurnActionState.get(playerId)?.usedChanceCard,
-					});
+				if (!buttonId) {
+					if (allowRollDice) {
+						this.closeAIPreRollOperationSessionAndEmit(
+							playerId,
+							sessionId,
+							OperateType.RollDice,
+							undefined as PlayerOperationResult[OperateType.RollDice],
+						);
+					}
 					return;
 				}
 
-				const targetIdList = await this.buildAIChanceCardTargetIds(player, chanceCardId);
-				console.log(`${AI_LOG_PREFIX} execute chance card`, {
-					decisionId: request.metadata?.decisionId,
-					playerId,
-					chanceCardId,
-					label: selectedOption.label,
-					targetIdList,
-				});
-				const success = await this.handleUseChanceCard(player, chanceCardId, targetIdList);
+				this.markAITurnDynamicButtonAttempt(playerId, buttonId, selectedOption.label, selectedOption.semantics);
 				aiManager.feedback({
 					playerId,
 					request,
 					selection,
-					outcome: success ? "chance-card" : "chance-card-failed",
+					outcome: "dynamic-button",
 				});
-				console.log(`${AI_LOG_PREFIX} chance card result`, {
+				console.log(`${AI_LOG_PREFIX} pre-roll execute dynamic button`, {
 					decisionId: request.metadata?.decisionId,
 					playerId,
-					chanceCardId,
-					success,
+					sessionId,
+					buttonId,
+					label: selectedOption.label,
 				});
-				if (success) {
-					this.markAIChanceCardUsed(playerId);
-				} else {
-					this.scheduleAIDynamicButtonDecision(playerId);
+				await this.handleDynamicButtonClick(playerId, buttonId);
+				if (!this.isAIPreRollOperationSessionActive(playerId, sessionId)) {
+					return;
 				}
+				continue;
 			}
-		} finally {
-			this.aiDynamicButtonInFlight.delete(playerId);
+
+			if (actionKind === "use-chance-card") {
+				const chanceCardId = String(selectedOption.payload?.id || "");
+				if (!allowUseChanceCard) {
+					if (allowRollDice) {
+						this.closeAIPreRollOperationSessionAndEmit(
+							playerId,
+							sessionId,
+							OperateType.RollDice,
+							undefined as PlayerOperationResult[OperateType.RollDice],
+						);
+					}
+					return;
+				}
+				if (!chanceCardId) {
+					if (allowRollDice) {
+						this.closeAIPreRollOperationSessionAndEmit(
+							playerId,
+							sessionId,
+							OperateType.RollDice,
+							undefined as PlayerOperationResult[OperateType.RollDice],
+						);
+					}
+					return;
+				}
+
+				const chanceCard = player.getCardById(chanceCardId);
+				if (!chanceCard) {
+					blockedChanceCardIds.add(chanceCardId);
+					continue;
+				}
+
+				const targetIdList = await this.buildAIChanceCardTargetIds(player, chanceCardId);
+				if (!this.isAIPreRollOperationSessionActive(playerId, sessionId)) {
+					return;
+				}
+				if (chanceCard.getType() !== TargetSelectType.ToSelf && targetIdList.length === 0) {
+					aiManager.feedback({
+						playerId,
+						request,
+						selection,
+						outcome: "chance-card-no-target",
+					});
+					blockedChanceCardIds.add(chanceCardId);
+					continue;
+				}
+
+				aiManager.feedback({
+					playerId,
+					request,
+					selection,
+					outcome: "chance-card",
+				});
+				console.log(`${AI_LOG_PREFIX} pre-roll emit chance card`, {
+					decisionId: request.metadata?.decisionId,
+					playerId,
+					sessionId,
+					chanceCardId,
+					label: selectedOption.label,
+					targetIdList,
+				});
+				this.closeAIPreRollOperationSessionAndEmit(playerId, sessionId, OperateType.UseChanceCard, {
+					chanceCardId,
+					targetIdList,
+				});
+				return;
+			}
+
+			if (allowRollDice) {
+				this.closeAIPreRollOperationSessionAndEmit(
+					playerId,
+					sessionId,
+					OperateType.RollDice,
+					undefined as PlayerOperationResult[OperateType.RollDice],
+				);
+			}
+			return;
 		}
 	}
 
@@ -1985,11 +2300,13 @@ export class GameProcess implements IGameProcess {
 
 		// 如果玩家是AI托管，使用AI决策
 		if (player?.isAI) {
-			if (operationType === OperateType.UseChanceCard) {
-				return await operationListener.onceAsyncWithTimeout(playerId, operationType, {
+			if (operationType === OperateType.RollDice || operationType === OperateType.UseChanceCard) {
+				const waitForOperation = operationListener.onceAsyncWithTimeout(playerId, operationType, {
 					timeout: options?.timeout ?? this.defaultTimeoutMs,
 					defaultValue: options?.defaultValue ?? (undefined as any),
 				});
+				this.ensureAIPreRollOperationBroker(player);
+				return await waitForOperation;
 			}
 			return await this.makeAIDecision(player, operationType, {
 				defaultValue: options?.defaultValue,
@@ -2017,10 +2334,20 @@ export class GameProcess implements IGameProcess {
 		listener: (...args: any[]) => PlayerOperationResult[T],
 	): void {
 		operationListener.remove(playerId, operationType, listener);
+		if (operationType === OperateType.RollDice || operationType === OperateType.UseChanceCard) {
+			this.syncAIPreRollOperationSession(playerId);
+		}
 	}
 
 	public removePlayerAllOperationListener<T extends OperateType>(playerId: string, operationType?: T): void {
 		operationListener.removeAll(playerId, operationType);
+		if (
+			operationType === undefined ||
+			operationType === OperateType.RollDice ||
+			operationType === OperateType.UseChanceCard
+		) {
+			this.syncAIPreRollOperationSession(playerId);
+		}
 	}
 
 	private async makeAIDecision<T extends OperateType>(
@@ -2031,10 +2358,6 @@ export class GameProcess implements IGameProcess {
 			defaultValue?: PlayerOperationResult[T];
 		},
 	): Promise<PlayerOperationResult[T]> {
-		if (operationType === OperateType.RollDice) {
-			await this.prepareAIPreRollActions(player);
-		}
-
 		const request = this.buildAIDecisionRequest(player, operationType, input?.option);
 		if (!request) {
 			console.log(`${AI_LOG_PREFIX} no request built`, {
@@ -2075,28 +2398,6 @@ export class GameProcess implements IGameProcess {
 			result,
 		});
 		return result;
-	}
-
-	private async prepareAIPreRollActions(player: Player): Promise<void> {
-		if (this.currentRoundPlayer?.id !== player.id) {
-			return;
-		}
-
-		const pendingTimer = this.aiDynamicButtonTimers.get(player.id);
-		if (pendingTimer) {
-			clearTimeout(pendingTimer);
-			this.aiDynamicButtonTimers.delete(player.id);
-		}
-
-		if (this.aiDynamicButtonInFlight.has(player.id)) {
-			return;
-		}
-
-		console.log(`${AI_LOG_PREFIX} pre-roll active-action check`, {
-			playerId: player.id,
-			usedChanceCard: this.aiTurnActionState.get(player.id)?.usedChanceCard ?? false,
-		});
-		await this.tryAIDynamicButtonDecision(player.id);
 	}
 
 	private buildAIDecisionRequest<T extends OperateType>(
@@ -2151,6 +2452,19 @@ export class GameProcess implements IGameProcess {
 
 	private buildAIDecisionContext(player: Player): AIDecisionContextSnapshot {
 		const gameData = this.getGameData();
+		const playerRoles = gameData.players.map((item) => {
+			const roleId = item.user.roleId;
+			const role = roleId ? this.mapData.roles.find((candidate) => candidate.id === roleId) : undefined;
+			return {
+				playerId: item.id,
+				playerName: item.user.username,
+				isSelf: item.id === player.id,
+				isAI: item.isAI,
+				roleId,
+				roleName: role?.name,
+				roleDescription: role?.description,
+			};
+		});
 		return {
 			player: player.getPlayerInfo(),
 			players: gameData.players,
@@ -2165,6 +2479,7 @@ export class GameProcess implements IGameProcess {
 				property: item.property,
 			})),
 			systems: (gameData.exportData as Record<string, unknown> | undefined) || undefined,
+			playerRoles,
 			currentRound: gameData.currentRound,
 			currentMultiplier: gameData.currentMultiplier,
 			currentPlayerIdInRound: gameData.currentPlayerIdInRound,
@@ -2172,6 +2487,11 @@ export class GameProcess implements IGameProcess {
 				id: this.mapData.id,
 				name: this.mapData.info.name,
 				description: this.mapData.info.description,
+				roles: this.mapData.roles.map((role) => ({
+					id: role.id,
+					name: role.name,
+					description: role.description,
+				})),
 			},
 		};
 	}
@@ -2459,7 +2779,6 @@ export class GameProcess implements IGameProcess {
 
 	private createAITurnActionState(): AITurnActionState {
 		return {
-			usedChanceCard: false,
 			attemptedDynamicButtons: {},
 		};
 	}
@@ -2545,11 +2864,17 @@ export class GameProcess implements IGameProcess {
 		};
 	}
 
-	private buildAIActiveActionRequest(
+	private buildAIPreRollOperationRequest(
 		player: Player,
-	): AIDecisionRequest<"active-action"> | null {
+		optionsConfig: {
+			allowRollDice: boolean;
+			allowUseChanceCard: boolean;
+			blockedChanceCardIds?: ReadonlySet<string>;
+		},
+	): AIDecisionRequest<OperateType.RollDice> | null {
 		const context = this.buildAIDecisionContext(player);
 		const options: AIDecisionOption[] = [];
+		const blockedChanceCardIds = optionsConfig.blockedChanceCardIds ?? new Set<string>();
 
 		for (const button of this.getPlayerButtons(player.id)) {
 			if (!button.visible || !button.enabled || this.shouldSkipAITurnDynamicButton(player.id, button)) {
@@ -2569,10 +2894,9 @@ export class GameProcess implements IGameProcess {
 			});
 		}
 
-		const aiTurnState = this.aiTurnActionState.get(player.id);
-		if (!aiTurnState?.usedChanceCard) {
+		if (optionsConfig.allowUseChanceCard) {
 			for (const card of player.chanceCards) {
-				if (card.getType() === TargetSelectType.ToMapItem) {
+				if (card.getType() === TargetSelectType.ToMapItem || blockedChanceCardIds.has(card.getId())) {
 					continue;
 				}
 				const cardHint = this.inferChanceCardAIHint(card);
@@ -2596,25 +2920,29 @@ export class GameProcess implements IGameProcess {
 			return null;
 		}
 
-		options.push({
-			id: "__cancel__",
-			label: "暂不操作",
-			actionType: "cancel",
-			semantics: {
-				category: "control",
-				intent: "cancel_action",
-			},
-		});
+			if (optionsConfig.allowRollDice) {
+			options.push({
+				id: "__finish_pre_roll__",
+				label: "结束操作并掷骰",
+				actionType: "roll",
+				semantics: {
+					category: "movement",
+					intent: "finish_pre_roll",
+					summary: "结束本回合准备阶段，并立即进入掷骰移动",
+				},
+			});
+		}
 
 		return {
-			operationType: "active-action",
+			operationType: OperateType.RollDice,
 			scene: "active-action",
 			playerId: player.id,
-			title: "选择主动行动",
+			title: "选择主动行动或结束准备阶段",
 			context,
 			options,
 			metadata: {
 				maxSelections: 1,
+				finishActionId: "__finish_pre_roll__",
 			},
 		};
 	}
@@ -2643,14 +2971,6 @@ export class GameProcess implements IGameProcess {
 				sourceId: chanceCard.getSourceId(),
 			},
 		};
-	}
-
-	private markAIChanceCardUsed(playerId: string): void {
-		const previous = this.getAITurnActionState(playerId);
-		this.aiTurnActionState.set(playerId, {
-			...previous,
-			usedChanceCard: true,
-		});
 	}
 
 	private async buildAIChanceCardTargetIds(player: Player, chanceCardId: string): Promise<string[]> {
@@ -3368,6 +3688,7 @@ export class GameProcess implements IGameProcess {
 	 * @param playerId - 当前回合玩家的 ID
 	 */
 	public roundTurnNotify(playerId: string) {
+		this.invalidateAIPreRollOperationSession(playerId);
 		this.aiTurnActionState.set(playerId, this.createAITurnActionState());
 		this.gameBroadcast({
 			type: SocketMsgType.RoundTurn,
@@ -3375,7 +3696,6 @@ export class GameProcess implements IGameProcess {
 			data: playerId,
 		});
 		this.gameLogBroadcast(`---接下来是 ${this.createGameLinkItem(GameLinkItem.Player, playerId)} 的回合---`);
-		this.scheduleAIDynamicButtonDecision(playerId);
 	}
 
 	public sendToPlayer(id: string, msg: ServerSocketMessage) {
@@ -3428,6 +3748,7 @@ export class GameProcess implements IGameProcess {
 		}
 		this.aiDynamicButtonInFlight.delete(playerId);
 		this.aiDynamicButtonSchedulingSuppressed.delete(playerId);
+		this.invalidateAIPreRollOperationSession(playerId);
 		this.aiTurnActionState.delete(playerId);
 
 		const playerButtons = this.playerButtons.get(playerId);
@@ -3479,6 +3800,7 @@ export class GameProcess implements IGameProcess {
 			}
 			this.aiDynamicButtonInFlight.delete(userId);
 			this.aiDynamicButtonSchedulingSuppressed.delete(userId);
+			this.invalidateAIPreRollOperationSession(userId);
 			player.setIsOffline(false);
 			// 取消AI托管
 			player.isAI = false;

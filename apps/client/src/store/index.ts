@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import {
+	AIDecisionConfig,
 	ChatMessage,
 	FormSchema,
 	GameLog,
@@ -278,6 +279,17 @@ export const useSettig = defineStore("setting", {
 			// 阴影开关
 			enableShadow: false,
 			enableModelAnimation: true,
+			aiDecisionConfig: {
+				mode: "local",
+				remote: {
+					provider: "openai-compatible",
+					baseUrl: "",
+					apiKey: "",
+					model: "",
+					timeoutMs: 30000,
+				},
+				contextMemoryLimit: 6,
+			} as AIDecisionConfig,
 		};
 	},
 	actions: {

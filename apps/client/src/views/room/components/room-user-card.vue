@@ -101,9 +101,9 @@ function handleAddAi() {
 				<input ref="colorPickerEl" type="color" @change="handleColorChange" />
 			</div>
 
-			<div v-if="amIRoomOwner && user && !isMe" class="kick">
-				<FontAwesomeIcon @click="handleKickOut" icon="person-running" />
-			</div>
+			<button v-if="amIRoomOwner && user && !isMe" type="button" class="kick" @click="handleKickOut">
+				<FontAwesomeIcon icon="person-running" />
+			</button>
 		</div>
 
 		<div v-if="user && user.username" class="user-info">
@@ -199,6 +199,7 @@ $top-bar-height: 2.8rem;
 			align-items: center;
 			width: $item-size;
 			height: $item-size;
+			padding: 0;
 			border-radius: 50%;
 			border: 0.3rem solid #ffffff;
 			cursor: pointer;

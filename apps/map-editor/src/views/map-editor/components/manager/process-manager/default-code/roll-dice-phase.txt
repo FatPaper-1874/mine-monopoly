@@ -1,33 +1,32 @@
 (async (context, gameProcess) => {
 	const currentPlayer = context.currentRoundPlayer;
-    const currentPlayerId = currentPlayer.id;
 
-    // 使用循环来处理可能的多次操作，直到玩家掷骰子或超时
-    while (true) {
-        gameProcess.setCurrentEventName(`等待${currentPlayer.name}操作`);
+	// 使用循环来处理可能的多次操作，直到玩家掷骰子或超时
+	while (true) {
+		gameProcess.setCurrentEventName(`等待${currentPlayer.name}操作`);
 
-        // 同时监听掷骰子（带超时）和使用机会卡
-        const operation = await Promise.race([
-            gameProcess.oncePlayerOperationAsync(currentPlayerId, OperateType.RollDice)
-                .then(res => ({ type: OperateType.RollDice, res })),
-            gameProcess.oncePlayerOperationAsync(currentPlayerId, OperateType.UseChanceCard)
-                .then(res => ({ type: OperateType.UseChanceCard, res }))
-        ]);
+		const operation = await Promise.race([
+			gameProcess.oncePlayerOperationAsync(currentPlayer.id, OperateType.RollDice)
+				.then((res) => ({ type: OperateType.RollDice, res })),
+			gameProcess.oncePlayerOperationAsync(currentPlayer.id, OperateType.UseChanceCard)
+				.then((res) => ({ type: OperateType.UseChanceCard, res })),
+		]);
 
-        gameProcess.removePlayerAllOperationListener(currentPlayerId, OperateType.RollDice);
-        gameProcess.removePlayerAllOperationListener(currentPlayerId, OperateType.UseChanceCard);
+		gameProcess.removePlayerAllOperationListener(currentPlayer.id, OperateType.RollDice);
+		gameProcess.removePlayerAllOperationListener(currentPlayer.id, OperateType.UseChanceCard);
 
-        if (operation.type === OperateType.RollDice) {
-            break;
-        } else if (operation.type === OperateType.UseChanceCard) {
-            if (operation.res) {
-                const { chanceCardId, targetIdList } = operation.res;
-                await gameProcess.handleUseChanceCard(currentPlayer, chanceCardId, targetIdList);
-            }
-        }
-    }
+		if (operation.type === OperateType.RollDice) {
+			break;
+		}
 
-    // 将骰子结果写入上下文，并存储到玩家对象中供其他机制使用
-    const diceResult = await currentPlayer.rollDices();
-    context.diceResult = diceResult;
+		if (operation.res) {
+			const { chanceCardId, targetIdList } = operation.res;
+			await gameProcess.handleUseChanceCard(currentPlayer, chanceCardId, targetIdList);
+		}
+	}
+
+	// 将骰子结果写入上下文，并存储到玩家对象中供其他机制使用
+	const diceResult = await currentPlayer.rollDices();
+	context.diceResult = diceResult;
+	currentPlayer.lastDiceRollResults = diceResult;
 }) as GameEventFunction<RollDiceContext>;

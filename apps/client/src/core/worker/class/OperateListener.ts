@@ -183,6 +183,14 @@ export class OperateListener {
 		return true;
 	}
 
+	public hasListener(playerId: string, eventType: OperateType): boolean {
+		const playerEvents = this.eventMap.get(playerId);
+		if (!playerEvents) return false;
+
+		const eventTypeMap = playerEvents.get(eventType);
+		return !!eventTypeMap?.length;
+	}
+
 	/* ==================== 回调设置方法 ==================== */
 
 	/**

@@ -25,13 +25,40 @@ function getLeadingOpponent(request: AIDecisionRequest) {
 
 export class StrategyStateManager {
 	private readonly stateByPlayer = new Map<string, AIStrategyState>();
+	private recentDecisionLimit = 6;
 
 	getState(playerId: string): AIStrategyState | undefined {
 		return this.stateByPlayer.get(playerId);
 	}
 
+	setRecentDecisionLimit(limit: number): void {
+		this.recentDecisionLimit = Math.max(0, Math.floor(limit));
+		if (this.recentDecisionLimit === 0) {
+			for (const [playerId, state] of this.stateByPlayer.entries()) {
+				this.stateByPlayer.set(playerId, {
+					posture: state.posture,
+					focusPlayerId: state.focusPlayerId,
+					focusPropertyIds: state.focusPropertyIds,
+					reserveCashTarget: state.reserveCashTarget,
+					lastDecisionAtRound: state.lastDecisionAtRound,
+				});
+			}
+			return;
+		}
+
+		for (const [playerId, state] of this.stateByPlayer.entries()) {
+			this.stateByPlayer.set(playerId, {
+				...state,
+				recentDecisionSummaries: state.recentDecisionSummaries?.slice(-this.recentDecisionLimit),
+			});
+		}
+	}
+
 	derive(request: AIDecisionRequest): AIStrategyState {
-		const current = this.stateByPlayer.get(request.playerId) || {};
+		const current =
+			this.recentDecisionLimit > 0
+				? (this.stateByPlayer.get(request.playerId) || {})
+				: {};
 		const player = request.context.player;
 		const leadingOpponent = getLeadingOpponent(request);
 		const hasStockSystem = !!request.context.systems?.stockMarket;
@@ -71,11 +98,14 @@ export class StrategyStateManager {
 	}
 
 	feedback(feedback: AIDecisionFeedback): void {
+		if (this.recentDecisionLimit <= 0) {
+			return;
+		}
 		const current = this.stateByPlayer.get(feedback.playerId) || {};
 		const recentDecisionSummaries = [
 			...(current.recentDecisionSummaries || []),
 			`${feedback.request.title}:${feedback.selectedOptionLabel || "skip"}:${feedback.outcome || "done"}`,
-		].slice(-6);
+		].slice(-this.recentDecisionLimit);
 		const preferredSystems = Array.from(
 			new Set([
 				...(current.preferredSystems || []),

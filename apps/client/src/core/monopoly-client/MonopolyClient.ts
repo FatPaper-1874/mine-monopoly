@@ -6,6 +6,7 @@ import { PeerClient } from "./PeerClient";
 import { ReconnectionManager } from "./ReconnectionManager";
 import { DataConnection } from "peerjs";
 import {
+	AIDecisionConfig,
 	RoomMapInfo,
 	ChangeRoleOperate,
 	GameSetting,
@@ -501,6 +502,14 @@ export class MonopolyClient {
 
 	public changeGameSetting(gameSetting: GameSetting) {
 		this.sendMsg({ type: SocketMsgType.ChangeGameSetting, source: SocketMsgSource.Client, data: gameSetting });
+	}
+
+	public updateAIDecisionConfig(config: AIDecisionConfig): { success: boolean; error?: string } {
+		if (!this.gameHost) {
+			return { success: false, error: "只有房主才能同步房间 AI 配置" };
+		}
+		this.gameHost.getRoom().updateAIDecisionConfig(config);
+		return { success: true };
 	}
 
 	public startGame() {

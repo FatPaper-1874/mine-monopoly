@@ -132,6 +132,40 @@ export interface AIStrategyState {
 	memory?: Record<string, unknown>;
 }
 
+export interface AIDecisionPlayerRoleSnapshot {
+	/** 玩家 ID */
+	playerId: string;
+
+	/** 玩家名称 */
+	playerName: string;
+
+	/** 是否为当前决策玩家 */
+	isSelf?: boolean;
+
+	/** 是否为 AI */
+	isAI?: boolean;
+
+	/** 角色 ID */
+	roleId?: string;
+
+	/** 角色名称 */
+	roleName?: string;
+
+	/** 角色描述 */
+	roleDescription?: string;
+}
+
+export interface AIDecisionRoleDefinition {
+	/** 角色 ID */
+	id: string;
+
+	/** 角色名称 */
+	name: string;
+
+	/** 角色描述 */
+	description?: string;
+}
+
 /**
  * 提供给 AI 的游戏快照
  */
@@ -150,6 +184,9 @@ export interface AIDecisionContextSnapshot {
 
 	/** 自定义系统快照 */
 	systems?: Record<string, unknown>;
+
+	/** 玩家所选角色快照 */
+	playerRoles?: AIDecisionPlayerRoleSnapshot[];
 
 	/** 当前回合数 */
 	currentRound: number;
@@ -170,6 +207,9 @@ export interface AIDecisionContextSnapshot {
 
 		/** 地图描述 */
 		description?: string;
+
+		/** 地图可选角色 */
+		roles?: AIDecisionRoleDefinition[];
 	};
 }
 
@@ -255,6 +295,26 @@ export interface AIDecisionSelection {
 
 	/** 决策理由 */
 	reason?: string;
+
+	/** 可选聊天发言，展示为房间聊天消息 */
+	chatMessages?: string[];
+}
+
+export type AIDecisionProviderMode = "local" | "remote";
+export type AIRemoteLLMProviderKind = "openai-compatible" | "anthropic";
+
+export interface AIRemoteLLMConfig {
+	provider?: AIRemoteLLMProviderKind;
+	baseUrl: string;
+	apiKey: string;
+	model: string;
+	timeoutMs?: number;
+}
+
+export interface AIDecisionConfig {
+	mode: AIDecisionProviderMode;
+	remote: AIRemoteLLMConfig;
+	contextMemoryLimit?: number;
 }
 
 /**

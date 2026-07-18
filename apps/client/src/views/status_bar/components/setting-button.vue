@@ -13,9 +13,11 @@ import { useRoomInfo, useChat, useGameLog } from "@src/store";
 import { useGameData } from "@src/store/game";
 import router from "@src/router";
 import LogPanel from "@src/components/log-panel";
+import AiSettingPanel from "./ai-setting-panel.vue";
 
 const settingVisible = ref(false);
 const logPanelVisible = ref(false);
+const aiSettingVisible = ref(false);
 
 // 暴露 window 对象给模板使用
 const win = window as any;
@@ -190,8 +192,8 @@ const applySettings = () => {
 
 	// 应用模型动画设置
 	if (tempEnableModelAnimation.value !== settingStore.enableModelAnimation) {
-			settingStore.enableModelAnimation = tempEnableModelAnimation.value;
-			eventBus.emit("graphics:animation:change", { enable: tempEnableModelAnimation.value });
+		settingStore.enableModelAnimation = tempEnableModelAnimation.value;
+		eventBus.emit("graphics:animation:change", { enable: tempEnableModelAnimation.value });
 	}
 
 	// 应用音量设置
@@ -461,10 +463,17 @@ const applySettings = () => {
 				<div class="setting-item">
 					<div class="label">日志</div>
 					<div class="content log-actions">
-						<button @click="logPanelVisible = true" class="log-button">查看日志</button>
-						<button v-if="win.platformAPI?.openLogsFolder" @click="openLogsFolder" class="log-button">
+						<button @click="logPanelVisible = true" class="btn-small log-button">查看日志</button>
+						<button v-if="win.platformAPI?.openLogsFolder" @click="openLogsFolder" class="btn-small log-button">
 							打开日志文件夹
 						</button>
+					</div>
+				</div>
+
+				<div class="setting-item">
+					<div class="label">AI</div>
+					<div class="content setting-link-content">
+						<button @click="aiSettingVisible = true" class="btn-small setting-link-button">打开 AI 设置</button>
 					</div>
 				</div>
 
@@ -497,6 +506,7 @@ const applySettings = () => {
 
 	<!-- 日志面板 -->
 	<LogPanel v-model:visible="logPanelVisible" />
+	<AiSettingPanel v-model:visible="aiSettingVisible" />
 </template>
 
 <style lang="scss" scoped>
@@ -565,22 +575,10 @@ const applySettings = () => {
 				// 日志按钮样式
 				&.log-actions {
 					gap: 0.5rem;
+					justify-content: center;
 
 					.log-button {
-						flex: 1;
-						background: var(--fp-color-secondary);
-						color: white;
-						border: none;
-						border-radius: 0.4rem;
-						padding: 0.5rem 0.8rem;
-						font-size: 0.9rem;
-						cursor: pointer;
-						transition: all 0.2s;
-
-						&:hover {
-							opacity: 0.9;
-							transform: translateY(-0.0625rem);
-						}
+						flex: 0 0 auto;
 					}
 				}
 
@@ -656,6 +654,14 @@ const applySettings = () => {
 						color: var(--fp-color-primary);
 						font-size: 1.1rem;
 						margin: 0 0.1rem;
+					}
+				}
+
+				&.setting-link-content {
+					justify-content: center;
+
+					.setting-link-button {
+						flex: 0 0 auto;
 					}
 				}
 			}
