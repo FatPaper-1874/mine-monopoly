@@ -49,6 +49,7 @@ function handleShowPlayerDetail(player: PlayerInfo) {
 	position: absolute;
 	top: 4.2rem;
 	right: 0;
+	margin-right: 0.8rem;
 	z-index: var(--z-ui);
 
 	& > .tips {
