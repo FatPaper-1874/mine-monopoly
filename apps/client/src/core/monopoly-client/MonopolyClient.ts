@@ -496,6 +496,13 @@ export class MonopolyClient {
 		this.sendMsg({ type: SocketMsgType.ChangeRole, source: SocketMsgSource.Client, data: roleId });
 	}
 
+	public updateAIPlayerName(userId: string, username: string): { success: boolean; error?: string } {
+		if (!this.gameHost || !this.gameHost.getRoom().isAiPlayer(userId)) {
+			return { success: false, error: "当前只支持房主修改 AI 玩家名称" };
+		}
+		return this.gameHost.getRoom().updateAIPlayerName(userId, username);
+	}
+
 	public changeGameMap(msg: RoomMapInfo) {
 		// 如果自己是房主，直接调用 Room.changeMap 走本地，避免大消息被 DataChannel 丢弃
 		if (this.gameHost) {

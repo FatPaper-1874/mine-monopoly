@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { useRoute } from "vue-router";
-import type { AIDecisionConfig, AIRemoteLLMProviderKind } from "@mine-monopoly/types";
+import type { AIDecisionConfig, AIRemoteLLMProfile, AIRemoteLLMProviderKind } from "@mine-monopoly/types";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import FpMessage from "@mine-monopoly/ui/fp-message";
 import FpDialog from "@src/components/utils/fp-dialog/fp-dialog.vue";
+import { normalizeAIDecisionConfig } from "@src/core/ai/ai-decision-config";
 import {
 	applyAIControlConfig,
 	clearAIControlRemoteUsageStats,
@@ -48,21 +49,37 @@ const clampContextMemoryLimit = (value: number | string | undefined) => {
 	return Math.min(20, Math.max(0, Math.floor(normalized)));
 };
 
+const resolveProviderKind = (provider: AIRemoteLLMProviderKind | undefined): AIRemoteLLMProviderKind =>
+	provider ?? "openai-compatible";
+
+const createRemoteProfileId = () => `remote-profile-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+
 const tempAIProvider = ref<AIRemoteLLMProviderKind>("openai-compatible");
 const tempAIBaseUrl = ref("");
 const tempAIApiKey = ref("");
 const tempAIModel = ref("");
 const tempAIContextMemoryLimit = ref<number | string>(6);
+const tempRemoteProfiles = ref<AIRemoteLLMProfile[]>([]);
+const tempDefaultRemoteProfileId = ref("");
+const initialConfig = ref<AIDecisionConfig>(normalizeAIDecisionConfig(settingStore.aiDecisionConfig));
 
 const getCurrentProvider = (config: AIDecisionConfig) => config.remote.provider ?? "openai-compatible";
 const getCurrentContextMemoryLimit = (config: AIDecisionConfig) => clampContextMemoryLimit(config.contextMemoryLimit ?? 6);
 
+const cloneRemoteProfile = (profile: AIRemoteLLMProfile): AIRemoteLLMProfile => ({
+	...profile,
+});
+
 const resetTempState = (config: AIDecisionConfig) => {
-	tempAIProvider.value = getCurrentProvider(config);
-	tempAIBaseUrl.value = config.remote.baseUrl;
-	tempAIApiKey.value = config.remote.apiKey;
-	tempAIModel.value = config.remote.model;
-	tempAIContextMemoryLimit.value = getCurrentContextMemoryLimit(config);
+	const normalizedConfig = normalizeAIDecisionConfig(config);
+	initialConfig.value = normalizedConfig;
+	tempAIProvider.value = getCurrentProvider(normalizedConfig);
+	tempAIBaseUrl.value = normalizedConfig.remote.baseUrl;
+	tempAIApiKey.value = normalizedConfig.remote.apiKey;
+	tempAIModel.value = normalizedConfig.remote.model;
+	tempAIContextMemoryLimit.value = getCurrentContextMemoryLimit(normalizedConfig);
+	tempRemoteProfiles.value = (normalizedConfig.remoteProfiles ?? []).map(cloneRemoteProfile);
+	tempDefaultRemoteProfileId.value = normalizedConfig.defaultRemoteProfileId ?? "";
 };
 
 const refreshTempState = async () => {
@@ -76,14 +93,33 @@ watch(visible, (isOpen) => {
 	}
 });
 
+const buildDraftConfig = (): AIDecisionConfig => {
+	const nextConfig: AIDecisionConfig = {
+		...initialConfig.value,
+		mode: "remote",
+		contextMemoryLimit: clampContextMemoryLimit(tempAIContextMemoryLimit.value),
+		remote: {
+			...initialConfig.value.remote,
+			provider: tempAIProvider.value,
+			baseUrl: tempAIBaseUrl.value.trim(),
+			apiKey: tempAIApiKey.value.trim(),
+			model: tempAIModel.value.trim(),
+		},
+		remoteProfiles: tempRemoteProfiles.value.map((profile) => ({
+			...profile,
+			id: profile.id.trim(),
+			name: profile.name.trim(),
+			baseUrl: profile.baseUrl.trim(),
+			apiKey: profile.apiKey.trim(),
+			model: profile.model.trim(),
+		})),
+		defaultRemoteProfileId: tempDefaultRemoteProfileId.value.trim() || undefined,
+	};
+	return normalizeAIDecisionConfig(nextConfig);
+};
+
 const hasChanges = computed(() => {
-	return (
-		tempAIProvider.value !== getCurrentProvider(settingStore.aiDecisionConfig) ||
-		tempAIBaseUrl.value !== settingStore.aiDecisionConfig.remote.baseUrl ||
-		tempAIApiKey.value !== settingStore.aiDecisionConfig.remote.apiKey ||
-		tempAIModel.value !== settingStore.aiDecisionConfig.remote.model ||
-		clampContextMemoryLimit(tempAIContextMemoryLimit.value) !== getCurrentContextMemoryLimit(settingStore.aiDecisionConfig)
-	);
+	return JSON.stringify(buildDraftConfig()) !== JSON.stringify(initialConfig.value);
 });
 
 const canSyncRoomAI = computed(() => {
@@ -108,6 +144,13 @@ const baseUrlPlaceholder = computed(() => {
 
 const modelPlaceholder = computed(() => {
 	return providerModelPlaceholders[tempAIProvider.value];
+});
+
+const remoteProfileOptions = computed(() => {
+	return tempRemoteProfiles.value.map((profile) => ({
+		id: profile.id,
+		name: profile.name.trim() || "未命名档案",
+	}));
 });
 
 const remoteUsageSummary = computed(() => remoteUsageStats.summary);
@@ -135,30 +178,81 @@ const handleClearRemoteUsageStats = () => {
 	});
 };
 
-const applySettings = () => {
-	const contextMemoryLimit = clampContextMemoryLimit(tempAIContextMemoryLimit.value);
-	if (!tempAIBaseUrl.value.trim() || !tempAIModel.value.trim() || !tempAIApiKey.value.trim()) {
-		FpMessage({
-			type: "error",
-			message: "远程模式需要填写 Base URL、API Key 和模型名",
-		});
-		return;
-	}
-
-	const nextConfig: AIDecisionConfig = {
-		...settingStore.aiDecisionConfig,
-		mode: "remote",
-		contextMemoryLimit,
-		remote: {
-			...settingStore.aiDecisionConfig.remote,
+const handleAddRemoteProfile = () => {
+	const nextIndex = tempRemoteProfiles.value.length + 1;
+	const profileId = createRemoteProfileId();
+	tempRemoteProfiles.value = [
+		...tempRemoteProfiles.value,
+		{
+			id: profileId,
+			name: `远端配置 ${nextIndex}`,
 			provider: tempAIProvider.value,
 			baseUrl: tempAIBaseUrl.value.trim(),
 			apiKey: tempAIApiKey.value.trim(),
 			model: tempAIModel.value.trim(),
+			timeoutMs: initialConfig.value.remote.timeoutMs,
 		},
-	};
+	];
+	if (!tempDefaultRemoteProfileId.value) {
+		tempDefaultRemoteProfileId.value = profileId;
+	}
+};
 
-	const result = applyAIControlConfig(nextConfig);
+const handleRemoveRemoteProfile = (profileId: string) => {
+	tempRemoteProfiles.value = tempRemoteProfiles.value.filter((profile) => profile.id !== profileId);
+	if (tempDefaultRemoteProfileId.value === profileId) {
+		tempDefaultRemoteProfileId.value = "";
+	}
+};
+
+const validateRemoteProfiles = () => {
+	const seenIds = new Set<string>();
+	for (let index = 0; index < tempRemoteProfiles.value.length; index += 1) {
+		const profile = tempRemoteProfiles.value[index];
+		const profileId = profile.id.trim();
+		const profileName = profile.name.trim();
+		if (!profileId) {
+			return `第 ${index + 1} 个 LLM 档案缺少内部 ID，请删除后重新创建`;
+		}
+		if (seenIds.has(profileId)) {
+			return `LLM 档案“${profileName || `#${index + 1}`}”的 ID 重复，请删除冲突档案后重试`;
+		}
+		seenIds.add(profileId);
+		if (!profileName) {
+			return `第 ${index + 1} 个 LLM 档案缺少名称`;
+		}
+		if (!profile.baseUrl.trim() || !profile.apiKey.trim() || !profile.model.trim()) {
+			return `LLM 档案“${profileName}”需要填写 Base URL、API Key 和模型名`;
+		}
+	}
+	if (
+		tempDefaultRemoteProfileId.value &&
+		!tempRemoteProfiles.value.some((profile) => profile.id === tempDefaultRemoteProfileId.value)
+	) {
+		return "默认 LLM 档案不存在";
+	}
+	return "";
+};
+
+const applySettings = () => {
+	if (!tempAIBaseUrl.value.trim() || !tempAIModel.value.trim() || !tempAIApiKey.value.trim()) {
+		FpMessage({
+			type: "error",
+			message: "当前远程配置需要填写 Base URL、API Key 和模型名",
+		});
+		return;
+	}
+
+	const profileValidationError = validateRemoteProfiles();
+	if (profileValidationError) {
+		FpMessage({
+			type: "error",
+			message: profileValidationError,
+		});
+		return;
+	}
+
+	const result = applyAIControlConfig(buildDraftConfig());
 	if (!result.success) {
 		FpMessage({
 			type: "error",
@@ -182,7 +276,7 @@ const applySettings = () => {
 		confirm-text="应用"
 		cancel-text="取消"
 		:submit-disable="!hasChanges"
-		:style="{ width: '34rem', maxWidth: '92vw' }"
+		:style="{ width: '44rem', maxWidth: '94vw' }"
 		@submit="applySettings"
 	>
 		<div class="ai-setting-panel">
@@ -288,6 +382,10 @@ const applySettings = () => {
 			</div>
 
 			<div class="setting-card remote-fields">
+				<div class="section-header">
+					<div class="status-card__title">当前远端配置</div>
+					<div class="setting-note">没有命中默认档案时，房间 AI 会回退到这里。</div>
+				</div>
 				<div class="setting-row">
 					<div class="setting-label">接口类型</div>
 					<div class="setting-content mode-switch provider-switch">
@@ -327,6 +425,92 @@ const applySettings = () => {
 				</label>
 			</div>
 
+			<div class="setting-card profile-manager">
+				<div class="section-header">
+					<div class="status-card__title">LLM 档案管理</div>
+					<button type="button" class="btn-small" @click="handleAddRemoteProfile">新增档案</button>
+				</div>
+				<label class="setting-row setting-row--top">
+					<span class="setting-label">默认档案</span>
+					<span class="setting-content setting-content--stack">
+						<select v-model="tempDefaultRemoteProfileId">
+							<option value="">不使用默认档案，直接走当前配置</option>
+							<option v-for="profile in remoteProfileOptions" :key="profile.id" :value="profile.id">
+								{{ profile.name }}
+							</option>
+						</select>
+						<span class="setting-note">房间 AI 默认会先尝试这里选中的档案；单个 AI 玩家仍然可以在房间内单独覆盖。</span>
+					</span>
+				</label>
+
+				<div v-if="tempRemoteProfiles.length > 0" class="profile-list">
+					<div v-for="(profile, index) in tempRemoteProfiles" :key="profile.id" class="profile-card">
+						<div class="profile-card__header">
+							<div class="profile-card__title">{{ profile.name.trim() || `LLM 档案 ${index + 1}` }}</div>
+							<div class="profile-card__actions">
+								<span v-if="tempDefaultRemoteProfileId === profile.id" class="status-tag secondary">默认</span>
+								<button type="button" class="btn-small btn-red" @click="handleRemoveRemoteProfile(profile.id)">删除</button>
+							</div>
+						</div>
+						<label class="setting-row">
+							<span class="setting-label">名称</span>
+							<span class="setting-content">
+								<input v-model="profile.name" type="text" maxlength="40" placeholder="例如：OpenAI 主线 / Anthropic 备份" />
+							</span>
+						</label>
+						<div class="setting-row">
+							<div class="setting-label">接口类型</div>
+							<div class="setting-content mode-switch provider-switch">
+								<div v-for="[provider, label] in providerOptions" :key="`${profile.id}-${provider}`">
+									<input
+										type="radio"
+										:name="`profile-provider-${profile.id}`"
+										:value="provider"
+										:id="`profile-provider-${profile.id}-${provider}`"
+										v-model="profile.provider"
+										hidden
+									/>
+									<label :for="`profile-provider-${profile.id}-${provider}`">
+										<FontAwesomeIcon icon="square-check" v-if="profile.provider === provider" />
+										{{ label }}
+									</label>
+								</div>
+							</div>
+						</div>
+						<label class="setting-row">
+							<span class="setting-label">Base URL</span>
+							<span class="setting-content">
+								<input
+									v-model="profile.baseUrl"
+									type="text"
+									:placeholder="providerBaseUrlPlaceholders[resolveProviderKind(profile.provider)]"
+								/>
+							</span>
+						</label>
+						<label class="setting-row">
+							<span class="setting-label">API Key</span>
+							<span class="setting-content">
+								<input v-model="profile.apiKey" type="password" placeholder="输入接口密钥" />
+							</span>
+						</label>
+						<label class="setting-row">
+							<span class="setting-label">模型</span>
+							<span class="setting-content">
+								<input
+									v-model="profile.model"
+									type="text"
+									:placeholder="providerModelPlaceholders[resolveProviderKind(profile.provider)]"
+								/>
+							</span>
+						</label>
+					</div>
+				</div>
+				<div v-else class="setting-note">
+					当前还没有 LLM 档案。你可以只使用上面的当前远端配置，也可以新增多个档案给房间默认 AI 和单个 AI 玩家复用。
+				</div>
+				<div class="setting-note">新增档案时会先拷贝上面的当前远端配置，方便快速派生多个供应商或模型组合。</div>
+			</div>
+
 			<div class="hint-card">
 				支持 OpenAI 兼容和 Anthropic。上下文记忆会作用于远程 AI。仅房主在房间或游戏中修改时，会把当前客户端配置同步到房间里的 AI；其他情况下只会保存在本机设置中。
 			</div>
@@ -357,15 +541,19 @@ const applySettings = () => {
 	gap: 0.6rem;
 }
 
-.status-card__header {
+.status-card__header,
+.section-header,
+.profile-card__header,
+.profile-card__actions {
 	display: flex;
+	align-items: center;
 	justify-content: space-between;
-	align-items: flex-start;
 	gap: 0.75rem;
 	flex-wrap: wrap;
 }
 
-.status-card__title {
+.status-card__title,
+.profile-card__title {
 	font-size: 1rem;
 	font-weight: 700;
 	color: var(--fp-color-primary);
@@ -403,7 +591,9 @@ const applySettings = () => {
 	color: var(--fp-color-primary);
 }
 
-.setting-card {
+.setting-card,
+.profile-list,
+.profile-card {
 	display: flex;
 	flex-direction: column;
 	gap: 0.75rem;
@@ -424,10 +614,13 @@ const applySettings = () => {
 	border: none;
 	border-radius: 999px;
 	padding: 0.25rem 0.7rem;
-	background: rgba(0, 0, 0, 0.08);
-	color: var(--fp-color-primary);
 	cursor: pointer;
 	font-size: 0.82rem;
+}
+
+.usage-card__clear {
+	background: rgba(0, 0, 0, 0.08);
+	color: var(--fp-color-primary);
 }
 
 .usage-card__grid {
@@ -436,7 +629,8 @@ const applySettings = () => {
 	gap: 0.55rem;
 }
 
-.usage-metric {
+.usage-metric,
+.profile-card {
 	background: rgba(255, 255, 255, 0.72);
 	border-radius: 0.45rem;
 	padding: 0.55rem 0.65rem;
@@ -552,8 +746,9 @@ const applySettings = () => {
 	gap: 0.35rem;
 }
 
-.remote-fields {
-	gap: 0.55rem;
+.remote-fields,
+.profile-manager {
+	gap: 0.7rem;
 }
 
 .provider-switch {
@@ -561,7 +756,8 @@ const applySettings = () => {
 	gap: 0.9rem;
 }
 
-.setting-content input {
+.setting-content input,
+.setting-content select {
 	width: 100%;
 	border: 0.0625rem solid rgba(0, 0, 0, 0.12);
 	border-radius: 0.4rem;
@@ -572,9 +768,11 @@ const applySettings = () => {
 	transition:
 		border-color 0.2s ease,
 		box-shadow 0.2s ease;
+	box-sizing: border-box;
 }
 
-.setting-content input:focus {
+.setting-content input:focus,
+.setting-content select:focus {
 	outline: none;
 	border-color: var(--fp-color-tertiary);
 	box-shadow: 0 0 0 0.125rem rgba(0, 0, 0, 0.06);

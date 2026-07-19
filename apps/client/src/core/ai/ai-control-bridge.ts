@@ -14,6 +14,10 @@ import { clearAIRemoteUsageStats, getAIRemoteUsageSnapshot } from "./remote-usag
 type AIRoomControlTarget = {
 	updateAIDecisionConfig?: (config: AIDecisionConfig) => void;
 	getAIConsoleSnapshot?: () => Promise<AIControlSnapshot>;
+	updateAIPlayerName?: (
+		userId: string,
+		username: string,
+	) => AIControlMutationResult | Promise<AIControlMutationResult>;
 	setAIPlayerDecisionBinding?: (
 		userId: string,
 		binding: Partial<AIPlayerDecisionBinding>,
@@ -84,6 +88,17 @@ export function clearAIControlRemoteUsageStats(): AIControlMutationResult {
 	return { success: true };
 }
 
+export async function setAIControlPlayerName(
+	userId: string,
+	username: string,
+): Promise<AIControlMutationResult> {
+	const room = getRoomControlTarget();
+	if (!room?.updateAIPlayerName) {
+		return { success: false, error: "只有房主才能修改 AI 玩家名称" };
+	}
+	return await room.updateAIPlayerName(userId, username);
+}
+
 export async function setAIControlPlayerBinding(
 	userId: string,
 	binding: Partial<AIPlayerDecisionBinding>,
@@ -108,6 +123,7 @@ export const aiControlBridge: AIControlBridge = {
 	applyConfig: applyAIControlConfig,
 	clearUsage: clearAIControlRemoteUsageStats,
 	clearMemory: clearAIControlStrategyMemory,
+	setPlayerName: setAIControlPlayerName,
 	setPlayerBinding: setAIControlPlayerBinding,
 };
 

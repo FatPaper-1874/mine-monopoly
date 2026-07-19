@@ -541,6 +541,10 @@ export interface AIControlBridge {
 	applyConfig: (config: AIDecisionConfig) => Promise<AIControlApplyConfigResult> | AIControlApplyConfigResult;
 	clearUsage: () => Promise<AIControlMutationResult> | AIControlMutationResult;
 	clearMemory: (playerId?: string) => Promise<AIControlMutationResult> | AIControlMutationResult;
+	setPlayerName: (
+		userId: string,
+		username: string,
+	) => Promise<AIControlMutationResult> | AIControlMutationResult;
 	setPlayerBinding: (
 		userId: string,
 		binding: Partial<AIPlayerDecisionBinding>,

@@ -3,7 +3,15 @@ import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { lightenColor } from "@src/utils";
 import { computed, ref } from "vue";
 import { UserInRoomInfo } from "@mine-monopoly/types";
+import FpMessage from "@mine-monopoly/ui/fp-message";
 import { useMonopolyClient } from "@src/core/monopoly-client/MonopolyClient";
+import FpDialog from "@src/components/utils/fp-dialog/fp-dialog.vue";
+import FpPopover from "@src/components/utils/fp-popover/fp-popover.vue";
+import {
+	getAIControlSnapshot,
+	setAIControlPlayerBinding,
+	setAIControlPlayerName,
+} from "@src/core/ai/ai-control-bridge";
 import { useUserInfo, useRoomInfo } from "@src/store";
 import { useMapData, useResourceStore } from "@src/store/game";
 
@@ -23,6 +31,7 @@ const isAIPlayer = computed(() => Boolean(user.value?.isAI));
 const isSpectator = computed(() => Boolean(user.value?.isSpectator));
 const canEnterSpectator = computed(() => Boolean(user.value) && isMe.value && isRoomOwner.value && !isSpectator.value);
 const canChangeColor = computed(() => !isSpectator.value && (isMe.value || (amIRoomOwner.value && isAIPlayer.value)));
+const canEditAI = computed(() => Boolean(user.value) && amIRoomOwner.value && isAIPlayer.value);
 
 const canSelectRole = computed(
 	() => !isSpectator.value && useMapData().roles.length > 0 && (isMe.value || (amIRoomOwner.value && isAIPlayer.value)),
@@ -38,6 +47,24 @@ const roleImageUrl = computed(() => {
 });
 
 const colorPickerEl = ref<HTMLInputElement | null>(null);
+const aiEditorVisible = ref(false);
+const aiEditorLoading = ref(false);
+const aiEditorSubmitting = ref(false);
+const tempAIName = ref("");
+const initialAIName = ref("");
+const tempRemoteProfileId = ref("");
+const initialRemoteProfileId = ref("");
+const roomDefaultProfileLabel = ref("跟随房间默认配置");
+const remoteProfiles = ref<Array<{ id: string; name: string }>>([]);
+
+const aiProfileOptions = computed(() => [{ id: "", name: roomDefaultProfileLabel.value }, ...remoteProfiles.value]);
+
+const canSubmitAIEdit = computed(() => {
+	if (!canEditAI.value || aiEditorLoading.value || aiEditorSubmitting.value) return false;
+	const nextName = tempAIName.value.trim();
+	if (!nextName) return false;
+	return nextName !== initialAIName.value || tempRemoteProfileId.value !== initialRemoteProfileId.value;
+});
 
 function handleColorPickerClick() {
 	colorPickerEl.value && colorPickerEl.value.click();
@@ -70,17 +97,78 @@ function handleAddAi() {
 function handleEnterSpectator() {
 	emits("spectator-toggle");
 }
+
+async function openAIEditor() {
+	if (!canEditAI.value || !props.user) return;
+
+	aiEditorLoading.value = true;
+	try {
+		const snapshot = await getAIControlSnapshot();
+		const aiPlayer = snapshot.aiPlayers.find((item) => item.userId === props.user?.userId);
+		if (!aiPlayer) {
+			FpMessage({ type: "error", message: "未找到对应 AI 玩家配置" });
+			return;
+		}
+
+		const defaultProfile = snapshot.config.remoteProfiles?.find(
+			(profile) => profile.id === snapshot.config.defaultRemoteProfileId,
+		);
+		roomDefaultProfileLabel.value = defaultProfile ? `跟随房间默认档案（${defaultProfile.name}）` : "跟随房间默认配置";
+		remoteProfiles.value = (snapshot.config.remoteProfiles ?? []).map((profile) => ({
+			id: profile.id,
+			name: profile.name,
+		}));
+		tempAIName.value = aiPlayer.username;
+		initialAIName.value = aiPlayer.username;
+		tempRemoteProfileId.value = aiPlayer.binding.remoteProfileId ?? "";
+		initialRemoteProfileId.value = aiPlayer.binding.remoteProfileId ?? "";
+		aiEditorVisible.value = true;
+	} catch (error: any) {
+		FpMessage({ type: "error", message: error?.message || "读取 AI 配置失败" });
+	} finally {
+		aiEditorLoading.value = false;
+	}
+}
+
+async function handleSubmitAIEdit() {
+	if (!props.user || !canSubmitAIEdit.value) return;
+
+	aiEditorSubmitting.value = true;
+	try {
+		const nextName = tempAIName.value.trim();
+
+		if (nextName !== initialAIName.value) {
+			const renameResult = await setAIControlPlayerName(props.user.userId, nextName);
+			if (!renameResult.success) {
+				FpMessage({ type: "error", message: renameResult.error || "修改 AI 名称失败" });
+				return;
+			}
+		}
+
+		if (tempRemoteProfileId.value !== initialRemoteProfileId.value) {
+			const bindingResult = await setAIControlPlayerBinding(props.user.userId, {
+				remoteProfileId: tempRemoteProfileId.value || undefined,
+			});
+			if (!bindingResult.success) {
+				FpMessage({ type: "error", message: bindingResult.error || "修改 AI 档案失败" });
+				return;
+			}
+		}
+
+		initialAIName.value = nextName;
+		initialRemoteProfileId.value = tempRemoteProfileId.value;
+		aiEditorVisible.value = false;
+		FpMessage({ type: "success", message: "AI 玩家配置已更新" });
+	} finally {
+		aiEditorSubmitting.value = false;
+	}
+}
 </script>
 
 <template>
 	<div class="room-user-card">
-		<button
-			v-if="addAiButton && !user"
-			type="button"
-			@click="handleAddAi"
-			style="position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 5; width: max-content; height: 4rem;"
-		>
-			<FontAwesomeIcon style="margin-right: 0.35rem;" icon="robot" />
+		<button v-if="addAiButton && !user" type="button" class="add-ai-button" @click="handleAddAi">
+			<FontAwesomeIcon style="margin-right: 0.35rem" icon="robot" />
 			添加 机器人 / AI
 		</button>
 		<template v-if="user">
@@ -106,18 +194,50 @@ function handleEnterSpectator() {
 		</div>
 
 		<div class="right-side">
-			<div v-if="canEnterSpectator" class="spectator-toggle" @click="handleEnterSpectator">
-				<FontAwesomeIcon class="spectator-toggle-icon" icon="eye" />
-			</div>
+			<FpPopover v-if="canChangeColor" placement="left">
+				<template #default>
+					<div class="color-picker">
+						<div @click="handleColorPickerClick" class="color-display"></div>
+						<input ref="colorPickerEl" type="color" @change="handleColorChange" />
+					</div>
+				</template>
+				<template #content>
+					<div class="action-tip">修改代表颜色</div>
+				</template>
+			</FpPopover>
 
-			<div v-if="canChangeColor" class="color-picker">
-				<div @click="handleColorPickerClick" class="color-display"></div>
-				<input ref="colorPickerEl" type="color" @change="handleColorChange" />
-			</div>
+			<FpPopover v-if="canEnterSpectator" placement="left">
+				<template #default>
+					<div class="spectator-toggle" @click="handleEnterSpectator">
+						<FontAwesomeIcon class="spectator-toggle-icon" icon="eye" />
+					</div>
+				</template>
+				<template #content>
+					<div class="action-tip">切换为旁观者</div>
+				</template>
+			</FpPopover>
 
-			<div v-if="amIRoomOwner && user && !isMe" type="button" class="kick" @click="handleKickOut">
-				<FontAwesomeIcon icon="person-running" />
-			</div>
+			<FpPopover v-if="canEditAI" placement="left">
+				<template #default>
+					<div class="ai-editor-trigger" title="编辑 AI" @click="openAIEditor">
+						<FontAwesomeIcon class="ai-editor-trigger-icon" icon="gear" />
+					</div>
+				</template>
+				<template #content>
+					<div class="action-tip">编辑 AI 名称和档案</div>
+				</template>
+			</FpPopover>
+
+			<FpPopover v-if="amIRoomOwner && user && !isMe" placement="left">
+				<template #default>
+					<div type="button" class="kick" @click="handleKickOut">
+						<FontAwesomeIcon icon="person-running" />
+					</div>
+				</template>
+				<template #content>
+					<div class="action-tip">{{ isAIPlayer ? "移除这个 AI 玩家" : "将该玩家移出房间" }}</div>
+				</template>
+			</FpPopover>
 		</div>
 
 		<div v-if="user && user.username" class="user-info">
@@ -135,6 +255,34 @@ function handleEnterSpectator() {
 			<img v-if="roleImageUrl" :src="roleImageUrl" alt="" />
 		</div>
 	</div>
+
+	<FpDialog
+		v-model:visible="aiEditorVisible"
+		title="编辑 AI 玩家"
+		confirm-text="保存"
+		cancel-text="取消"
+		:submit-disable="!canSubmitAIEdit"
+		:style="{ width: '28rem', maxWidth: '92vw' }"
+		@submit="handleSubmitAIEdit"
+	>
+		<div class="ai-editor-panel">
+			<label class="ai-editor-field">
+				<span class="ai-editor-label">显示名称</span>
+				<input v-model="tempAIName" type="text" maxlength="24" placeholder="输入 AI 玩家名称" />
+			</label>
+
+			<label class="ai-editor-field">
+				<span class="ai-editor-label">LLM 档案</span>
+				<select v-model="tempRemoteProfileId">
+					<option v-for="profile in aiProfileOptions" :key="profile.id || '__default__'" :value="profile.id">
+						{{ profile.name }}
+					</option>
+				</select>
+			</label>
+
+			<div class="ai-editor-note">单个 AI 玩家可以覆盖房间默认档案；留空时继续跟随房间默认远程配置。</div>
+		</div>
+	</FpDialog>
 </template>
 
 <style lang="scss" scoped>
@@ -166,6 +314,19 @@ $top-bar-height: 2.8rem;
 	z-index: var(--z-ui);
 	@include felt-patch(#ffedb7);
 
+	& > .add-ai-button {
+		position: absolute;
+		left: 50%;
+		top: 50%;
+		transform: translate(-50%, -50%);
+		z-index: 5;
+		width: max-content;
+		height: 5rem;
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+	}
+
 	& > .right-side {
 		$item-size: 2.4rem;
 
@@ -178,78 +339,91 @@ $top-bar-height: 2.8rem;
 		flex-direction: column;
 		gap: 0.4rem;
 
-		& > .color-picker {
-			& > .color-display {
+		& > :deep(.fp-popover) {
+			position: relative;
+			z-index: 101;
+
+			.color-picker {
+				& > .color-display {
+					width: $item-size;
+					height: $item-size;
+					background: conic-gradient(
+						rgb(255, 0, 0),
+						rgb(255, 187, 0),
+						rgb(255, 255, 0),
+						rgb(0, 255, 0),
+						rgb(0, 0, 255),
+						rgb(225, 0, 255),
+						rgb(255, 0, 0)
+					);
+					border-radius: 50%;
+					border: 0.3rem solid #ffffff;
+					cursor: pointer;
+					box-sizing: border-box;
+				}
+
+				& > input {
+					width: 0;
+					height: 0;
+					opacity: 0;
+					position: absolute;
+					left: 0;
+					top: 0;
+				}
+			}
+
+			.kick,
+			.spectator-toggle,
+			.ai-editor-trigger {
+				display: flex;
+				justify-content: center;
+				align-items: center;
 				width: $item-size;
 				height: $item-size;
-				background: conic-gradient(
-					rgb(255, 0, 0),
-					rgb(255, 187, 0),
-					rgb(255, 255, 0),
-					rgb(0, 255, 0),
-					rgb(0, 0, 255),
-					rgb(225, 0, 255),
-					rgb(255, 0, 0)
-				);
+				padding: 0;
 				border-radius: 50%;
 				border: 0.3rem solid #ffffff;
 				cursor: pointer;
+				z-index: 101;
+				font-size: 1.2rem;
+				color: #ffffff;
 				box-sizing: border-box;
+
+				& > svg {
+					display: block;
+					width: 1rem;
+					height: 1rem;
+					flex: 0 0 auto;
+					transform: translateX(0.06rem);
+				}
 			}
 
-			& > input {
-				width: 0;
-				height: 0;
-				opacity: 0;
-				position: absolute;
-				left: 0;
-				top: 0;
-			}
-		}
+			.kick {
+				background-color: rgb(223, 79, 79);
 
-		& > .kick {
-			display: flex;
-			justify-content: center;
-			align-items: center;
-			width: $item-size;
-			height: $item-size;
-			padding: 0;
-			border-radius: 50%;
-			border: 0.3rem solid #ffffff;
-			cursor: pointer;
-			z-index: 101;
-			font-size: 1.2rem;
-			color: #ffffff;
-			background-color: rgb(223, 79, 79);
-			box-sizing: border-box;
-
-			&:hover {
-				background-color: rgb(197, 47, 47);
-			}
-		}
-
-		& > .spectator-toggle {
-			display: flex;
-			justify-content: center;
-			align-items: center;
-			width: $item-size;
-			height: $item-size;
-			padding: 0;
-			border-radius: 50%;
-			border: 0.3rem solid #ffffff;
-			cursor: pointer;
-			z-index: 101;
-			font-size: 1.05rem;
-			color: #ffffff;
-			background-color: var(--fp-color-secondary);
-			box-sizing: border-box;
-
-			&:hover {
-				background-color: darken(fp.$fp-color-secondary, 10%);
+				&:hover {
+					background-color: rgb(197, 47, 47);
+				}
 			}
 
-			& > .spectator-toggle-icon {
-				font-size: 1rem;
+			.spectator-toggle {
+				background-color: var(--fp-color-secondary);
+
+				&:hover {
+					background-color: darken(fp.$fp-color-secondary, 10%);
+				}
+
+				& > svg {
+					transform: translateX(0);
+				}
+			}
+
+			.ai-editor-trigger {
+				background-color: var(--fp-color-tertiary);
+
+				&:hover {
+					background-color: darken(fp.$fp-color-tertiary, 8%);
+				}
 			}
 		}
 	}
@@ -428,5 +602,60 @@ $top-bar-height: 2.8rem;
 		padding: 1rem;
 		box-sizing: border-box;
 	}
+}
+
+.ai-editor-panel {
+	display: flex;
+	flex-direction: column;
+	gap: 0.85rem;
+}
+
+.ai-editor-field {
+	display: flex;
+	flex-direction: column;
+	gap: 0.35rem;
+}
+
+.ai-editor-label {
+	font-size: 0.92rem;
+	font-weight: 700;
+	color: var(--fp-color-primary);
+}
+
+.ai-editor-field input,
+.ai-editor-field select {
+	width: 100%;
+	border: 0.0625rem solid rgba(0, 0, 0, 0.12);
+	border-radius: 0.45rem;
+	padding: 0.65rem 0.75rem;
+	font-size: 0.95rem;
+	background: rgba(255, 255, 255, 0.92);
+	color: var(--fp-color-primary);
+	box-sizing: border-box;
+}
+
+.ai-editor-field input:focus,
+.ai-editor-field select:focus {
+	outline: none;
+	border-color: var(--fp-color-tertiary);
+	box-shadow: 0 0 0 0.125rem rgba(0, 0, 0, 0.06);
+}
+
+.ai-editor-note {
+	font-size: 0.82rem;
+	line-height: 1.55;
+	color: var(--fp-color-tertiary);
+}
+
+.action-tip {
+	width: max-content;
+	max-width: 12rem;
+	font-size: 0.8rem;
+	line-height: 1.45;
+	background-color: rgba(255, 255, 255, 0.72);
+	border-radius: 0.7rem;
+	padding: 0.55rem 0.7rem;
+	color: var(--fp-color-primary);
+	text-shadow: var(--fp-text-shadow);
 }
 </style>

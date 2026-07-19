@@ -940,6 +940,22 @@ export class Room {
 		this.roomInfoBroadcast();
 	}
 
+	public updateAIPlayerName(userId: string, username: string): { success: boolean; error?: string } {
+		const aiUser = this.aiUserList.get(userId);
+		if (!aiUser) {
+			return { success: false, error: "AI 玩家不存在" };
+		}
+
+		const nextName = username.trim();
+		if (!nextName) {
+			return { success: false, error: "AI 玩家名称不能为空" };
+		}
+
+		aiUser.username = nextName;
+		this.roomInfoBroadcast();
+		return { success: true };
+	}
+
 	public changeGameSetting(gameSetting: GameSetting): void {
 		this.gameSetting = gameSetting;
 		this.roomBroadcast({

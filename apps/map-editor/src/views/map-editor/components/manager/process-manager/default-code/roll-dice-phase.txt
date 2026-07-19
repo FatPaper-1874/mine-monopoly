@@ -28,5 +28,4 @@
 	// 将骰子结果写入上下文，并存储到玩家对象中供其他机制使用
 	const diceResult = await currentPlayer.rollDices();
 	context.diceResult = diceResult;
-	currentPlayer.lastDiceRollResults = diceResult;
 }) as GameEventFunction<RollDiceContext>;
