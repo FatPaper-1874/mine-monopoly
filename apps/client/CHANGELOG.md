@@ -1,5 +1,11 @@
 # @mine-monopoly/client
 
+## 1.2.1
+
+### Patch Changes
+
+- - 修复 AI 控制台无法打开的问题
+
 ## 1.2.0
 
 ### Minor Changes
