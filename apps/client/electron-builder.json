@@ -24,7 +24,7 @@
 	"directories": {
 		"output": "dist/electron/${version}"
 	},
-	"files": ["dist/frontend", "!dist/frontend/**/*.gz", "dist-electron"],
+	"files": ["dist/frontend", "!dist/frontend/**/*.gz", "dist-electron", "electron/*.html", "electron/*.js"],
 	"mac": {
 		"target": ["dmg", "zip"],
 		"artifactName": "${productName}-Mac-${version}-Installer.${ext}",
