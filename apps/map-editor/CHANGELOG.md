@@ -1,5 +1,11 @@
 # @mine-monopoly/map-editor
 
+## 1.2.0
+
+### Minor Changes
+
+- - 修复 MCP 模板与 TypeScript 校验链路不一致问题，统一代码编辑器、MCP 工具和 Monaco 校验器的模板来源
+
 ## 1.1.9
 
 ### Patch Changes
