@@ -20,7 +20,7 @@ defineProps<{
 	padding: 0.45rem 0.65rem;
 	border-radius: 0.8rem;
 	border: 1px solid rgba(255, 255, 255, 0.88);
-	background: rgba(255, 255, 255, 0.92);
+	background: #ffffff;
 	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
 	color: #1d1d1f;
 	text-align: left;
@@ -32,14 +32,48 @@ defineProps<{
 .speech-bubble-3d::after {
 	content: "";
 	position: absolute;
-	left: 50%;
-	bottom: -0.4rem;
+	z-index: -1;
+	pointer-events: none;
 	width: 0.8rem;
 	height: 0.8rem;
-	background: rgba(255, 255, 255, 0.92);
-	border-right: 1px solid rgba(255, 255, 255, 0.88);
-	border-bottom: 1px solid rgba(255, 255, 255, 0.88);
+	background: #ffffff;
+	border: 1px solid rgba(255, 255, 255, 0.88);
+	left: 50%;
+	bottom: -0.48rem;
 	transform: translateX(-50%) rotate(45deg);
+}
+
+.speech-bubble-3d[data-tail="top"]::after {
+	top: -0.48rem;
+	bottom: auto;
+	transform: translateX(-50%) rotate(45deg);
+}
+
+.speech-bubble-3d[data-tail="left"]::after {
+	top: 50%;
+	left: -0.48rem;
+	bottom: auto;
+	transform: translateY(-50%) rotate(45deg);
+}
+
+.speech-bubble-3d[data-tail="right"]::after {
+	top: 50%;
+	right: -0.48rem;
+	left: auto;
+	top: auto;
+	bottom: auto;
+	transform: translateY(-50%) rotate(45deg);
+}
+
+.speech-bubble-3d[data-tail="bottom"]::after {
+	left: 50%;
+	bottom: -0.48rem;
+	top: auto;
+	transform: translateX(-50%) rotate(45deg);
+}
+
+.speech-bubble-3d[data-offscreen="true"] {
+	max-width: min(18rem, 32vw);
 }
 
 .speech-bubble-3d__name {

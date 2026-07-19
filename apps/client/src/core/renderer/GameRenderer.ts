@@ -48,6 +48,33 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
 
 const PLAY_MODEL_SIZE = 0.7;
 const loadingMask = useLoading();
+const SPEECH_BUBBLE_ANCHOR_Y = PLAY_MODEL_SIZE * 1.6;
+const SPEECH_BUBBLE_MARGIN = 18;
+const SPEECH_BUBBLE_STACK_GAP = 10;
+const SPEECH_BUBBLE_SCREEN_OFFSET_Y = 4;
+const MIN_SPEECH_BUBBLE_WIDTH = 120;
+const MIN_SPEECH_BUBBLE_HEIGHT = 56;
+
+type SpeechBubbleEdge = "top" | "right" | "bottom" | "left";
+
+type ActiveSpeechBubble = {
+	containerEl: HTMLDivElement;
+	rootEl: HTMLElement;
+	unmount: () => void;
+	timeoutId: number;
+};
+
+type SpeechBubblePlacement = {
+	playerId: string;
+	containerEl: HTMLDivElement;
+	rootEl: HTMLElement;
+	width: number;
+	height: number;
+	centerX: number;
+	centerY: number;
+	offscreen: boolean;
+	edge: SpeechBubbleEdge;
+};
 
 export class GameRenderer {
 	private mapData: GameMap;
@@ -94,6 +121,7 @@ export class GameRenderer {
 
 	private isLockingRole: boolean = false;
 	private isLockingRoleFromSetting: boolean = useSettig().lockRole;
+	private isTurnFocusEnabled: boolean = useSettig().enableTurnFocus;
 
 	private currentFocusModule: THREE.Object3D | null = null;
 
@@ -105,7 +133,7 @@ export class GameRenderer {
 
 	private diceManager: DiceManager | null = null;
 	private activeMoneyParticles: Map<string, CSS2DObject[]> = new Map();
-	private activeSpeechBubbles: Map<string, { bubble: CSS2DObject; unmount: () => void; timeoutId: number }> = new Map();
+	private activeSpeechBubbles: Map<string, ActiveSpeechBubble> = new Map();
 	private isRenderDice = false;
 	private diceRollQueue: DiceResult[][] = []; // 骰子动画队列
 	private isProcessingDiceRoll: boolean = false; // 是否正在处理骰子动画
@@ -205,6 +233,7 @@ export class GameRenderer {
 		this.popElementRenderer = new CSS2DRenderer();
 		this.popElementRenderer.setSize(container.clientWidth, container.clientHeight);
 		this.popElementRenderer.domElement.style.position = "absolute";
+		this.popElementRenderer.domElement.style.left = "0";
 		this.popElementRenderer.domElement.style.top = "0";
 		this.popElementRenderer.domElement.style.pointerEvents = "none";
 		this.popElementRenderer.domElement.style.zIndex = "var(--z-ui)";
@@ -345,6 +374,7 @@ export class GameRenderer {
 			}
 
 			this.popElementRenderer.render(this.scene, this.camera);
+			this.updateActiveSpeechBubbleLayout();
 
 			if (this.isRenderDice && this.diceManager) {
 				this.diceManager.update();
@@ -1072,12 +1102,11 @@ export class GameRenderer {
 
 	private initEventListener() {
 		// 监听当前回合玩家变化
-		// useEventBus().on("game-currentPlayerIdInRound", (newPlayerId: string, oldPlayerId: string) => {
-		// 	if (newPlayerId && newPlayerId !== oldPlayerId) {
-		// 		console.log("[相机] 回合切换:", oldPlayerId, "->", newPlayerId);
-		// 		this.focusPlayerById(newPlayerId);
-		// 	}
-		// });
+		useEventBus().on("game-currentPlayerIdInRound", (newPlayerId: string, oldPlayerId: string) => {
+			if (!this.isTurnFocusEnabled || !newPlayerId || newPlayerId === oldPlayerId) return;
+			console.log("[相机] 回合切换:", oldPlayerId, "->", newPlayerId);
+			this.focusPlayerById(newPlayerId);
+		});
 
 		const mapDataStore = useMapData();
 
@@ -1101,11 +1130,22 @@ export class GameRenderer {
 			this.isLockingRoleFromSetting = lockRole;
 		});
 
-			// 监听模型动画变化事件
-			useEventBus().on("graphics:animation:change", ({ enable }: { enable: boolean }) => {
-				console.log("[动画设置] 接收到模型动画变化事件:", enable);
-				this.applyModelAnimationSetting(enable);
-			});
+		useEventBus().on("graphics:turnFocus:change", ({ enable }: { enable: boolean }) => {
+			console.log("[相机] 接收到回合切换聚焦设置变化:", enable);
+			this.isTurnFocusEnabled = enable;
+			if (enable) {
+				const currentPlayerId = useGameData().currentPlayerIdInRound;
+				if (currentPlayerId) {
+					this.focusPlayerById(currentPlayerId);
+				}
+			}
+		});
+
+		// 监听模型动画变化事件
+		useEventBus().on("graphics:animation:change", ({ enable }: { enable: boolean }) => {
+			console.log("[动画设置] 接收到模型动画变化事件:", enable);
+			this.applyModelAnimationSetting(enable);
+		});
 
 		// 监听相机回归视角事件
 		useEventBus().on("camera:focus:self", () => {
@@ -2163,29 +2203,37 @@ export class GameRenderer {
 	private showPlayerSpeechBubble(message: ChatMessage) {
 		if (message.type !== ChatMessageType.Text) return;
 		const playerId = message.user.userId;
-		const playerEntity = this.playerEntities.get(playerId);
-		if (!playerEntity || !message.content?.trim()) return;
+		if (!this.playerEntities.has(playerId) || !message.content?.trim()) return;
 
 		this.clearSpeechBubble(playerId);
 
-		const { css2DObject, unmount } = createCSS2DObjectFromVue(PlayerSpeechBubble3D, {
+		const { containerEl, unmount } = createCSS2DObjectFromVue(PlayerSpeechBubble3D, {
 			username: message.user.username,
 			color: message.user.color,
 			content: message.content.trim(),
 		});
-
-		css2DObject.position.set(0, PLAY_MODEL_SIZE * 2.15, 0);
-		playerEntity.model.add(css2DObject);
+		const rootEl = containerEl.firstElementChild instanceof HTMLElement ? containerEl.firstElementChild : containerEl;
+		containerEl.style.position = "absolute";
+		containerEl.style.left = "0";
+		containerEl.style.top = "0";
+		containerEl.style.pointerEvents = "none";
+		containerEl.style.willChange = "transform";
+		containerEl.style.zIndex = "2";
+		rootEl.dataset.tail = "bottom";
+		rootEl.dataset.offscreen = "false";
+		this.popElementRenderer.domElement.appendChild(containerEl);
 
 		const timeoutId = window.setTimeout(() => {
 			this.clearSpeechBubble(playerId);
 		}, 3600);
 
 		this.activeSpeechBubbles.set(playerId, {
-			bubble: css2DObject,
+			containerEl,
+			rootEl,
 			unmount,
 			timeoutId,
 		});
+		this.updateActiveSpeechBubbleLayout();
 	}
 
 	private clearSpeechBubble(playerId: string) {
@@ -2193,13 +2241,229 @@ export class GameRenderer {
 		if (!activeBubble) return;
 
 		window.clearTimeout(activeBubble.timeoutId);
-		activeBubble.bubble.parent?.remove(activeBubble.bubble);
+		activeBubble.containerEl.parentElement?.removeChild(activeBubble.containerEl);
 		activeBubble.unmount();
 		this.activeSpeechBubbles.delete(playerId);
 	}
 
 	private clearAllSpeechBubbles() {
 		Array.from(this.activeSpeechBubbles.keys()).forEach((playerId) => this.clearSpeechBubble(playerId));
+	}
+
+	private updateActiveSpeechBubbleLayout() {
+		if (this.activeSpeechBubbles.size === 0) return;
+
+		const viewportWidth = this.container.clientWidth;
+		const viewportHeight = this.container.clientHeight;
+		if (viewportWidth <= 0 || viewportHeight <= 0) return;
+
+		const placements: SpeechBubblePlacement[] = [];
+
+		for (const [playerId, activeBubble] of this.activeSpeechBubbles) {
+			const anchorWorldPos = this.getSpeechBubbleAnchorWorldPosition(playerId);
+			if (!anchorWorldPos) {
+				activeBubble.containerEl.style.opacity = "0";
+				continue;
+			}
+
+			const width = Math.max(activeBubble.containerEl.offsetWidth, MIN_SPEECH_BUBBLE_WIDTH);
+			const height = Math.max(activeBubble.containerEl.offsetHeight, MIN_SPEECH_BUBBLE_HEIGHT);
+			const projection = this.projectWorldPosition(anchorWorldPos);
+
+			if (projection.isOnScreen) {
+				placements.push({
+					playerId,
+					containerEl: activeBubble.containerEl,
+					rootEl: activeBubble.rootEl,
+					width,
+					height,
+					centerX: THREE.MathUtils.clamp(
+						projection.screenX,
+						SPEECH_BUBBLE_MARGIN + width / 2,
+						viewportWidth - SPEECH_BUBBLE_MARGIN - width / 2,
+					),
+					centerY: THREE.MathUtils.clamp(
+						projection.screenY - height / 2 - SPEECH_BUBBLE_SCREEN_OFFSET_Y,
+						SPEECH_BUBBLE_MARGIN + height / 2,
+						viewportHeight - SPEECH_BUBBLE_MARGIN - height / 2,
+					),
+					offscreen: false,
+					edge: "bottom",
+				});
+				continue;
+			}
+
+			placements.push(
+				this.getOffscreenSpeechBubblePlacement(
+					playerId,
+					activeBubble,
+					width,
+					height,
+					projection.ndc,
+					projection.cameraSpace,
+					viewportWidth,
+					viewportHeight,
+				),
+			);
+		}
+
+		this.resolveOffscreenSpeechBubbleOverlaps(placements, viewportWidth, viewportHeight);
+		placements.forEach((placement) => this.applySpeechBubblePlacement(placement));
+	}
+
+	private getSpeechBubbleAnchorWorldPosition(playerId: string): THREE.Vector3 | null {
+		const playerEntity = this.playerEntities.get(playerId);
+		if (!playerEntity) return null;
+		return playerEntity.model.localToWorld(new THREE.Vector3(0, SPEECH_BUBBLE_ANCHOR_Y, 0));
+	}
+
+	private projectWorldPosition(worldPos: THREE.Vector3) {
+		const ndc = worldPos.clone().project(this.camera);
+		const cameraSpace = worldPos.clone().applyMatrix4(this.camera.matrixWorldInverse);
+		const screenX = (ndc.x * 0.5 + 0.5) * this.container.clientWidth;
+		const screenY = (-(ndc.y * 0.5) + 0.5) * this.container.clientHeight;
+		const isInFront = cameraSpace.z < 0;
+		const isOnScreen = isInFront && ndc.x >= -1 && ndc.x <= 1 && ndc.y >= -1 && ndc.y <= 1;
+
+		return { ndc, cameraSpace, screenX, screenY, isInFront, isOnScreen };
+	}
+
+	private getOffscreenSpeechBubblePlacement(
+		playerId: string,
+		activeBubble: ActiveSpeechBubble,
+		width: number,
+		height: number,
+		ndc: THREE.Vector3,
+		cameraSpace: THREE.Vector3,
+		viewportWidth: number,
+		viewportHeight: number,
+	): SpeechBubblePlacement {
+		let directionX = ndc.x;
+		let directionY = ndc.y;
+
+		if (cameraSpace.z >= 0) {
+			directionX = -directionX;
+			directionY = -directionY;
+		}
+
+		if (Math.abs(directionX) < 0.001 && Math.abs(directionY) < 0.001) {
+			directionY = cameraSpace.y >= 0 ? 1 : -1;
+		}
+
+		const xLimit = Math.max(0.08, 1 - ((SPEECH_BUBBLE_MARGIN + width / 2) * 2) / viewportWidth);
+		const yLimit = Math.max(0.08, 1 - ((SPEECH_BUBBLE_MARGIN + height / 2) * 2) / viewportHeight);
+		const xRatio = Math.abs(directionX) / xLimit;
+		const yRatio = Math.abs(directionY) / yLimit;
+		const scale = 1 / Math.max(xRatio, yRatio, 1);
+		const clampedX = THREE.MathUtils.clamp(directionX * scale, -xLimit, xLimit);
+		const clampedY = THREE.MathUtils.clamp(directionY * scale, -yLimit, yLimit);
+		const projectedX = (clampedX * 0.5 + 0.5) * viewportWidth;
+		const projectedY = (-(clampedY * 0.5) + 0.5) * viewportHeight;
+
+		let edge: SpeechBubbleEdge;
+		let centerX = projectedX;
+		let centerY = projectedY;
+
+		if (xRatio > yRatio) {
+			edge = clampedX >= 0 ? "right" : "left";
+			centerX =
+				edge === "right"
+					? viewportWidth - SPEECH_BUBBLE_MARGIN - width / 2
+					: SPEECH_BUBBLE_MARGIN + width / 2;
+		} else {
+			edge = clampedY >= 0 ? "top" : "bottom";
+			centerY =
+				edge === "top"
+					? SPEECH_BUBBLE_MARGIN + height / 2
+					: viewportHeight - SPEECH_BUBBLE_MARGIN - height / 2;
+		}
+
+		return {
+			playerId,
+			containerEl: activeBubble.containerEl,
+			rootEl: activeBubble.rootEl,
+			width,
+			height,
+			centerX,
+			centerY,
+			offscreen: true,
+			edge,
+		};
+	}
+
+	private resolveOffscreenSpeechBubbleOverlaps(
+		placements: SpeechBubblePlacement[],
+		viewportWidth: number,
+		viewportHeight: number,
+	) {
+		const placementsByEdge = new Map<SpeechBubbleEdge, SpeechBubblePlacement[]>([
+			["top", []],
+			["right", []],
+			["bottom", []],
+			["left", []],
+		]);
+
+		placements
+			.filter((placement) => placement.offscreen)
+			.forEach((placement) => placementsByEdge.get(placement.edge)?.push(placement));
+
+		placementsByEdge.forEach((edgePlacements, edge) => {
+			if (edgePlacements.length <= 1) return;
+
+			const isVerticalEdge = edge === "left" || edge === "right";
+			edgePlacements.sort((a, b) => (isVerticalEdge ? a.centerY - b.centerY : a.centerX - b.centerX));
+
+			for (let index = 0; index < edgePlacements.length; index += 1) {
+				const current = edgePlacements[index];
+				if (isVerticalEdge) {
+					const minCenter = SPEECH_BUBBLE_MARGIN + current.height / 2;
+					current.centerY = Math.max(current.centerY, minCenter);
+					if (index > 0) {
+						const prev = edgePlacements[index - 1];
+						const minGap = (prev.height + current.height) / 2 + SPEECH_BUBBLE_STACK_GAP;
+						current.centerY = Math.max(current.centerY, prev.centerY + minGap);
+					}
+				} else {
+					const minCenter = SPEECH_BUBBLE_MARGIN + current.width / 2;
+					current.centerX = Math.max(current.centerX, minCenter);
+					if (index > 0) {
+						const prev = edgePlacements[index - 1];
+						const minGap = (prev.width + current.width) / 2 + SPEECH_BUBBLE_STACK_GAP;
+						current.centerX = Math.max(current.centerX, prev.centerX + minGap);
+					}
+				}
+			}
+
+			for (let index = edgePlacements.length - 1; index >= 0; index -= 1) {
+				const current = edgePlacements[index];
+				if (isVerticalEdge) {
+					const maxCenter = viewportHeight - SPEECH_BUBBLE_MARGIN - current.height / 2;
+					current.centerY = Math.min(current.centerY, maxCenter);
+					if (index < edgePlacements.length - 1) {
+						const next = edgePlacements[index + 1];
+						const minGap = (next.height + current.height) / 2 + SPEECH_BUBBLE_STACK_GAP;
+						current.centerY = Math.min(current.centerY, next.centerY - minGap);
+					}
+				} else {
+					const maxCenter = viewportWidth - SPEECH_BUBBLE_MARGIN - current.width / 2;
+					current.centerX = Math.min(current.centerX, maxCenter);
+					if (index < edgePlacements.length - 1) {
+						const next = edgePlacements[index + 1];
+						const minGap = (next.width + current.width) / 2 + SPEECH_BUBBLE_STACK_GAP;
+						current.centerX = Math.min(current.centerX, next.centerX - minGap);
+					}
+				}
+			}
+		});
+	}
+
+	private applySpeechBubblePlacement(placement: SpeechBubblePlacement) {
+		placement.containerEl.style.opacity = "1";
+		placement.containerEl.style.left = `${placement.centerX}px`;
+		placement.containerEl.style.top = `${placement.centerY}px`;
+		placement.containerEl.style.transform = "translate(-50%, -50%)";
+		placement.rootEl.dataset.tail = placement.edge;
+		placement.rootEl.dataset.offscreen = placement.offscreen ? "true" : "false";
 	}
 
 	//让摄像机看自己

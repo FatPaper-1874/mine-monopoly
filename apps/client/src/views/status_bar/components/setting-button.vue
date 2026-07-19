@@ -92,6 +92,7 @@ const qualityLabels = {
 
 // 临时状态：用户选择但未应用
 const tempLockRole = ref(settingStore.lockRole);
+const tempEnableTurnFocus = ref(settingStore.enableTurnFocus);
 const tempChatRenderMode = ref<"danmaku" | "bubble">(settingStore.chatRenderMode);
 const tempGraphicQuality = ref<"low" | "medium" | "high">(settingStore.graphicQuality);
 const tempEnableShadow = ref(settingStore.enableShadow);
@@ -107,6 +108,7 @@ const tempMusicMuted = ref(settingStore.musicMuted);
 watch(settingVisible, (isOpen) => {
 	if (isOpen) {
 		tempLockRole.value = settingStore.lockRole;
+		tempEnableTurnFocus.value = settingStore.enableTurnFocus;
 		tempChatRenderMode.value = settingStore.chatRenderMode;
 		tempGraphicQuality.value = settingStore.graphicQuality;
 		tempEnableModelAnimation.value = settingStore.enableModelAnimation;
@@ -124,6 +126,7 @@ watch(settingVisible, (isOpen) => {
 const hasChanges = computed(() => {
 	return (
 		tempLockRole.value !== settingStore.lockRole ||
+		tempEnableTurnFocus.value !== settingStore.enableTurnFocus ||
 		tempChatRenderMode.value !== settingStore.chatRenderMode ||
 		tempGraphicQuality.value !== settingStore.graphicQuality ||
 		tempEnableShadow.value !== settingStore.enableShadow ||
@@ -174,6 +177,11 @@ const applySettings = () => {
 	if (tempLockRole.value !== settingStore.lockRole) {
 		settingStore.lockRole = tempLockRole.value;
 		eventBus.emit("graphics:lockRole:change", { lockRole: tempLockRole.value });
+	}
+
+	if (tempEnableTurnFocus.value !== settingStore.enableTurnFocus) {
+		settingStore.enableTurnFocus = tempEnableTurnFocus.value;
+		eventBus.emit("graphics:turnFocus:change", { enable: tempEnableTurnFocus.value });
 	}
 
 	if (tempChatRenderMode.value !== settingStore.chatRenderMode) {
@@ -353,6 +361,40 @@ const applySettings = () => {
 							<label for="lock-role-mode-false">
 								<FontAwesomeIcon icon="square-check" v-if="!tempLockRole" />
 								自由</label
+							>
+						</div>
+					</div>
+				</div>
+
+				<div class="setting-item">
+					<div class="label">回合切换聚焦</div>
+					<div class="content">
+						<div>
+							<input
+								type="radio"
+								name="turn-focus-mode"
+								:value="true"
+								id="turn-focus-mode-true"
+								v-model="tempEnableTurnFocus"
+								hidden
+							/>
+							<label for="turn-focus-mode-true">
+								<FontAwesomeIcon icon="square-check" v-if="tempEnableTurnFocus" />
+								开启</label
+							>
+						</div>
+						<div>
+							<input
+								type="radio"
+								name="turn-focus-mode"
+								:value="false"
+								id="turn-focus-mode-false"
+								v-model="tempEnableTurnFocus"
+								hidden
+							/>
+							<label for="turn-focus-mode-false">
+								<FontAwesomeIcon icon="square-check" v-if="!tempEnableTurnFocus" />
+								关闭</label
 							>
 						</div>
 					</div>
