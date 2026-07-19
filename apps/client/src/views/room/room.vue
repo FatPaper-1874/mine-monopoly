@@ -35,7 +35,8 @@ import { vStagger } from "@src/directives";
 	const userInfoStore = useUserInfo();
 	const maxRoomPlayers = 6;
 
-	const playerList = computed(() => roomInfoStore.userList);
+	const playerList = computed(() => roomInfoStore.userList.filter((user) => !user.isSpectator));
+	const spectatorList = computed(() => roomInfoStore.userList.filter((user) => user.isSpectator));
 	const roomSlots = computed(() => {
 		const slots: Array<
 			| { type: "player"; user: UserInRoomInfo }
@@ -59,6 +60,7 @@ import { vStagger } from "@src/directives";
 	const isPrivate = ref(true);
 
 	const isOwner = computed(() => userInfoStore.userId === roomInfoStore.ownerId);
+	const amISpectator = computed(() => roomInfoStore.amISpectator);
 	const isReady = computed(() => roomInfoStore.userList.find((user) => user.userId === userInfoStore.userId)?.isReady);
 
 	const saveManager = new SaveManager();
@@ -195,6 +197,14 @@ import { vStagger } from "@src/directives";
 		const result = socketClient.addAIPlayer();
 		if (!result.success) {
 			FPMessage({ type: "error", message: result.error || "添加 AI 玩家失败" });
+		}
+	}
+
+	function handleToggleSpectatorMode() {
+		if (!socketClient) return;
+		const result = socketClient.setSpectatorMode(!amISpectator.value);
+		if (!result.success) {
+			FPMessage({ type: "error", message: result.error || "切换旁观模式失败" });
 		}
 	}
 
@@ -339,9 +349,11 @@ import { vStagger } from "@src/directives";
 								{{ currentMap ? "开始游戏" : "先选择地图吧" }}
 							</button>
 						</div>
-						<button v-else :disabled="canStart" class="ready-button" @click="handleGameStart">
-							{{ currentMap ? "开始游戏" : "先选择地图吧" }}
-						</button>
+						<div v-else class="footbar-row">
+							<button :disabled="canStart" class="ready-button footbar-btn-start" @click="handleGameStart">
+								{{ currentMap ? "开始游戏" : "先选择地图吧" }}
+							</button>
+						</div>
 					</template>
 					<button v-else class="ready-button" @click="handleReadyToggle">
 						{{ isReady ? "取消准备" : "准备" }}
@@ -351,11 +363,21 @@ import { vStagger } from "@src/directives";
 			</div>
 
 			<div class="right-container">
+				<div v-if="spectatorList.length > 0" class="spectator-list">
+					<span class="spectator-list-label">旁观者</span>
+					<span v-for="user in spectatorList" :key="user.userId" class="spectator-user">
+						{{ user.username }}
+					</span>
+					<button v-if="amISpectator" type="button" class="spectator-exit-button btn-small" @click="handleToggleSpectatorMode">
+						退出旁观
+					</button>
+				</div>
 				<div class="player-list-container" v-stagger="350">
 					<template v-for="slot in roomSlots" :key="slot.type === 'player' ? slot.user.userId : slot.type === 'empty' ? slot.key : 'add-ai'">
 						<room-user-card
 							v-if="slot.type === 'player'"
 							@role-select="handleSelectRole"
+							@spectator-toggle="handleToggleSpectatorMode"
 							:user="slot.user"
 						/>
 						<roomUserCard v-else-if="slot.type === 'add-ai'" :user="undefined" :add-ai-button="true" @add-ai="handleAddAIPlayer" />
@@ -492,6 +514,50 @@ import { vStagger } from "@src/directives";
 		flex: 1;
 		display: flex;
 		flex-direction: column;
+
+		& > .spectator-list {
+			display: flex;
+			align-items: center;
+			flex-wrap: wrap;
+			gap: 0.45rem;
+			margin-bottom: 0.6rem;
+			padding: 0.75rem 0.9rem;
+			border-radius: 0.7rem;
+			box-shadow: var(--fp-shadow-md);
+			@include felt-patch(#ffe6a8);
+
+			.spectator-list-label,
+			.spectator-user {
+				background-image: var(--fp-texture-felt);
+			}
+
+			& .spectator-list-label {
+				display: inline-flex;
+				align-items: center;
+				padding: 0.42rem 0.72rem;
+				border-radius: 0.65rem;
+				background-color: var(--fp-color-secondary);
+				color: #ffffff;
+				font-size: 0.88rem;
+				letter-spacing: 0.04em;
+			}
+
+			& .spectator-user {
+				display: inline-flex;
+				align-items: center;
+				padding: 0.38rem 0.68rem;
+				border-radius: 999px;
+				background-color: rgba(255, 255, 255, 0.94);
+				color: var(--fp-color-text);
+				font-size: 0.84rem;
+				font-weight: 600;
+			}
+
+			& .spectator-exit-button {
+				margin-left: auto;
+				flex-shrink: 0;
+			}
+		}
 
 		& > .player-list-container {
 			flex: 1;

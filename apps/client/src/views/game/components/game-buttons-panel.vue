@@ -1,7 +1,8 @@
 <template>
 	<div class="game-buttons-panel">
-		<div class="panel-title" v-if="title">{{ title }}</div>
-		<div class="panel-content">
+		<div class="panel-title" v-if="title && !spectatorMode">{{ title }}</div>
+		<div v-if="spectatorMode" class="panel-message">{{ spectatorMessage }}</div>
+		<div class="panel-content" v-show="!spectatorMode">
 			<DynamicButtonContainer :player-id="playerId" layout="vertical" />
 			<Dices @click="$emit('rollDice')"></Dices>
 		</div>
@@ -9,17 +10,21 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from "vue";
 import DynamicButtonContainer from "./dynamic-button-container.vue";
 import Dices from "./dices.vue";
 
 interface Props {
 	playerId: string;
 	title?: string;
+	spectatorMessage?: string;
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
 	title: "",
+	spectatorMessage: "",
 });
+const spectatorMode = computed(() => !!props.spectatorMessage);
 defineEmits<{
 	rollDice: [];
 }>();
@@ -61,5 +66,12 @@ defineEmits<{
 	display: inline-flex;
 	flex-direction: row;
 	gap: 0.8rem;
+}
+
+.panel-message {
+	max-width: 14rem;
+	line-height: 1.5;
+	color: var(--fp-color-text-secondary);
+	text-align: left;
 }
 </style>

@@ -105,6 +105,7 @@ export const useRoomInfo = defineStore("roomInfo", {
 	getters: {
 		amIRoomOwner: (state) => useUserInfo().userId === state.ownerId,
 		isReady: (state) => state.userList.find((user) => user.userId === useUserInfo().userId)?.isReady ?? false,
+		amISpectator: (state) => Boolean(state.userList.find((user) => user.userId === useUserInfo().userId)?.isSpectator),
 	},
 });
 

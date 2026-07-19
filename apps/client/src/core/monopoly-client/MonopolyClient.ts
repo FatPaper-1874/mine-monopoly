@@ -473,6 +473,13 @@ export class MonopolyClient {
 		return success ? { success: true } : { success: false, error: "当前没有可随机分配的 AI 玩家或地图没有角色" };
 	}
 
+	public setSpectatorMode(enabled: boolean): { success: boolean; error?: string } {
+		if (!this.gameHost) {
+			return { success: false, error: "只有房主才能切换旁观模式" };
+		}
+		return this.gameHost.getRoom().setOwnerSpectatorMode(enabled);
+	}
+
 	public changeRoleForUser(userId: string, roleId: string): { success: boolean; error?: string } {
 		if (this.gameHost && this.gameHost.getRoom().isAiPlayer(userId)) {
 			this.gameHost.getRoom().changeRole(userId, roleId);

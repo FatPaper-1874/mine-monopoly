@@ -331,7 +331,7 @@ const handleChangeMapInternal: ServerMessageHandler<SocketMsgType.ChangeMap> = a
 		useRoomInfo().roleList = tempRoleList;
 		useRoomInfo().gameSettingForm = gameMap.gameSettingForm;
 		// 初始随机选择一个角色
-		if (roles.length > 0) {
+		if (roles.length > 0 && !useRoomInfo().amISpectator) {
 			useMonopolyClient().changeRole(roles[Math.floor(Math.random() * roles.length)].id);
 		}
 		// 如果自己是房主,提交默认游戏设置(房间类里不解析游戏数据, 只能靠房主来传)
@@ -406,12 +406,10 @@ const handleGameInit: ServerMessageHandler<SocketMsgType.GameInit> = (msg) => {
 		const utilStore = useUtil();
 		utilStore.resetTurnState();
 		const me = gameData.players.find((p) => p.id === useUserInfo().userId);
-		if (me) {
-			utilStore.setBankrupted(me.isBankrupted);
-		}
+		utilStore.setBankrupted(me?.isBankrupted ?? false);
 
 		// 同步回合状态
-		const isMyTurn = gameData.currentPlayerIdInRound === useUserInfo().userId;
+		const isMyTurn = Boolean(me) && gameData.currentPlayerIdInRound === useUserInfo().userId;
 		utilStore.changeTurn(isMyTurn);
 	}
 	const loadingStore = useLoading();
@@ -445,14 +443,12 @@ const handleGameData: ServerMessageHandler<SocketMsgType.GameData> = (msg) => {
 	if (gameData) {
 		gameDataStore.updateGameData(gameData);
 		const me = gameData.players.find((p) => p.id === useUserInfo().userId);
-		if (me) {
-			const utilStore = useUtil();
-			utilStore.setBankrupted(me.isBankrupted);
+		const utilStore = useUtil();
+		utilStore.setBankrupted(me?.isBankrupted ?? false);
 
-			// 同步回合状态
-			const isMyTurn = gameData.currentPlayerIdInRound === useUserInfo().userId;
-			utilStore.changeTurn(isMyTurn);
-		}
+		// 同步回合状态
+		const isMyTurn = Boolean(me) && gameData.currentPlayerIdInRound === useUserInfo().userId;
+		utilStore.changeTurn(isMyTurn);
 	}
 };
 

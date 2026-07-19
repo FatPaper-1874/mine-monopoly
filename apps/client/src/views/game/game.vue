@@ -13,7 +13,7 @@
 		Fragment,
 	} from "vue";
 	import { GameRenderer } from "@src/core/renderer/GameRenderer";
-	import { useLoading, useUtil } from "@src/store";
+	import { useLoading, useRoomInfo, useUtil } from "@src/store";
 	import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 	import router from "@src/router/index";
 	import { MonopolyClient, useMonopolyClient, destoryMonopolyClient } from "@src/core/monopoly-client/MonopolyClient";
@@ -36,10 +36,12 @@
 	//pinia仓库
 	const mapDataStore = useMapData();
 	const userInfoStore = useUserInfo();
+	const roomInfoStore = useRoomInfo();
 	const gameDataStore = useGameData();
 
 	const windowWidth = computed(() => window.innerWidth);
 	const windowHeight = computed(() => window.innerHeight);
+	const amISpectator = computed(() => roomInfoStore.amISpectator);
 
 	const currentPlayerId = computed(() => userInfoStore.userId);
 	const gameDataState = computed(() => gameDataStore.$state);
@@ -189,7 +191,12 @@
 				<ChanceCardContainer />
 
 				<!-- 游戏按钮面板：包含骰子按钮和动态按钮 -->
-				<GameButtonsPanel :player-id="currentPlayerId" title="操作面板" @rollDice="handleRollDice" />
+				<GameButtonsPanel
+					:player-id="currentPlayerId"
+					title="操作面板"
+					:spectator-message="amISpectator ? '你正在旁观本局，游戏操作将完全由 AI 自行完成。' : ''"
+					@rollDice="handleRollDice"
+				/>
 
 				<teleport to="body">
 					<CountdownTimer />
@@ -262,4 +269,5 @@
 		pointer-events: initial;
 	}
 }
+
 </style>

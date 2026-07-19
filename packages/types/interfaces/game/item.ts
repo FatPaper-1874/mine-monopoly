@@ -72,6 +72,8 @@ export interface UserInRoomInfo extends User {
 	roleId: string;
 	/** 是否为 AI 玩家 */
 	isAI?: boolean;
+	/** 是否以旁观身份留在房间中 */
+	isSpectator?: boolean;
 }
 
 /**

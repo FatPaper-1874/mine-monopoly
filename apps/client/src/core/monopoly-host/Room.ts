@@ -76,6 +76,7 @@ export class Room {
 	private userList: Map<string, UserInRoom>;
 	private aiUserList: Map<string, UserInRoomInfo>;
 	private ownerId: string = "";
+	private ownerSpectatorMode: boolean;
 	private gameSetting: GameSetting;
 	private aiDecisionConfig: AIDecisionConfig;
 	private aiPlayerBindings: Map<string, AIPlayerDecisionBinding>;
@@ -143,6 +144,7 @@ export class Room {
 	constructor(roomId: string) {
 		this.roomId = roomId;
 		this.ownerId = "";
+		this.ownerSpectatorMode = false;
 		this.isStarted = false;
 		this.userList = new Map();
 		this.aiUserList = new Map();
@@ -181,7 +183,7 @@ export class Room {
 		if (this.isStarted) {
 			return { success: false, error: "游戏开始后不能添加 AI 玩家" };
 		}
-		if (this.getAllRoomUsers().length >= Room.MAX_ROOM_PLAYERS) {
+		if (this.getSeatUsers().length >= Room.MAX_ROOM_PLAYERS) {
 			return { success: false, error: `房间最多支持 ${Room.MAX_ROOM_PLAYERS} 名玩家` };
 		}
 
@@ -234,6 +236,7 @@ export class Room {
 			avatar: user.avatar,
 			roleId: user.roleId,
 			isAI: false,
+			isSpectator: this.isSpectatorUser(user.userId),
 		};
 	}
 
@@ -242,6 +245,22 @@ export class Room {
 			...Array.from(this.userList.values()).map((user) => this.getRoomUserInfo(user)),
 			...Array.from(this.aiUserList.values()),
 		];
+	}
+
+	private getSeatUsers(): UserInRoomInfo[] {
+		return this.getAllRoomUsers().filter((user) => !user.isSpectator);
+	}
+
+	private getGameParticipants(): UserInRoomInfo[] {
+		return this.getSeatUsers();
+	}
+
+	private getParticipatingHumanUserIds(): string[] {
+		return Array.from(this.userList.keys()).filter((userId) => !this.isSpectatorUser(userId));
+	}
+
+	private isSpectatorUser(userId: string): boolean {
+		return userId === this.ownerId && this.ownerSpectatorMode;
 	}
 
 	private getNextAiColor(): string {
@@ -273,6 +292,12 @@ export class Room {
 		return true;
 	}
 
+	private removeLastAiPlayerForSeatCapacity(): boolean {
+		const lastAiUserId = Array.from(this.aiUserList.keys()).at(-1);
+		if (!lastAiUserId) return false;
+		return this.removeAiPlayer(lastAiUserId);
+	}
+
 	public randomizeAiRoles(targetUserId?: string): boolean {
 		const targets = targetUserId ? [this.aiUserList.get(targetUserId)].filter(Boolean) : Array.from(this.aiUserList.values());
 		if (targets.length === 0) return false;
@@ -283,6 +308,39 @@ export class Room {
 		}
 		this.roomInfoBroadcast();
 		return true;
+	}
+
+	public setOwnerSpectatorMode(enabled: boolean): { success: boolean; error?: string } {
+		if (!this.userList.has(this.ownerId)) {
+			return { success: false, error: "房主未在房间中" };
+		}
+		if (this.isStarted) {
+			return { success: false, error: "游戏开始后不能切换旁观模式" };
+		}
+		if (this.ownerSpectatorMode === enabled) {
+			return { success: true };
+		}
+
+		if (!enabled) {
+			while (this.getSeatUsers().length >= Room.MAX_ROOM_PLAYERS) {
+				if (!this.removeLastAiPlayerForSeatCapacity()) {
+					return { success: false, error: "房间已满，无法退出旁观模式" };
+				}
+			}
+		}
+
+		this.ownerSpectatorMode = enabled;
+		this.roomBroadcast({
+			type: SocketMsgType.MsgNotify,
+			source: SocketMsgSource.Server,
+			data: undefined,
+			msg: {
+				type: "info",
+				content: enabled ? "房主将以旁观者身份开局" : "房主将重新参与本局",
+			},
+		});
+		this.roomInfoBroadcast();
+		return { success: true };
 	}
 
 	private ensureAiPlayersReadyForStart(): { success: boolean; error?: string } {
@@ -1025,7 +1083,7 @@ export class Room {
 			this.roomInfoBroadcast();
 			return;
 		}
-		if (!this.getAllRoomUsers().every((item) => item.userId === this.ownerId || item.isAI || item.isReady)) {
+		if (!this.getAllRoomUsers().every((item) => item.isSpectator || item.userId === this.ownerId || item.isAI || item.isReady)) {
 			this.roomBroadcast({
 				type: SocketMsgType.MsgNotify,
 				source: SocketMsgSource.Server,
@@ -1409,7 +1467,7 @@ export class Room {
 		if (!snapshot) return { success: false, error: "没有可用的存档数据" };
 
 		// 校验玩家
-		const roomUserIds = Array.from(this.userList.keys());
+		const roomUserIds = this.getParticipatingHumanUserIds();
 		const { valid, aiPlayerIds, error } = this.saveManager.validatePlayers(record, roomUserIds);
 		if (!valid) return { success: false, error };
 		this.ensureAiPlayersForSave(record, aiPlayerIds);
@@ -2400,7 +2458,7 @@ export class Room {
 			data: {
 				setting: this.gameSetting,
 				mapInfo: mapData,
-				userList: this.getAllRoomUsers(),
+				userList: this.getGameParticipants(),
 				roomOwnerId: this.ownerId,
 				aiConfig: this.aiDecisionConfig,
 				saveData: this.pendingSaveData ?? undefined,
@@ -2462,6 +2520,39 @@ export class Room {
 	/**
 	 * 内部处理发送消息给用户
 	 */
+	private shouldMirrorToOwnerSpectator(msg: ServerSocketMessage): boolean {
+		if (msg.msg) {
+			return true;
+		}
+		switch (msg.type) {
+			case SocketMsgType.MsgNotify:
+			case SocketMsgType.GameInit:
+			case SocketMsgType.GameInitFinished:
+			case SocketMsgType.GameData:
+			case SocketMsgType.GameLog:
+			case SocketMsgType.RoundTurn:
+			case SocketMsgType.RollDiceStart:
+			case SocketMsgType.RollDiceResult:
+			case SocketMsgType.RemainingTime:
+			case SocketMsgType.CurrentEventName:
+			case SocketMsgType.PlayerWalk:
+			case SocketMsgType.PlayerTp:
+			case SocketMsgType.GainMoney:
+			case SocketMsgType.CostMoney:
+			case SocketMsgType.GameOver:
+			case SocketMsgType.PauseGame:
+			case SocketMsgType.ResumeGame:
+			case SocketMsgType.MessageCard:
+			case SocketMsgType.UseChanceCard:
+			case SocketMsgType.ButtonRegister:
+			case SocketMsgType.ButtonStateChanged:
+			case SocketMsgType.ButtonRemove:
+				return true;
+			default:
+				return false;
+		}
+	}
+
 	private handleSendToUsersInternal(data: {
 		userIdList: string[];
 		data: ServerSocketMessage;
@@ -2470,6 +2561,17 @@ export class Room {
 			const user = this.userList.get(userId);
 			if (user) {
 				this.sendToClient(user.socketClient, data.data.type, data.data.data, data.data.msg);
+			}
+		}
+
+		if (
+			this.ownerSpectatorMode &&
+			this.shouldMirrorToOwnerSpectator(data.data) &&
+			!data.userIdList.includes(this.ownerId)
+		) {
+			const owner = this.userList.get(this.ownerId);
+			if (owner) {
+				this.sendToClient(owner.socketClient, data.data.type, data.data.data, data.data.msg);
 			}
 		}
 	}

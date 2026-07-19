@@ -8,7 +8,7 @@ import { useUserInfo, useRoomInfo } from "@src/store";
 import { useMapData, useResourceStore } from "@src/store/game";
 
 const props = defineProps<{ user: UserInRoomInfo | undefined; addAiButton?: boolean }>();
-const emits = defineEmits(["role-select", "add-ai"]);
+const emits = defineEmits(["role-select", "add-ai", "spectator-toggle"]);
 
 const user = computed(() => props.user);
 const lightColor = computed(() => (user.value ? lightenColor(user.value.color, 15) : "#ffffff"));
@@ -20,9 +20,13 @@ const isMe = computed(() => (user.value ? user.value.userId === useUserInfo().us
 const isRoomOwner = computed(() => (user.value ? user.value.userId === useRoomInfo().ownerId : false));
 const amIRoomOwner = computed(() => useRoomInfo().amIRoomOwner);
 const isAIPlayer = computed(() => Boolean(user.value?.isAI));
-const canChangeColor = computed(() => isMe.value || (amIRoomOwner.value && isAIPlayer.value));
+const isSpectator = computed(() => Boolean(user.value?.isSpectator));
+const canEnterSpectator = computed(() => Boolean(user.value) && isMe.value && isRoomOwner.value && !isSpectator.value);
+const canChangeColor = computed(() => !isSpectator.value && (isMe.value || (amIRoomOwner.value && isAIPlayer.value)));
 
-const canSelectRole = computed(() => useMapData().roles.length > 0 && (isMe.value || (amIRoomOwner.value && isAIPlayer.value)));
+const canSelectRole = computed(
+	() => !isSpectator.value && useMapData().roles.length > 0 && (isMe.value || (amIRoomOwner.value && isAIPlayer.value)),
+);
 const role = computed(() => {
 	if (!user.value) return undefined;
 	return useMapData().getRoleById(user.value?.roleId);
@@ -62,6 +66,10 @@ function handleColorChange(e: Event) {
 function handleAddAi() {
 	emits("add-ai");
 }
+
+function handleEnterSpectator() {
+	emits("spectator-toggle");
+}
 </script>
 
 <template>
@@ -70,13 +78,14 @@ function handleAddAi() {
 			v-if="addAiButton && !user"
 			type="button"
 			@click="handleAddAi"
-			style="position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 5; width: max-content;"
+			style="position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 5; width: max-content; height: 4rem;"
 		>
 			<FontAwesomeIcon style="margin-right: 0.35rem;" icon="robot" />
 			添加 机器人 / AI
 		</button>
 		<template v-if="user">
-			<div class="ready-tag" v-if="user.isReady && !canSelectRole">准备</div>
+			<div class="ready-tag" v-if="isSpectator">旁观中</div>
+			<div class="ready-tag" v-else-if="user.isReady && !canSelectRole">准备</div>
 
 			<div
 				v-else
@@ -90,12 +99,17 @@ function handleAddAi() {
 			</div>
 		</template>
 
-		<div v-if="isRoomOwner || isAIPlayer" class="status-badges">
+		<div v-if="isRoomOwner || isAIPlayer || isSpectator" class="status-badges">
 			<div class="status-badge owner" v-if="isRoomOwner"><FontAwesomeIcon icon="crown" /> <span>房主</span></div>
 			<div class="status-badge ai" v-if="isAIPlayer"><FontAwesomeIcon icon="robot" /> <span>AI</span></div>
+			<div class="status-badge spectator" v-if="isSpectator"><FontAwesomeIcon icon="eye" /> <span>旁观</span></div>
 		</div>
 
 		<div class="right-side">
+			<div v-if="canEnterSpectator" class="spectator-toggle" @click="handleEnterSpectator">
+				<FontAwesomeIcon class="spectator-toggle-icon" icon="eye" />
+			</div>
+
 			<div v-if="canChangeColor" class="color-picker">
 				<div @click="handleColorPickerClick" class="color-display"></div>
 				<input ref="colorPickerEl" type="color" @change="handleColorChange" />
@@ -213,6 +227,31 @@ $top-bar-height: 2.8rem;
 				background-color: rgb(197, 47, 47);
 			}
 		}
+
+		& > .spectator-toggle {
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			width: $item-size;
+			height: $item-size;
+			padding: 0;
+			border-radius: 50%;
+			border: 0.3rem solid #ffffff;
+			cursor: pointer;
+			z-index: 101;
+			font-size: 1.05rem;
+			color: #ffffff;
+			background-color: var(--fp-color-secondary);
+			box-sizing: border-box;
+
+			&:hover {
+				background-color: darken(fp.$fp-color-secondary, 10%);
+			}
+
+			& > .spectator-toggle-icon {
+				font-size: 1rem;
+			}
+		}
 	}
 
 	& > .ready-tag,
@@ -279,6 +318,10 @@ $top-bar-height: 2.8rem;
 
 			&.owner {
 				background-color: var(--fp-color-tertiary);
+			}
+
+			&.spectator {
+				background-color: var(--fp-color-secondary);
 			}
 
 			&.ai {

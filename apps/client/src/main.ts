@@ -107,6 +107,8 @@ import {
 	faRotateLeft,
 	faBoxOpen,
 	faTrashCan,
+	faEye,
+	faEyeSlash,
 } from "@fortawesome/free-solid-svg-icons";
 import { useDeviceStatus, useSettig } from "@src/store";
 import { isFullScreen as _isFullScreen, isLandscape as _isLandscape, isMobileDevice } from "@src/utils";
@@ -182,7 +184,9 @@ library.add(
 	faPlay,
 	faRotateLeft,
 	faBoxOpen,
-	faTrashCan
+	faTrashCan,
+	faEye,
+	faEyeSlash
 );
 await initPlatform();
 

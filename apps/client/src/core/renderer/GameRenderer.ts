@@ -2101,14 +2101,31 @@ export class GameRenderer {
 		return this.isLockingRole;
 	}
 
+	private resolvePreferredFocusPlayerId(): string | null {
+		const userId = useUserInfo().userId;
+		if (this.playerEntities.has(userId)) {
+			return userId;
+		}
+		const gameData = useGameData();
+		if (gameData.currentPlayerIdInRound && this.playerEntities.has(gameData.currentPlayerIdInRound)) {
+			return gameData.currentPlayerIdInRound;
+		}
+		const firstPlayer = gameData.players.find((player) => this.playerEntities.has(player.id));
+		return firstPlayer?.id ?? Array.from(this.playerEntities.keys())[0] ?? null;
+	}
+
 	/**
 	 * 将相机回归到自己的视角
 	 */
 	public focusOnSelf() {
-		const userId = useUserInfo().userId;
-		const playerEntity = this.playerEntities.get(userId);
+		const focusPlayerId = this.resolvePreferredFocusPlayerId();
+		if (!focusPlayerId) {
+			console.warn("[相机] 未找到可聚焦的玩家模型");
+			return;
+		}
+		const playerEntity = this.playerEntities.get(focusPlayerId);
 		if (!playerEntity) {
-			console.warn("[相机] 未找到当前玩家模型");
+			console.warn(`[相机] 未找到可聚焦的玩家模型: ${focusPlayerId}`);
 			return;
 		}
 
@@ -2116,7 +2133,7 @@ export class GameRenderer {
 		this.updateCamera(this.controls, this.currentFocusModule, 8, 30);
 		this.controls.update();
 
-		console.log("[相机] 相机已回归到自己的视角");
+		console.log(`[相机] 相机已聚焦到 ${focusPlayerId === useUserInfo().userId ? "自己的" : "观战目标"} 视角`);
 	}
 
 	private createPopoverOnPlayerTop(
@@ -2187,7 +2204,10 @@ export class GameRenderer {
 
 	//让摄像机看自己
 	private focusMe() {
-		this.focusPlayerById(useUserInfo().userId);
+		const focusPlayerId = this.resolvePreferredFocusPlayerId();
+		if (focusPlayerId) {
+			this.focusPlayerById(focusPlayerId);
+		}
 	}
 
 	private focusPlayerById(id: string) {
