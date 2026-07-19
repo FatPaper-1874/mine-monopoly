@@ -222,14 +222,14 @@ function buildList(items, emptyText = "暂无数据") {
 function updateSidebarMini(snapshot) {
 	const config = snapshot?.config || {};
 	const summary = snapshot?.remoteUsage?.summary || {};
-	els.miniModeText.textContent = config.mode === "remote" ? "远程" : "本地";
+	els.miniModeText.textContent = "远程";
 	els.miniProfileCount.textContent = String((config.remoteProfiles || []).length);
 	els.miniTokenTotal.textContent = formatCount(summary.totalTokens);
 }
 
 function populateGlobalForm(config) {
 	if (!config || state.globalFormDirty) return;
-	els.globalMode.value = config.mode || "local";
+	els.globalMode.value = "remote";
 	els.globalDefaultProfile.innerHTML = getProfileSelectOptions(config.defaultRemoteProfileId || "", true);
 	els.globalProvider.value = config.remote?.provider || "openai-compatible";
 	els.globalBaseUrl.value = config.remote?.baseUrl || "";
@@ -319,7 +319,6 @@ function renderProfiles(snapshot) {
 
 function getPlayerBindingLabel(player) {
 	if (!player?.binding) return "跟随默认";
-	if (player.binding.mode === "local") return "本地 AI";
 	return player.resolvedRemoteProfile?.name || "默认远端";
 }
 
@@ -327,7 +326,7 @@ function renderPlayers(snapshot) {
 	const aiPlayers = snapshot?.aiPlayers || [];
 	if (!aiPlayers.length) {
 		state.selectedPlayerId = null;
-		els.playerList.innerHTML = `<div class="empty">当前没有可展示的本地 AI 玩家，或当前客户端不是房主。</div>`;
+		els.playerList.innerHTML = `<div class="empty">当前没有可展示的 AI 玩家，或当前客户端不是房主。</div>`;
 		return;
 	}
 
@@ -344,7 +343,7 @@ function renderPlayers(snapshot) {
 		const tags = [
 			isCurrentRound ? `<span class="tag tag--good">当前回合</span>` : "",
 			player.strategyState?.posture ? `<span class="tag">${escapeHtml(player.strategyState.posture)}</span>` : "",
-			player.binding?.mode === "remote" ? `<span class="tag">${escapeHtml(getPlayerBindingLabel(player))}</span>` : `<span class="tag">本地</span>`,
+			`<span class="tag">${escapeHtml(getPlayerBindingLabel(player))}</span>`,
 		].filter(Boolean).join("");
 		return `
 			<div class="player-item${isActive ? " is-active" : ""}" data-player-id="${escapeHtml(player.userId)}">
@@ -376,7 +375,7 @@ function renderPlayerDetail() {
 
 	const usageSummary = player.usage?.summary || {};
 	const usageRecords = player.usage?.records || [];
-	const currentBinding = player.binding || { mode: "local", remoteProfileId: "" };
+	const currentBinding = player.binding || { mode: "remote", remoteProfileId: "" };
 
 	const bindingMode = state.playerBindingDirty
 		? document.getElementById("player-binding-mode")?.value || currentBinding.mode
@@ -403,13 +402,12 @@ function renderPlayerDetail() {
 				${buildInfoBlock("输入 Token", formatCount(usageSummary.inputTokens))}
 				${buildInfoBlock("输出 Token", formatCount(usageSummary.outputTokens))}
 			</div>
-			<div class="card__subtle">为这个 AI 玩家单独选择本地 AI、默认远端，或某个已保存档案。</div>
+			<div class="card__subtle">为这个 AI 玩家选择默认远端，或某个已保存档案。</div>
 			<div class="player-form-grid">
 				<div class="field-row">
 					<label for="player-binding-mode">模式</label>
 					<select id="player-binding-mode">
-						<option value="local"${bindingMode === "local" ? " selected" : ""}>本地</option>
-						<option value="remote"${bindingMode === "remote" ? " selected" : ""}>远程</option>
+						<option value="remote" selected>远程</option>
 					</select>
 				</div>
 				<div class="field-row">
@@ -461,7 +459,7 @@ function renderPlayerDetail() {
 		const payload = {
 			userId: player.userId,
 			binding: {
-				mode: bindingModeEl?.value || "local",
+				mode: "remote",
 				remoteProfileId: bindingProfileEl?.value || undefined,
 			},
 		};

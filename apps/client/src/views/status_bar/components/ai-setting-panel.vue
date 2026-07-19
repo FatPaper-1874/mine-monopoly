@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { useRoute } from "vue-router";
-import type { AIDecisionConfig, AIDecisionProviderMode, AIRemoteLLMProviderKind } from "@mine-monopoly/types";
+import type { AIDecisionConfig, AIRemoteLLMProviderKind } from "@mine-monopoly/types";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import FpMessage from "@mine-monopoly/ui/fp-message";
 import FpDialog from "@src/components/utils/fp-dialog/fp-dialog.vue";
@@ -48,7 +48,6 @@ const clampContextMemoryLimit = (value: number | string | undefined) => {
 	return Math.min(20, Math.max(0, Math.floor(normalized)));
 };
 
-const tempAIMode = ref<AIDecisionProviderMode>("local");
 const tempAIProvider = ref<AIRemoteLLMProviderKind>("openai-compatible");
 const tempAIBaseUrl = ref("");
 const tempAIApiKey = ref("");
@@ -59,7 +58,6 @@ const getCurrentProvider = (config: AIDecisionConfig) => config.remote.provider 
 const getCurrentContextMemoryLimit = (config: AIDecisionConfig) => clampContextMemoryLimit(config.contextMemoryLimit ?? 6);
 
 const resetTempState = (config: AIDecisionConfig) => {
-	tempAIMode.value = config.mode;
 	tempAIProvider.value = getCurrentProvider(config);
 	tempAIBaseUrl.value = config.remote.baseUrl;
 	tempAIApiKey.value = config.remote.apiKey;
@@ -80,7 +78,6 @@ watch(visible, (isOpen) => {
 
 const hasChanges = computed(() => {
 	return (
-		tempAIMode.value !== settingStore.aiDecisionConfig.mode ||
 		tempAIProvider.value !== getCurrentProvider(settingStore.aiDecisionConfig) ||
 		tempAIBaseUrl.value !== settingStore.aiDecisionConfig.remote.baseUrl ||
 		tempAIApiKey.value !== settingStore.aiDecisionConfig.remote.apiKey ||
@@ -140,10 +137,7 @@ const handleClearRemoteUsageStats = () => {
 
 const applySettings = () => {
 	const contextMemoryLimit = clampContextMemoryLimit(tempAIContextMemoryLimit.value);
-	if (
-		tempAIMode.value === "remote" &&
-		(!tempAIBaseUrl.value.trim() || !tempAIModel.value.trim() || !tempAIApiKey.value.trim())
-	) {
+	if (!tempAIBaseUrl.value.trim() || !tempAIModel.value.trim() || !tempAIApiKey.value.trim()) {
 		FpMessage({
 			type: "error",
 			message: "远程模式需要填写 Base URL、API Key 和模型名",
@@ -153,7 +147,7 @@ const applySettings = () => {
 
 	const nextConfig: AIDecisionConfig = {
 		...settingStore.aiDecisionConfig,
-		mode: tempAIMode.value,
+		mode: "remote",
 		contextMemoryLimit,
 		remote: {
 			...settingStore.aiDecisionConfig.remote,
@@ -196,24 +190,18 @@ const applySettings = () => {
 				<div class="status-card__header">
 					<div class="status-card__title">房间 AI 决策配置</div>
 					<div class="status-card__tags">
-						<span class="status-tag">{{ tempAIMode === "remote" ? remoteProviderLabel : "本地" }}</span>
+						<span class="status-tag">{{ remoteProviderLabel }}</span>
 						<span class="status-tag secondary">{{ syncScopeText }}</span>
 					</div>
 				</div>
-				<div class="status-card__desc">
-					{{
-						tempAIMode === "remote"
-							? remoteDescription
-							: "本地模式继续使用客户端内置 AI，不依赖外部模型接口。"
-					}}
-				</div>
+				<div class="status-card__desc">{{ remoteDescription }}</div>
 				<div class="status-card__meta">
 					上下文记忆:
 					{{ clampContextMemoryLimit(tempAIContextMemoryLimit) > 0 ? `最近 ${clampContextMemoryLimit(tempAIContextMemoryLimit)} 条决策摘要` : "已关闭" }}
 				</div>
 			</div>
 
-			<div v-if="tempAIMode === 'remote' || remoteUsageSummary.requestCount > 0" class="setting-card usage-card">
+			<div v-if="remoteUsageSummary.requestCount > 0" class="setting-card usage-card">
 				<div class="usage-card__header">
 					<div class="status-card__title">远程 Token 统计</div>
 					<button
@@ -278,35 +266,9 @@ const applySettings = () => {
 			<div class="setting-card">
 				<div class="setting-row">
 					<div class="setting-label">决策模式</div>
-					<div class="setting-content mode-switch">
-						<div>
-							<input
-								type="radio"
-								name="ai-decision-mode"
-								value="local"
-								id="ai-mode-local"
-								v-model="tempAIMode"
-								hidden
-							/>
-							<label for="ai-mode-local">
-								<FontAwesomeIcon icon="square-check" v-if="tempAIMode === 'local'" />
-								本地
-							</label>
-						</div>
-						<div>
-							<input
-								type="radio"
-								name="ai-decision-mode"
-								value="remote"
-								id="ai-mode-remote"
-								v-model="tempAIMode"
-								hidden
-							/>
-							<label for="ai-mode-remote">
-								<FontAwesomeIcon icon="square-check" v-if="tempAIMode === 'remote'" />
-								远程 LLM
-							</label>
-						</div>
+					<div class="setting-content setting-content--stack">
+						<div>远程 LLM</div>
+						<span class="setting-note">当前开发阶段仅保留远程模型决策，不再维护本地 AI 分支。</span>
 					</div>
 				</div>
 				<label class="setting-row setting-row--top">
@@ -325,7 +287,7 @@ const applySettings = () => {
 				</label>
 			</div>
 
-			<div v-if="tempAIMode === 'remote'" class="setting-card remote-fields">
+			<div class="setting-card remote-fields">
 				<div class="setting-row">
 					<div class="setting-label">接口类型</div>
 					<div class="setting-content mode-switch provider-switch">
@@ -366,7 +328,7 @@ const applySettings = () => {
 			</div>
 
 			<div class="hint-card">
-				支持 OpenAI 兼容和 Anthropic。上下文记忆会同时作用于本地和远程 AI。仅房主在房间或游戏中修改时，会把当前客户端配置同步到房间里的 AI；其他情况下只会保存在本机设置中。
+				支持 OpenAI 兼容和 Anthropic。上下文记忆会作用于远程 AI。仅房主在房间或游戏中修改时，会把当前客户端配置同步到房间里的 AI；其他情况下只会保存在本机设置中。
 			</div>
 		</div>
 	</FpDialog>

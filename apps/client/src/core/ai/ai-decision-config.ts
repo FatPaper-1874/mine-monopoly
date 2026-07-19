@@ -1,6 +1,5 @@
 import type {
 	AIDecisionConfig,
-	AIDecisionProviderMode,
 	AIRemoteLLMConfig,
 	AIRemoteLLMProfile,
 	AIRemoteLLMProviderKind,
@@ -47,8 +46,8 @@ export function normalizeRemoteLLMProfile(profile: Partial<AIRemoteLLMProfile> |
 	};
 }
 
-export function normalizeAIDecisionMode(mode: unknown): AIDecisionProviderMode {
-	return mode === "remote" ? "remote" : "local";
+export function normalizeAIDecisionMode(_mode?: unknown): "remote" {
+	return "remote";
 }
 
 export function normalizeAIDecisionConfig(config: Partial<AIDecisionConfig> | undefined): AIDecisionConfig {

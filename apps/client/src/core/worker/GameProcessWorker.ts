@@ -58,7 +58,6 @@ import {
 	AIDecisionPrompt,
 	AIDecisionRequest,
 	AIDecisionSelection,
-	AIDecisionSemanticHint,
 	AIDecisionProvider,
 } from "@mine-monopoly/types";
 import { allRuntimeEnums } from "./runtime-enums";
@@ -73,7 +72,7 @@ import { GameRuntimeStack } from "@src/core/worker/class/GameRuntimeStack";
 import GameProcessTypes from "./editor-lib.d.ts?raw";
 import { generatePropertySchema } from "@src/utils/html";
 import mitt from "mitt";
-import { aiManager, HeuristicDecisionProvider } from "./ai";
+import { aiManager } from "./ai";
 import type { Emitter } from "mitt";
 import { SaveSnapshot, PlayerSnapshot, PropertySnapshot } from "@src/core/save/types";
 import { applyWorkerSandbox } from "./security";
@@ -105,8 +104,6 @@ type AIPreRollOperationTask = {
 };
 
 class HostBridgeDecisionProvider implements AIDecisionProvider {
-	private readonly fallback = new HeuristicDecisionProvider();
-
 	constructor(private readonly config: AIDecisionConfig) {}
 
 	async decide(request: AIDecisionRequest): Promise<AIDecisionSelection> {
@@ -129,19 +126,15 @@ class HostBridgeDecisionProvider implements AIDecisionProvider {
 				});
 			});
 		} catch (error) {
-			console.warn("[AI Remote] bridge failed, fallback to heuristic provider", error);
-			return this.fallback.decide(request);
+			console.warn("[AI Remote] bridge request failed", error);
+			return {};
 		}
 	}
 }
 
 function applyAIDecisionConfig(config: AIDecisionConfig): void {
 	aiManager.setContextMemoryLimit(config.contextMemoryLimit ?? 6);
-	if (config.mode === "remote") {
-		aiManager.setProvider(new HostBridgeDecisionProvider(config));
-		return;
-	}
-	aiManager.setProvider(new HeuristicDecisionProvider());
+	aiManager.setProvider(new HostBridgeDecisionProvider(config));
 }
 
 function resolveAIDecisionResponse(data: {
@@ -716,7 +709,6 @@ export class GameProcess implements IGameProcess {
 		playerId: string,
 		text: string,
 		callback: () => Promise<void> | void,
-		ai?: AIDecisionSemanticHint,
 	): ButtonController {
 		// 验证玩家ID
 		if (!this.players.has(playerId)) {
@@ -741,7 +733,6 @@ export class GameProcess implements IGameProcess {
 			text: buttonText,
 			enabled: true,
 			visible: true,
-			ai,
 			callback,
 		};
 
@@ -1058,7 +1049,6 @@ export class GameProcess implements IGameProcess {
 					id: option.id,
 					label: option.label,
 					actionType: option.actionType,
-					intent: option.semantics?.intent,
 				})),
 			});
 			const selection = await aiManager.decide(request);
@@ -1074,7 +1064,7 @@ export class GameProcess implements IGameProcess {
 				return;
 			}
 
-			this.markAITurnDynamicButtonAttempt(playerId, buttonId, selectedOption.label, selectedOption.semantics);
+			this.markAITurnDynamicButtonAttempt(playerId, buttonId, selectedOption.label);
 			aiManager.feedback({
 				playerId,
 				request,
@@ -1223,7 +1213,6 @@ export class GameProcess implements IGameProcess {
 					label: option.label,
 					actionType: option.actionType,
 					actionKind: option.payload?.actionKind,
-					intent: option.semantics?.intent,
 				})),
 			});
 			const selection = await aiManager.decide(request);
@@ -1288,7 +1277,7 @@ export class GameProcess implements IGameProcess {
 					return;
 				}
 
-				this.markAITurnDynamicButtonAttempt(playerId, buttonId, selectedOption.label, selectedOption.semantics);
+				this.markAITurnDynamicButtonAttempt(playerId, buttonId, selectedOption.label);
 				aiManager.feedback({
 					playerId,
 					request,
@@ -1790,7 +1779,6 @@ export class GameProcess implements IGameProcess {
 								content: generatePropertySchema(property.getPropertyInfo()),
 								cancelText: `不要`,
 								confirmText: `升！`,
-								ai: this.buildPropertyDecisionAIHint(property, "upgrade_property"),
 							});
 							if (playerRes.confirm) {
 								await this.handlePlayerBuildUp(arrivedPlayer, property);
@@ -1843,7 +1831,6 @@ export class GameProcess implements IGameProcess {
 						content: generatePropertySchema(property.getPropertyInfo()),
 						cancelText: `不要`,
 						confirmText: `买！`,
-						ai: this.buildPropertyDecisionAIHint(property, "buy_property"),
 					});
 					if (playerRes.confirm) {
 						await this.handlePlayerBuyProperty(arrivedPlayer, property);
@@ -2384,7 +2371,6 @@ export class GameProcess implements IGameProcess {
 				id: option.id,
 				label: option.label,
 				actionType: option.actionType,
-				intent: option.semantics?.intent,
 			})),
 		});
 		const selection = await aiManager.decide(request);
@@ -2424,11 +2410,7 @@ export class GameProcess implements IGameProcess {
 							id: "__roll__",
 							label: "掷骰子",
 							actionType: "roll",
-							semantics: {
-								category: "movement",
-								intent: "roll_dice",
-								summary: "继续当前回合",
-							},
+							description: "继续当前回合，开始掷骰并移动。",
 						},
 					],
 				} as AIDecisionRequest<T>;
@@ -2510,6 +2492,18 @@ export class GameProcess implements IGameProcess {
 		};
 	}
 
+	private buildDialogDecisionSummary(title?: string, content?: unknown): string | undefined {
+		const contentText =
+			typeof content === "string"
+				? this.normalizeDecisionText(content)
+				: this.extractDisplayText(content);
+		const titleText = this.normalizeDecisionText(title);
+		if (contentText && titleText && contentText !== titleText) {
+			return `${titleText}：${contentText}`;
+		}
+		return contentText || titleText;
+	}
+
 	private buildConfirmDecisionRequest(
 		player: Player,
 		context: AIDecisionContextSnapshot,
@@ -2522,25 +2516,20 @@ export class GameProcess implements IGameProcess {
 			scene: "confirm-dialog",
 			playerId: player.id,
 			title: option?.title || "确认操作",
-			summary: option?.ai?.summary,
-			semantics: option?.ai,
+			summary: this.buildDialogDecisionSummary(option?.title, option?.content),
 			context,
 			options: [
 				{
 					id: confirmId,
 					label: option?.confirmText || "确认",
 					actionType: "confirm",
-					semantics: option?.ai || this.inferSemanticsFromTitle(option?.title),
+					description: this.buildDialogDecisionSummary(option?.title, option?.content),
 				},
 				{
 					id: cancelId,
 					label: option?.cancelText || "取消",
 					actionType: "cancel",
-					semantics: {
-						category: option?.ai?.category || "control",
-						intent: "cancel_action",
-						risk: 0,
-					},
+					description: "放弃这一步，保持当前状态不变。",
 				},
 			],
 		};
@@ -2557,8 +2546,7 @@ export class GameProcess implements IGameProcess {
 			scene: "target-select",
 			playerId: player.id,
 			title: option?.title || "选择目标",
-			summary: option?.ai?.summary,
-			semantics: option?.ai,
+			summary: this.buildDialogDecisionSummary(option?.title, option?.content),
 			context,
 			options,
 			metadata: {
@@ -2575,8 +2563,8 @@ export class GameProcess implements IGameProcess {
 						id: player.id,
 						label: player.name,
 						actionType: "target",
+						description: `自己，现金 ${player.money}，地产 ${player.properties.length} 处。`,
 						payload: { id: player.id, type: "player" },
-						semantics: { intent: "target_self", category: "control" },
 					},
 				];
 			case TargetSelectType.ToOtherPlayer:
@@ -2589,15 +2577,12 @@ export class GameProcess implements IGameProcess {
 							id: candidate.id,
 							label: candidate.name,
 							actionType: "target",
+							description: `现金 ${info.money}，地产 ${info.properties.length} 处${info.isBankrupted ? "，已破产" : ""}。`,
 							payload: {
 								id: candidate.id,
 								type: "player",
 								money: info.money,
 								propertyCount: info.properties.length,
-							},
-							semantics: {
-								category: "control",
-								intent: candidate.id === player.id ? "target_self" : "target_player",
 							},
 						};
 					});
@@ -2608,17 +2593,13 @@ export class GameProcess implements IGameProcess {
 						id: property.id,
 						label: property.name,
 						actionType: "target",
+						description: `售价 ${info.sellCost}，当前等级 ${info.level}/${info.maxLevel}，最高租金 ${Math.max(...info.costList, 0)}。`,
 						payload: {
 							id: property.id,
 							type: "property",
 							sellCost: info.sellCost,
 							rentPeak: Math.max(...info.costList, 0),
 							ownerId: info.owner?.userId,
-						},
-						semantics: {
-							category: "economy",
-							intent: "target_property",
-							reward: Math.max(...info.costList, 0),
 						},
 					};
 				});
@@ -2627,15 +2608,16 @@ export class GameProcess implements IGameProcess {
 					id: item.id,
 					label: item.property?.name || item.type.name || item.id,
 					actionType: "target",
+					description: item.property
+						? `关联地皮 ${item.property.name}${item.mapEventId ? `，事件 ${item.mapEventId}` : ""}。`
+						: item.mapEventId
+							? `地图事件 ${item.mapEventId}。`
+							: `地图格 ${item.type.name}。`,
 					payload: {
 						id: item.id,
 						type: "map-item",
 						mapEventId: item.mapEventId,
 						hasProperty: !!item.property,
-					},
-					semantics: {
-						category: "movement",
-						intent: "target_map_item",
 					},
 				}));
 			default:
@@ -2663,7 +2645,6 @@ export class GameProcess implements IGameProcess {
 				label,
 				description,
 				actionType: "select",
-				semantics: item?.ai,
 				payload: {
 					id: item?.id ?? index,
 					type: "item",
@@ -2676,10 +2657,7 @@ export class GameProcess implements IGameProcess {
 				id: "__cancel__",
 				label: option.cancelText,
 				actionType: "cancel",
-				semantics: {
-					category: option.ai?.category || "control",
-					intent: "cancel_action",
-				},
+				description: "不选择任何物品，直接返回。",
 			});
 		}
 
@@ -2688,8 +2666,7 @@ export class GameProcess implements IGameProcess {
 			scene: "item-select",
 			playerId: player.id,
 			title: option?.title || "选择物品",
-			summary: option?.ai?.summary,
-			semantics: option?.ai,
+			summary: this.buildDialogDecisionSummary(option?.title, option?.content),
 			context,
 			options,
 			metadata: {
@@ -2710,7 +2687,6 @@ export class GameProcess implements IGameProcess {
 			min: field.min,
 			max: field.max,
 			valueType: typeof field.defaultValue === "number" ? "number" : "string",
-			semantics: field.ai || this.inferSemanticsFromTitle(field.label),
 		}));
 		const defaultFieldValues = Object.fromEntries(
 			(option?.fields || []).map((field) => [field.key, field.defaultValue]),
@@ -2721,24 +2697,20 @@ export class GameProcess implements IGameProcess {
 			scene: "form-dialog",
 			playerId: player.id,
 			title: option?.title || "填写表单",
-			summary: option?.ai?.summary,
-			semantics: option?.ai,
+			summary: this.buildDialogDecisionSummary(option?.title, option?.content),
 			context,
 			options: [
 				{
 					id: "__submit__",
 					label: option?.confirmText || "提交",
 					actionType: "submit",
-					semantics: option?.ai || this.inferSemanticsFromTitle(option?.title),
+					description: "按当前判断提交表单。",
 				},
 				{
 					id: "__cancel__",
 					label: option?.cancelText || "取消",
 					actionType: "cancel",
-					semantics: {
-						category: option?.ai?.category || "control",
-						intent: "cancel_action",
-					},
+					description: "放弃这次填写，不提交表单。",
 				},
 			],
 			metadata: {
@@ -2769,30 +2741,13 @@ export class GameProcess implements IGameProcess {
 				id: button.id,
 				label: button.text,
 				actionType: "dynamic-button",
-				semantics: button.ai || this.inferSemanticsFromTitle(button.text),
+				description: `执行按钮操作：${button.text}`,
 				payload: {
 					id: button.id,
 					type: "button",
 				},
 			})),
 		};
-	}
-
-	private inferSemanticsFromTitle(title?: string): AIDecisionSemanticHint | undefined {
-		const text = title || "";
-		if (!text) {
-			return undefined;
-		}
-		if (text.includes("购买")) {
-			return { category: "economy", intent: "buy_property", tags: ["property", "buy"] };
-		}
-		if (text.includes("升级")) {
-			return { category: "economy", intent: "upgrade_property", tags: ["property", "upgrade"] };
-		}
-		if (text.includes("选择目标")) {
-			return { category: "control", intent: "target_select" };
-		}
-		return undefined;
 	}
 
 	private createAITurnActionState(): AITurnActionState {
@@ -2805,17 +2760,9 @@ export class GameProcess implements IGameProcess {
 		return this.aiTurnActionState.get(playerId) ?? this.createAITurnActionState();
 	}
 
-	private buildAIDynamicButtonSignature(text: string, semantics?: AIDecisionSemanticHint): string {
+	private buildAIDynamicButtonSignature(text: string): string {
 		return JSON.stringify({
 			text: text.trim() || "按钮",
-			category: semantics?.category,
-			intent: semantics?.intent,
-			summary: semantics?.summary,
-			target: semantics?.target,
-			cost: semantics?.cost,
-			reward: semantics?.reward,
-			risk: semantics?.risk,
-			tags: [...(semantics?.tags || [])].sort(),
 		});
 	}
 
@@ -2825,8 +2772,7 @@ export class GameProcess implements IGameProcess {
 			return false;
 		}
 
-		const semantics = button.ai || this.inferSemanticsFromTitle(button.text);
-		const signature = this.buildAIDynamicButtonSignature(button.text, semantics);
+		const signature = this.buildAIDynamicButtonSignature(button.text);
 		return attemptedDynamicButtons[button.id] === signature;
 	}
 
@@ -2834,52 +2780,15 @@ export class GameProcess implements IGameProcess {
 		playerId: string,
 		buttonId: string,
 		text: string,
-		semantics?: AIDecisionSemanticHint,
 	): void {
 		const previous = this.getAITurnActionState(playerId);
 		this.aiTurnActionState.set(playerId, {
 			...previous,
 			attemptedDynamicButtons: {
 				...previous.attemptedDynamicButtons,
-				[buttonId]: this.buildAIDynamicButtonSignature(text, semantics),
+				[buttonId]: this.buildAIDynamicButtonSignature(text),
 			},
 		});
-	}
-
-	private buildPropertyDecisionAIHint(
-		property: Property,
-		intent: "buy_property" | "upgrade_property",
-	): AIDecisionSemanticHint {
-		const info = property.getPropertyInfo();
-		const peakRent = Math.max(...info.costList, 0);
-		const nextRent =
-			intent === "upgrade_property"
-				? info.costList[Math.min(info.level + 1, info.costList.length - 1)] ?? peakRent
-				: info.costList[0] ?? peakRent;
-		const baseCost = intent === "upgrade_property" ? info.buildCost || info.sellCost : info.sellCost;
-		const investmentRisk =
-			intent === "upgrade_property"
-				? Math.round(baseCost * 0.12)
-				: Math.round(baseCost * 0.15);
-
-		return {
-			category: "economy",
-			intent,
-			tags: ["property", intent],
-			summary:
-				intent === "upgrade_property"
-					? `将 ${info.name} 升到 ${Math.min(info.level + 1, info.maxLevel)} 级`
-					: `买下地皮 ${info.name}`,
-			cost: baseCost,
-			reward: nextRent,
-			risk: investmentRisk,
-			target: info.name,
-			metadata: {
-				propertyId: info.id,
-				level: info.level,
-				maxLevel: info.maxLevel,
-			},
-		};
 	}
 
 	private buildAIPreRollOperationRequest(
@@ -2898,12 +2807,11 @@ export class GameProcess implements IGameProcess {
 			if (!button.visible || !button.enabled || this.shouldSkipAITurnDynamicButton(player.id, button)) {
 				continue;
 			}
-			const semantics = button.ai || this.inferSemanticsFromTitle(button.text);
 			options.push({
 				id: `button:${button.id}`,
 				label: button.text,
 				actionType: "select",
-				semantics,
+				description: `执行按钮操作：${button.text}`,
 				payload: {
 					id: button.id,
 					type: "button",
@@ -2917,13 +2825,12 @@ export class GameProcess implements IGameProcess {
 				if (blockedChanceCardIds.has(card.getId())) {
 					continue;
 				}
-				const cardHint = this.inferChanceCardAIHint(card);
 				options.push({
 					id: `chance-card:${card.getId()}`,
 					label: card.getName(),
 					description: card.getDescribe(),
 					actionType: "use-card",
-					semantics: cardHint,
+					summary: this.buildChanceCardDecisionSummary(card),
 					payload: {
 						id: card.getId(),
 						type: "chance-card",
@@ -2938,16 +2845,12 @@ export class GameProcess implements IGameProcess {
 			return null;
 		}
 
-			if (optionsConfig.allowRollDice) {
+		if (optionsConfig.allowRollDice) {
 			options.push({
 				id: "__finish_pre_roll__",
 				label: "结束操作并掷骰",
 				actionType: "roll",
-				semantics: {
-					category: "movement",
-					intent: "finish_pre_roll",
-					summary: "结束本回合准备阶段，并立即进入掷骰移动",
-				},
+				description: "结束本回合准备阶段，并立即进入掷骰移动。",
 			});
 		}
 
@@ -2965,30 +2868,8 @@ export class GameProcess implements IGameProcess {
 		};
 	}
 
-	private inferChanceCardAIHint(chanceCard: IChanceCard): AIDecisionSemanticHint {
-		const text = `${chanceCard.getName()} ${chanceCard.getDescribe()}`;
-		const positiveMatches = ["获得", "增加", "奖励", "前进", "免费", "升级", "保护", "返还", "恢复"].filter((keyword) =>
-			text.includes(keyword),
-		).length;
-		const negativeMatches = ["失去", "扣除", "支付", "后退", "罚", "停", "破坏", "冻结", "损失"].filter((keyword) =>
-			text.includes(keyword),
-		).length;
-		const isSelfTarget = chanceCard.getType() === TargetSelectType.ToSelf;
-		const reward = positiveMatches * 400 + (isSelfTarget ? 250 : 0);
-		const risk = negativeMatches * 350;
-
-		return {
-			category: "chance-card",
-			intent: "use_card",
-			tags: [chanceCard.getType(), "chance-card"],
-			summary: chanceCard.getDescribe(),
-			reward,
-			risk,
-			target: chanceCard.getType(),
-			metadata: {
-				sourceId: chanceCard.getSourceId(),
-			},
-		};
+	private buildChanceCardDecisionSummary(chanceCard: IChanceCard): string {
+		return `${chanceCard.getName()}：${chanceCard.getDescribe()}（目标类型：${chanceCard.getType()}）`;
 	}
 
 	private async buildAIChanceCardTargetIds(player: Player, chanceCardId: string): Promise<string[]> {
@@ -3016,7 +2897,6 @@ export class GameProcess implements IGameProcess {
 			type: chanceCard.getType(),
 			confirmText: "使用",
 			cancelText: "取消",
-			ai: this.inferChanceCardAIHint(chanceCard),
 		});
 		this.ensureAIDecisionMetadata(request, player.id, `chance-card-target:${request.title}`);
 		const selection = await aiManager.decide(request);
@@ -3086,10 +2966,9 @@ export class GameProcess implements IGameProcess {
 			this.normalizeDecisionText(item?.name) ??
 			this.normalizeDecisionText(item?.title) ??
 			this.normalizeDecisionText(item?.label) ??
+			this.normalizeDecisionText(item?.summary) ??
 			this.normalizeDecisionText(item?.info?.name) ??
 			this.extractDisplayVariableText(item?.display, ["name", "title", "label"]) ??
-			this.extractSemanticMetadataText(item?.ai, ["name", "title", "label", "cardName"]) ??
-			this.extractSummaryHeadline(item?.ai?.summary) ??
 			this.normalizeDecisionText(item?.id);
 		return label || `选项${index + 1}`;
 	}
@@ -3097,11 +2976,10 @@ export class GameProcess implements IGameProcess {
 	private buildSelectorItemDescription(item: any, label: string): string | undefined {
 		const description =
 			this.normalizeDecisionText(item?.description) ??
+			this.normalizeDecisionText(item?.summary) ??
 			this.normalizeDecisionText(item?.info?.description) ??
 			this.extractDisplayVariableText(item?.display, ["description", "summary", "content", "text"]) ??
-			this.extractDisplayText(item?.display) ??
-			this.extractSemanticMetadataText(item?.ai, ["description", "summary", "detail"]) ??
-			this.normalizeDecisionText(item?.ai?.summary);
+			this.extractDisplayText(item?.display);
 		if (!description || description === label) {
 			return undefined;
 		}
@@ -3113,10 +2991,6 @@ export class GameProcess implements IGameProcess {
 			return undefined;
 		}
 		return this.extractObjectStringByKeys((display as { variable?: unknown }).variable, keys);
-	}
-
-	private extractSemanticMetadataText(semantics: AIDecisionSemanticHint | undefined, keys: string[]): string | undefined {
-		return this.extractObjectStringByKeys(semantics?.metadata, keys);
 	}
 
 	private extractObjectStringByKeys(source: unknown, keys: string[]): string | undefined {
@@ -3622,10 +3496,61 @@ export class GameProcess implements IGameProcess {
 			.trim();
 	}
 
+	private appendMessageCardTextFragment(fragments: string[], value: unknown): void {
+		const normalized =
+			typeof value === "string"
+				? this.stripMessageCardRichText(value)
+				: this.normalizeDecisionText(value);
+		if (!normalized || fragments.includes(normalized)) {
+			return;
+		}
+		fragments.push(normalized);
+	}
+
+	private collectMessageCardStructuredText(source: unknown, fragments: string[], visited: Set<object>): void {
+		if (!source || typeof source !== "object") {
+			return;
+		}
+		if (visited.has(source as object)) {
+			return;
+		}
+		visited.add(source as object);
+
+		if (Array.isArray(source)) {
+			for (const item of source) {
+				this.collectMessageCardStructuredText(item, fragments, visited);
+			}
+			return;
+		}
+
+		const record = source as Record<string, unknown>;
+		for (const key of ["title", "name", "label", "summary", "description", "content", "text"]) {
+			this.appendMessageCardTextFragment(fragments, record[key]);
+		}
+
+		if (record.variable && typeof record.variable === "object") {
+			this.collectMessageCardStructuredText(record.variable, fragments, visited);
+		}
+		if (Array.isArray(record.children)) {
+			for (const child of record.children) {
+				this.collectMessageCardStructuredText(child, fragments, visited);
+			}
+		}
+	}
+
+	private extractMessageCardContentText(content: MessageCardOption["content"]): string {
+		if (typeof content === "string") {
+			return this.stripMessageCardRichText(content);
+		}
+		const fragments: string[] = [];
+		this.collectMessageCardStructuredText(content, fragments, new Set<object>());
+		return fragments.join("，");
+	}
+
 	private extractAIMessageCardSummary(option: MessageCardOption, maxLength: number = 24): string | undefined {
 		const candidates = [
 			option.title,
-			typeof option.content === "string" ? this.stripMessageCardRichText(option.content) : undefined,
+			this.extractMessageCardContentText(option.content),
 		];
 		const genericTitles = new Set(["提示", "消息", "信息", "通知", "提醒"]);
 		for (const candidate of candidates) {
@@ -3639,7 +3564,7 @@ export class GameProcess implements IGameProcess {
 
 	private buildMessageCardAIReactionPrompt(option: MessageCardOption): AIDecisionPrompt<"scripted-action"> {
 		const title = this.abbreviateAIThought(option.title || "提示", 32) || "提示";
-		const rawContent = typeof option.content === "string" ? this.stripMessageCardRichText(option.content) : "";
+		const rawContent = this.extractMessageCardContentText(option.content);
 		const contentSummary = this.abbreviateAIThought(rawContent, 160);
 		const humanSummary = this.extractAIMessageCardSummary(option, 36) || title;
 		const summaryParts = [
@@ -3654,33 +3579,18 @@ export class GameProcess implements IGameProcess {
 			scene: "scripted-action",
 			title: `收到提示卡：${title}`,
 			summary: summaryParts.join(" "),
-			semantics: {
-				intent: "react_to_message_card",
-				category: "information",
-				tags: ["message-card", "chat-only", "reaction"],
-				summary: `收到提示卡后说一句自然反应：${humanSummary}`,
-				target: humanSummary,
-				sourceSystem: "message-card",
-				timing: "immediate",
-			},
 			options: [
 				{
 					id: "__acknowledge_message_card__",
 					label: "收到信息并说一句自然反应",
 					actionType: "acknowledge",
 					description: "理解提示卡内容，给出一句自然聊天发言，不执行额外游戏动作。",
-					semantics: {
-						intent: "acknowledge_message_card",
-						category: "information",
-						tags: ["message-card", "chat-only", "acknowledge"],
-						summary: `就“${humanSummary}”做出一句即时反应`,
-						target: humanSummary,
-						sourceSystem: "message-card",
-						timing: "immediate",
-					},
+					summary: `就“${humanSummary}”做出一句即时反应。`,
 					payload: {
 						title,
 						content: contentSummary,
+						type: "message-card",
+						actionKind: "message-card-reaction",
 					},
 				},
 			],
@@ -3746,7 +3656,6 @@ export class GameProcess implements IGameProcess {
 				id: option.id,
 				label: option.label,
 				actionType: option.actionType,
-				intent: option.semantics?.intent,
 			})),
 		});
 		const selection = await aiManager.decide(request);

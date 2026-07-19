@@ -20,57 +20,6 @@ export type AIDecisionScene =
 export type AIDecisionOperation = OperateType | "active-action" | "scripted-action";
 
 /**
- * AI 弱语义提示
- * 用于帮助本地 AI / 远程模型理解自定义地图动作，但不参与执行权限判定。
- */
-export interface AIDecisionSemanticHint {
-	/** 粗粒度类别，例如 economy / combat / movement / control */
-	category?: string;
-
-	/** 自由标签，用于补充含义 */
-	tags?: string[];
-
-	/** 可选意图字符串；未知值必须允许降级 */
-	intent?: string;
-
-	/** 简要摘要 */
-	summary?: string;
-
-	/** 目标摘要或目标类型 */
-	target?: string;
-
-	/** 来源系统，例如 property / stock / lottery / chance-card */
-	sourceSystem?: string;
-
-	/** 预估成本 */
-	cost?: number;
-
-	/** 预估收益 */
-	reward?: number;
-
-	/** 预估风险 */
-	risk?: number;
-
-	/** 预期效果描述 */
-	effects?: string[];
-
-	/** 生效时机 immediate / short-term / long-term */
-	timing?: string;
-
-	/** 是否需要前置准备 */
-	requiresSetup?: boolean;
-
-	/** 紧迫度，越高越应优先 */
-	urgency?: number;
-
-	/** 连招或组合键 */
-	comboKey?: string;
-
-	/** 自定义元数据 */
-	metadata?: Record<string, unknown>;
-}
-
-/**
  * AI 可选动作
  */
 export interface AIDecisionOption {
@@ -86,14 +35,14 @@ export interface AIDecisionOption {
 	/** 可选说明 */
 	description?: string;
 
+	/** 面向模型的简要摘要 */
+	summary?: string;
+
 	/** 是否禁用 */
 	disabled?: boolean;
 
 	/** 是否隐藏 */
 	hidden?: boolean;
-
-	/** 语义提示 */
-	semantics?: AIDecisionSemanticHint;
 
 	/** 附加负载 */
 	payload?: Record<string, unknown>;
@@ -422,9 +371,6 @@ export interface AIDecisionRequest<T extends string = AIDecisionOperation> {
 	/** 面向 AI 的额外摘要 */
 	summary?: string;
 
-	/** 语义提示 */
-	semantics?: AIDecisionSemanticHint;
-
 	/** 扩展元数据 */
 	metadata?: Record<string, unknown>;
 }
@@ -447,9 +393,6 @@ export interface AIDecisionPrompt<T extends string = AIDecisionOperation> {
 
 	/** 面向 AI 的额外摘要 */
 	summary?: string;
-
-	/** 语义提示 */
-	semantics?: AIDecisionSemanticHint;
 
 	/** 扩展元数据 */
 	metadata?: Record<string, unknown>;
@@ -481,7 +424,7 @@ export interface AIDecisionSelection {
 	chatMessages?: string[];
 }
 
-export type AIDecisionProviderMode = "local" | "remote";
+export type AIDecisionProviderMode = "remote";
 export type AIRemoteLLMProviderKind = "openai-compatible" | "anthropic";
 
 export interface AIRemoteLLMConfig {

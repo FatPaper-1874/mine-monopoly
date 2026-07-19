@@ -488,9 +488,8 @@ export class Room {
 
 		const candidates: Array<string | undefined> = [
 			this.extractReadableAIPayloadText(option.payload, maxLength),
-			typeof option.semantics?.target === "string" ? option.semantics.target : undefined,
 			this.isGenericAIChatText(option.label) ? undefined : option.label,
-			option.semantics?.summary,
+			option.summary,
 			option.description,
 		];
 
@@ -2489,14 +2488,10 @@ export class Room {
 
 		try {
 			const binding = this.getAIPlayerDecisionBinding(data.request.playerId);
-			const remoteConfig = binding.mode === "remote" ? this.getResolvedAIRemoteConfig(data.request.playerId) : undefined;
-			const provider =
-				binding.mode === "remote" && remoteConfig
-					? createRemoteAIDecisionProvider(remoteConfig)
-					: createAIDecisionProviderFromConfig({
-						...this.aiDecisionConfig,
-						mode: "local",
-					});
+			const remoteConfig = this.getResolvedAIRemoteConfig(data.request.playerId);
+			const provider = remoteConfig
+				? createRemoteAIDecisionProvider(remoteConfig)
+				: createAIDecisionProviderFromConfig(this.aiDecisionConfig);
 			const selection = await provider.decide(data.request);
 			this.broadcastAISelectionChat(data.request, selection);
 			this.gameProcessWorker.postMessage(<WorkerCommMsg>{

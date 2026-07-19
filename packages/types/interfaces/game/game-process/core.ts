@@ -6,7 +6,7 @@ import { IPlayer, IProperty, IChanceCard } from "./entities"; // 引用 entities
 import { ChanceCardInfo } from "./infos"; // 引用 infos
 import { IGameRuntimeStack, GameContext, GameEvent, GameRuntimeEvent, RuntimeMapEvent } from "./events"; // 引用 events
 import { ButtonController } from "../button"; // 引用 button
-import { AIDecisionPrompt, AIDecisionSelection, AIDecisionSemanticHint } from "../ai";
+import { AIDecisionPrompt, AIDecisionSelection } from "../ai";
 import { MapEvent } from "../item"; // 引用 item
 
 import {
@@ -375,14 +375,12 @@ export interface IGameProcess extends IGameProcessCustomFields {
 	 * @param playerId - 玩家 ID
 	 * @param text - 按钮文案
 	 * @param callback - 点击回调函数
-	 * @param ai - 提供给 AI 的语义提示
 	 * @returns ButtonController - 按钮控制实例
 	 */
 	registerPlayerButton(
 		playerId: string,
 		text: string,
-		callback: () => Promise<void> | void,
-		ai?: AIDecisionSemanticHint
+		callback: () => Promise<void> | void
 	): ButtonController;
 
 	/**

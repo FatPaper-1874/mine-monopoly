@@ -9,7 +9,6 @@ import type {
 	AIRemoteLLMProviderKind,
 	AIStrategyState,
 } from "@mine-monopoly/types";
-import { HeuristicDecisionProvider } from "../worker/ai/AIStrategy";
 import { recordAIRemoteUsage } from "./remote-usage-stats";
 
 type OpenAIChatCompletionResponse = {
@@ -82,13 +81,13 @@ function looksTechnicalOptionText(text: string | undefined): boolean {
 }
 
 function buildReadableDecisionLabel(option: AIDecisionOption): string | undefined {
-	const semanticSummary = clipText(option.semantics?.summary, 28);
+	const conciseSummary = clipText(option.summary, 28);
 	const description = clipText(option.description, 28);
 	const label = clipText(option.label, 28);
 	if (label && !looksTechnicalOptionText(label)) {
 		return label;
 	}
-	return semanticSummary || description || label;
+	return conciseSummary || description || label;
 }
 
 function buildReadableDecisionDescription(option: AIDecisionOption): string | undefined {
@@ -96,7 +95,7 @@ function buildReadableDecisionDescription(option: AIDecisionOption): string | un
 	if (description && !looksTechnicalOptionText(description)) {
 		return description;
 	}
-	return clipText(option.semantics?.summary, 40) || description;
+	return clipText(option.summary, 40) || description;
 }
 
 function normalizeProviderKind(provider?: AIRemoteLLMProviderKind): AIRemoteLLMProviderKind {
@@ -158,39 +157,6 @@ type ContextMapEvent = AIDecisionRequest["context"]["mapEvents"][number];
 type ContextPlayer = AIDecisionRequest["context"]["players"][number];
 
 const LIGHTWEIGHT_MAP_SCENES = new Set<AIDecisionRequest["scene"]>(["confirm-dialog", "form-dialog"]);
-
-function summarizeSemantics(semantics: AIDecisionRequest["semantics"]): Record<string, unknown> | undefined {
-	if (!semantics) return undefined;
-	const summary: Record<string, unknown> = {};
-	if (semantics.category) summary.category = semantics.category;
-	if (semantics.intent) summary.intent = semantics.intent;
-	if (semantics.summary) summary.summary = clipText(semantics.summary, 72);
-	if (semantics.target) summary.target = clipText(semantics.target, 24);
-	if (semantics.sourceSystem) summary.sourceSystem = semantics.sourceSystem;
-	if (typeof semantics.cost === "number") summary.cost = semantics.cost;
-	if (typeof semantics.reward === "number") summary.reward = semantics.reward;
-	if (typeof semantics.risk === "number") summary.risk = semantics.risk;
-	if (semantics.tags?.length) summary.tags = semantics.tags.slice(0, 4);
-	if (semantics.effects?.length) summary.effects = semantics.effects.map((item) => clipText(item, 24)).filter(Boolean).slice(0, 3);
-	if (semantics.timing) summary.timing = semantics.timing;
-	if (typeof semantics.requiresSetup === "boolean") summary.requiresSetup = semantics.requiresSetup;
-	if (typeof semantics.urgency === "number") summary.urgency = semantics.urgency;
-	if (semantics.comboKey) summary.comboKey = semantics.comboKey;
-	return Object.keys(summary).length > 0 ? summary : undefined;
-}
-
-function summarizeDecisionSemantics(semantics: AIDecisionRequest["semantics"]): Record<string, unknown> | undefined {
-	if (!semantics) return undefined;
-	const summary: Record<string, unknown> = {};
-	if (semantics.intent) summary.intent = semantics.intent;
-	if (semantics.sourceSystem) summary.sourceSystem = semantics.sourceSystem;
-	if (semantics.summary) summary.summary = clipText(semantics.summary, 48);
-	if (typeof semantics.cost === "number") summary.cost = semantics.cost;
-	if (typeof semantics.reward === "number") summary.reward = semantics.reward;
-	if (typeof semantics.risk === "number") summary.risk = semantics.risk;
-	if (semantics.target) summary.target = clipText(semantics.target, 18);
-	return Object.keys(summary).length > 0 ? summary : undefined;
-}
 
 function buildRoleByPlayerId(request: AIDecisionRequest) {
 	return new Map((request.context.playerRoles || []).map((item) => [item.playerId, item]));
@@ -848,7 +814,6 @@ function summarizeDecision(request: AIDecisionRequest): Record<string, unknown> 
 		scene: request.scene,
 		title: request.title,
 		summary: clipText(request.summary, 80),
-		semantics: summarizeDecisionSemantics(request.semantics),
 		options: pickAvailableOptions(request.options).map((option) => {
 			const label = buildReadableDecisionLabel(option) || clipText(option.label, 28);
 			const summary: Record<string, unknown> = {
@@ -860,9 +825,11 @@ function summarizeDecision(request: AIDecisionRequest): Record<string, unknown> 
 			if (description) {
 				summary.description = description;
 			}
-			const semantics = summarizeDecisionSemantics(option.semantics);
-			if (semantics) {
-				summary.semantics = semantics;
+			if (option.summary) {
+				summary.summary = clipText(option.summary, 40);
+			}
+			if (option.payload && Object.keys(option.payload).length > 0) {
+				summary.payload = option.payload;
 			}
 			return summary;
 		}),
@@ -1196,13 +1163,11 @@ function extractResponseContent(provider: AIRemoteLLMProviderKind, data: unknown
 }
 
 class RemoteAIDecisionProvider implements AIDecisionProvider {
-	private readonly fallback = new HeuristicDecisionProvider();
-
 	constructor(private readonly config: AIRemoteLLMConfig) {}
 
 	async decide(request: AIDecisionRequest): Promise<AIDecisionSelection> {
 		if (!hasRequiredConfig(this.config)) {
-			return this.fallback.decide(request);
+			return {};
 		}
 
 		const controller = new AbortController();
@@ -1251,8 +1216,8 @@ class RemoteAIDecisionProvider implements AIDecisionProvider {
 			return selection;
 		} catch (error) {
 			logRemoteFailure(request, remoteRequest, error);
-			console.warn(`[AI Remote:${remoteRequest.provider}] fallback to heuristic provider`, error);
-			return this.fallback.decide(request);
+			console.warn(`[AI Remote:${remoteRequest.provider}] request failed`, error);
+			return {};
 		} finally {
 			clearTimeout(timeoutId);
 		}
@@ -1260,10 +1225,7 @@ class RemoteAIDecisionProvider implements AIDecisionProvider {
 }
 
 export function createAIDecisionProviderFromConfig(config: AIDecisionConfig): AIDecisionProvider {
-	if (config.mode === "remote") {
-		return createRemoteAIDecisionProvider(config.remote);
-	}
-	return new HeuristicDecisionProvider();
+	return createRemoteAIDecisionProvider(config.remote);
 }
 
 export function createRemoteAIDecisionProvider(config: AIRemoteLLMConfig | AIRemoteLLMProfile): AIDecisionProvider {

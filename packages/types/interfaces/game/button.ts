@@ -1,5 +1,3 @@
-import { AIDecisionSemanticHint } from "./ai";
-
 /**
  * 按钮配置接口
  */
@@ -18,9 +16,6 @@ export interface ButtonConfig {
 
   /** 是否可见 */
   visible: boolean;
-
-  /** AI 辅助语义 */
-  ai?: AIDecisionSemanticHint;
 
   /** 点击回调 */
   callback: () => Promise<void> | void;
