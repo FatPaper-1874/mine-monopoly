@@ -20,6 +20,7 @@ export default defineConfig(({ command, mode }) => {
 	const isCheck = mode === "check";
 	const isCapacitor = mode === "capacitor";
 	const isWeb = mode === "web";
+	const buildTarget = isCapacitor ? "chrome64" : isWeb ? "safari13" : "es2022";
 	const webBasePathRaw = process.env.VITE_WEB_BASE_PATH?.trim() || "/monopoly/";
 	const webBasePath = webBasePathRaw.startsWith("/")
 		? (webBasePathRaw.endsWith("/") ? webBasePathRaw : `${webBasePathRaw}/`)
@@ -65,8 +66,8 @@ export default defineConfig(({ command, mode }) => {
 		].filter(Boolean),
 		build: {
 			outDir: isCheck ? "dist/check" : "dist/frontend",
-			// Electon 37 (Chrome 130+) 和 Capacitor Android WebView (Chrome 89+) 都支持 top-level await
-			target: "es2022",
+			// Web 产物单独兼容旧版 iOS Safari，Capacitor 继续照顾较老的 Android WebView，桌面端保持较高 target。
+			target: buildTarget,
 			minify: isCheck ? false : "terser",
 			sourcemap: isCheck ? "inline" : false,
 			rollupOptions: {

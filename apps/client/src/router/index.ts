@@ -2,31 +2,30 @@ import { createRouter, createWebHashHistory, createWebHistory } from "vue-router
 import { useLoading, useRoomInfo, useUserInfo } from "@src/store";
 import { destoryMonopolyClient } from "@src/core/monopoly-client/MonopolyClient";
 
-function componentLoadedInterceptor(promise: Promise<any>) {
-	return () => {
+function componentLoadedInterceptor(loader: () => Promise<any>) {
+	return async () => {
 		const loadingStore = useLoading();
 		loadingStore.text = "加载中";
 		loadingStore.loading = true;
-		return new Promise((resolve) => {
-			promise.then((e: any) => {
-				loadingStore.loading = false;
-				resolve(e);
-			});
-		});
+		try {
+			return await loader();
+		} finally {
+			loadingStore.loading = false;
+		}
 	};
 }
 
 import { getPlatformType } from "@src/utils/platform";
 
 const routes = [
-	{ path: "/", name: "login", component: componentLoadedInterceptor(import("@src/views/login/login.vue")) },
+	{ path: "/", name: "login", component: componentLoadedInterceptor(() => import("@src/views/login/login.vue")) },
 	{
 		path: "/room-router",
 		name: "room-router",
-		component: componentLoadedInterceptor(import("@src/views/room_router/room_router.vue")),
+		component: componentLoadedInterceptor(() => import("@src/views/room_router/room_router.vue")),
 	},
-	{ path: "/room", name: "room", component: componentLoadedInterceptor(import("@src/views/room/room.vue")) },
-	{ path: "/game", name: "game", component: componentLoadedInterceptor(import("@src/views/game/game.vue")) },
+	{ path: "/room", name: "room", component: componentLoadedInterceptor(() => import("@src/views/room/room.vue")) },
+	{ path: "/game", name: "game", component: componentLoadedInterceptor(() => import("@src/views/game/game.vue")) },
 ];
 
 const router = createRouter({
