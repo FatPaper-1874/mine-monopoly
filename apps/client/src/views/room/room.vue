@@ -707,14 +707,11 @@ import { vStagger } from "@src/directives";
 
 		.tips {
 			width: max-content;
-			margin-top: 4rem;
 			font-size: 0.8rem;
-			background-color: rgba(255, 255, 255, 0.7);
 			border-radius: 0.7rem;
-			padding: 0.6rem;
+			padding: 0.2rem;
 			color: var(--fp-color-primary);
 			text-shadow: var(--fp-text-shadow);
-			margin-bottom: 0.3rem;
 		}
 	}
 
