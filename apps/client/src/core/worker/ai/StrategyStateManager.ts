@@ -1,4 +1,9 @@
-import { AIDecisionRequest, AIStrategyState } from "@mine-monopoly/types";
+import {
+	AIDecisionMemoryPatch,
+	AIDecisionRequest,
+	AIStrategyMemoryEntry,
+	AIStrategyState,
+} from "@mine-monopoly/types";
 
 type AIDecisionFeedback = {
 	playerId: string;
@@ -7,6 +12,8 @@ type AIDecisionFeedback = {
 	selectedSourceSystem?: string;
 	selectedIntent?: string;
 	outcome?: string;
+	memoryPatches?: AIDecisionMemoryPatch[];
+	decisionId?: string;
 };
 
 type StructuredMemory = NonNullable<AIStrategyState["memory"]>;
@@ -19,7 +26,13 @@ type ContextMapEvent = AIDecisionRequest["context"]["mapEvents"][number];
 const MEMORY_VERSION = 3;
 const RECENT_EXPERIENCE_LIMIT = 4;
 const SHORT_TERM_HINT_LIMIT = 3;
+const SHORT_TERM_MEMORY_PATCH_LIMIT = 4;
 const MATCH_STAT_LIMIT = 6;
+const CANDIDATE_LONG_TERM_LIMIT = 8;
+const PROMOTED_LONG_TERM_LIMIT = 8;
+const TURN_MEMORY_TTL_LIMIT = 4;
+const LONG_TERM_PROMOTION_MIN_HITS = 2;
+const LONG_TERM_PROMOTION_CONFIDENCE = 0.65;
 
 function clamp(value: number, min: number, max: number): number {
 	return Math.min(max, Math.max(min, value));
@@ -45,6 +58,207 @@ function uniqueTail(values: Array<string | undefined>, limit: number): string[] 
 function appendTail(values: string[] | undefined, value: string | undefined, limit: number): string[] | undefined {
 	const next = uniqueTail([...(values || []), value], limit);
 	return next.length > 0 ? next : undefined;
+}
+
+function normalizeKeyLike(value: string): string {
+	return value
+		.toLowerCase()
+		.replace(/\s+/g, "_")
+		.replace(/[^\p{L}\p{N}_:-]/gu, "")
+		.slice(0, 80);
+}
+
+function clampOptionalConfidence(value: unknown): number | undefined {
+	return typeof value === "number" && Number.isFinite(value) ? clamp(value, 0, 1) : undefined;
+}
+
+function normalizeMemoryPatchScope(value: unknown): "turn" | "match" | "map" | undefined {
+	return value === "turn" || value === "match" || value === "map" ? value : undefined;
+}
+
+function normalizeMemoryPatchKind(value: unknown):
+	| "systemPreference"
+	| "riskRule"
+	| "timingHeuristic"
+	| "targetingBias"
+	| "plan"
+	| "experienceNote"
+	| undefined {
+	return value === "systemPreference" ||
+		value === "riskRule" ||
+		value === "timingHeuristic" ||
+		value === "targetingBias" ||
+		value === "plan" ||
+		value === "experienceNote"
+		? value
+		: undefined;
+}
+
+function normalizeMemoryPatch(patch: AIDecisionMemoryPatch | undefined): AIDecisionMemoryPatch | undefined {
+	if (!patch) return undefined;
+	const scope = normalizeMemoryPatchScope(patch.scope);
+	const kind = normalizeMemoryPatchKind(patch.kind);
+	const summary = normalizeText(patch.summary)?.slice(0, 120);
+	if (!scope || !kind || !summary) {
+		return undefined;
+	}
+	const key = normalizeText(patch.key);
+	const evidence = normalizeText(patch.evidence)?.slice(0, 120);
+	const tags = Array.isArray(patch.tags)
+		? Array.from(
+				new Set(
+					patch.tags
+						.map((item) => normalizeText(typeof item === "string" ? item : undefined))
+						.filter((item): item is string => Boolean(item)),
+				),
+			).slice(0, 4)
+		: undefined;
+	const ttlTurns =
+		scope === "turn"
+			? clamp(
+					typeof patch.ttlTurns === "number" && Number.isFinite(patch.ttlTurns) ? Math.round(patch.ttlTurns) : 1,
+					1,
+					TURN_MEMORY_TTL_LIMIT,
+				)
+			: undefined;
+	return {
+		scope,
+		kind,
+		key,
+		summary,
+		confidence: clampOptionalConfidence(patch.confidence),
+		evidence,
+		tags,
+		ttlTurns,
+		promoteCandidate: Boolean(patch.promoteCandidate),
+	};
+}
+
+function buildMemoryEntryKey(patch: AIDecisionMemoryPatch): string {
+	return normalizeKeyLike(patch.key || `${patch.scope}::${patch.kind}::${patch.summary}`);
+}
+
+function upsertMemoryEntry(
+	entries: AIStrategyMemoryEntry[] | undefined,
+	patch: AIDecisionMemoryPatch,
+	round: number,
+	decisionId: string | undefined,
+): AIStrategyMemoryEntry[] {
+	const next = [...(entries || [])];
+	const entryKey = buildMemoryEntryKey(patch);
+	const index = next.findIndex((item) => item.key === entryKey);
+	const current = index >= 0 ? next[index] : undefined;
+	const previousHits = current?.hitCount || 0;
+	const nextHits = previousHits + 1;
+	const confidence =
+		typeof patch.confidence === "number"
+			? current?.confidence === undefined
+				? patch.confidence
+				: clamp((current.confidence * previousHits + patch.confidence) / nextHits, 0, 1)
+			: current?.confidence;
+	const mergedTags = Array.from(
+		new Set([...(current?.tags || []), ...(patch.tags || [])].map((item) => normalizeText(item)).filter(Boolean)),
+	).slice(0, 4) as string[];
+	const nextEntry: AIStrategyMemoryEntry = {
+		id: current?.id || `${patch.scope}:${patch.kind}:${entryKey}`,
+		key: entryKey,
+		scope: patch.scope,
+		kind: patch.kind,
+		summary: patch.summary,
+		confidence,
+		evidence: patch.evidence || current?.evidence,
+		tags: mergedTags.length > 0 ? mergedTags : undefined,
+		createdAtRound: current?.createdAtRound || round,
+		lastUpdatedRound: round,
+		expiresAtRound: patch.scope === "turn" ? round + (patch.ttlTurns || 1) - 1 : current?.expiresAtRound,
+		sourceDecisionId: decisionId || current?.sourceDecisionId,
+		hitCount: nextHits,
+		promotedAtRound: current?.promotedAtRound,
+	};
+	if (index >= 0) {
+		next[index] = nextEntry;
+	} else {
+		next.push(nextEntry);
+	}
+	next.sort((left, right) => {
+		if ((right.lastUpdatedRound || 0) !== (left.lastUpdatedRound || 0)) {
+			return (right.lastUpdatedRound || 0) - (left.lastUpdatedRound || 0);
+		}
+		return (right.hitCount || 0) - (left.hitCount || 0);
+	});
+	return next;
+}
+
+function pruneExpiredEntries(entries: AIStrategyMemoryEntry[] | undefined, round: number): AIStrategyMemoryEntry[] | undefined {
+	const next = (entries || []).filter((entry) => entry.expiresAtRound === undefined || entry.expiresAtRound >= round);
+	return next.length > 0 ? next : undefined;
+}
+
+function shouldPromoteLongTermEntry(entry: AIStrategyMemoryEntry): boolean {
+	if (entry.scope === "turn" || entry.kind === "plan") {
+		return false;
+	}
+	return (entry.hitCount || 0) >= LONG_TERM_PROMOTION_MIN_HITS && (entry.confidence || 0) >= LONG_TERM_PROMOTION_CONFIDENCE;
+}
+
+function buildPromotedLongTermEntries(
+	candidateEntries: AIStrategyMemoryEntry[] | undefined,
+	currentPromotedEntries: AIStrategyMemoryEntry[] | undefined,
+	round: number,
+): AIStrategyMemoryEntry[] | undefined {
+	const promoted = [...(currentPromotedEntries || [])];
+	for (const candidate of candidateEntries || []) {
+		if (!shouldPromoteLongTermEntry(candidate)) {
+			continue;
+		}
+		const index = promoted.findIndex((item) => item.key === candidate.key);
+		const nextEntry: AIStrategyMemoryEntry = {
+			...candidate,
+			expiresAtRound: undefined,
+			promotedAtRound: candidate.promotedAtRound || round,
+		};
+		if (index >= 0) {
+			promoted[index] = {
+				...promoted[index],
+				...nextEntry,
+				createdAtRound: promoted[index].createdAtRound || nextEntry.createdAtRound,
+			};
+		} else {
+			promoted.push(nextEntry);
+		}
+	}
+	promoted.sort((left, right) => {
+		if ((right.promotedAtRound || 0) !== (left.promotedAtRound || 0)) {
+			return (right.promotedAtRound || 0) - (left.promotedAtRound || 0);
+		}
+		return (right.hitCount || 0) - (left.hitCount || 0);
+	});
+	return promoted.slice(0, PROMOTED_LONG_TERM_LIMIT);
+}
+
+function pruneStructuredMemory(memory: StructuredMemory | undefined, round: number): StructuredMemory | undefined {
+	if (!memory) return undefined;
+	return {
+		...memory,
+		shortTerm: memory.shortTerm
+			? {
+					...memory.shortTerm,
+					memoryPatches: pruneExpiredEntries(memory.shortTerm.memoryPatches, round),
+				}
+			: undefined,
+		candidateLongTerm: memory.candidateLongTerm
+			? {
+					...memory.candidateLongTerm,
+					entries: memory.candidateLongTerm.entries?.slice(0, CANDIDATE_LONG_TERM_LIMIT),
+				}
+			: undefined,
+		promotedLongTerm: memory.promotedLongTerm
+			? {
+					...memory.promotedLongTerm,
+					entries: memory.promotedLongTerm.entries?.slice(0, PROMOTED_LONG_TERM_LIMIT),
+				}
+			: undefined,
+	};
 }
 
 function buildFeedbackDecisionSummary(feedback: AIDecisionFeedback): string {
@@ -487,6 +701,7 @@ function buildCompressedLessons(
 				? "没有合适目标时不要强行动作"
 				: undefined,
 			memory?.systemPlan?.lastEffectiveSystem ? `近期更偏向 ${memory.systemPlan.lastEffectiveSystem} 系统` : undefined,
+			memory?.promotedLongTerm?.entries?.[0]?.summary,
 			posture === "expand" ? "资金充足时可主动争夺高价值地产" : undefined,
 			posture === "conservative" ? "保守阶段尽量减少连续高成本投入" : undefined,
 		],
@@ -577,6 +792,7 @@ export class StrategyStateManager {
 
 	derive(request: AIDecisionRequest): AIStrategyState {
 		const current = this.stateByPlayer.get(request.playerId) || {};
+		const currentMemory = pruneStructuredMemory(current.memory, request.context.currentRound);
 		const player = request.context.player;
 		const leadingOpponent = getLeadingOpponent(request);
 		const hasStockSystem = !!request.context.systems?.stockMarket;
@@ -604,12 +820,12 @@ export class StrategyStateManager {
 		const dangerousPropertyIds = sortPropertiesByDanger(leadingOpponent?.properties).map((property) => property.id);
 		const focusPropertyIds =
 			dangerousPropertyIds.length > 0 ? dangerousPropertyIds : current.focusPropertyIds;
-		const matchMemory = current.memory?.match
+		const matchMemory = currentMemory?.match
 			? {
-				...current.memory.match,
-				effectiveSystems: buildMatchSystemBiases(current.memory.match.systemStats, "effective"),
-				riskySystems: buildMatchSystemBiases(current.memory.match.systemStats, "risky"),
-				notableLessons: buildMatchLessons(current.memory.match, current.memory?.experience),
+				...currentMemory.match,
+				effectiveSystems: buildMatchSystemBiases(currentMemory.match.systemStats, "effective"),
+				riskySystems: buildMatchSystemBiases(currentMemory.match.systemStats, "risky"),
+				notableLessons: buildMatchLessons(currentMemory.match, currentMemory?.experience),
 			}
 			: undefined;
 		const nextMemory: StructuredMemory = {
@@ -648,15 +864,18 @@ export class StrategyStateManager {
 			shortTerm: this.recentDecisionLimit > 0
 				? {
 					recentDecisions: current.recentDecisionSummaries?.slice(-this.recentDecisionLimit),
-					recentFailures: current.memory?.shortTerm?.recentFailures?.slice(-Math.min(this.recentDecisionLimit, RECENT_EXPERIENCE_LIMIT)),
-					blockedActionHints: current.memory?.shortTerm?.blockedActionHints?.slice(-SHORT_TERM_HINT_LIMIT),
-					immediateFocus: current.memory?.shortTerm?.immediateFocus?.slice(-SHORT_TERM_HINT_LIMIT),
-					lastChosenSystem: current.memory?.shortTerm?.lastChosenSystem,
-					lastOutcome: current.memory?.shortTerm?.lastOutcome,
+					recentFailures: currentMemory?.shortTerm?.recentFailures?.slice(-Math.min(this.recentDecisionLimit, RECENT_EXPERIENCE_LIMIT)),
+					blockedActionHints: currentMemory?.shortTerm?.blockedActionHints?.slice(-SHORT_TERM_HINT_LIMIT),
+					immediateFocus: currentMemory?.shortTerm?.immediateFocus?.slice(-SHORT_TERM_HINT_LIMIT),
+					lastChosenSystem: currentMemory?.shortTerm?.lastChosenSystem,
+					lastOutcome: currentMemory?.shortTerm?.lastOutcome,
+					memoryPatches: currentMemory?.shortTerm?.memoryPatches?.slice(-SHORT_TERM_MEMORY_PATCH_LIMIT),
 				}
 				: undefined,
 			match: matchMemory,
-			experience: current.memory?.experience,
+			experience: currentMemory?.experience,
+			candidateLongTerm: currentMemory?.candidateLongTerm,
+			promotedLongTerm: currentMemory?.promotedLongTerm,
 		};
 		nextMemory.experience = nextMemory.experience
 			? {
@@ -697,7 +916,7 @@ export class StrategyStateManager {
 			]),
 		);
 
-		const currentMemory: StructuredMemory = current.memory || {
+		const currentMemory: StructuredMemory = pruneStructuredMemory(current.memory, feedback.request.context.currentRound) || {
 			version: MEMORY_VERSION,
 		};
 		const experienceNote = buildExperienceNote(feedback);
@@ -755,6 +974,7 @@ export class StrategyStateManager {
 					immediateFocus: buildImmediateFocus(currentMemory.shortTerm, feedback, outcomeKind),
 					lastChosenSystem: feedback.selectedSourceSystem || currentMemory.shortTerm?.lastChosenSystem,
 					lastOutcome: feedback.outcome || currentMemory.shortTerm?.lastOutcome,
+					memoryPatches: currentMemory.shortTerm?.memoryPatches,
 				}
 				: undefined,
 			match: nextMatch,
@@ -765,6 +985,37 @@ export class StrategyStateManager {
 					compressedLessons: currentMemory.experience?.compressedLessons,
 				}
 				: currentMemory.experience,
+			candidateLongTerm: currentMemory.candidateLongTerm,
+			promotedLongTerm: currentMemory.promotedLongTerm,
+		};
+		const normalizedMemoryPatches = (feedback.memoryPatches || [])
+			.map((patch) => normalizeMemoryPatch(patch))
+			.filter((patch): patch is AIDecisionMemoryPatch => Boolean(patch));
+		for (const patch of normalizedMemoryPatches) {
+			if (patch.scope === "turn") {
+				nextMemory.shortTerm = nextMemory.shortTerm || {};
+				nextMemory.shortTerm.memoryPatches = upsertMemoryEntry(
+					nextMemory.shortTerm.memoryPatches,
+					patch,
+					feedback.request.context.currentRound,
+					feedback.decisionId,
+				).slice(0, SHORT_TERM_MEMORY_PATCH_LIMIT);
+				continue;
+			}
+			nextMemory.candidateLongTerm = nextMemory.candidateLongTerm || {};
+			nextMemory.candidateLongTerm.entries = upsertMemoryEntry(
+				nextMemory.candidateLongTerm.entries,
+				patch,
+				feedback.request.context.currentRound,
+				feedback.decisionId,
+			).slice(0, CANDIDATE_LONG_TERM_LIMIT);
+		}
+		nextMemory.promotedLongTerm = {
+			entries: buildPromotedLongTermEntries(
+				nextMemory.candidateLongTerm?.entries,
+				nextMemory.promotedLongTerm?.entries,
+				feedback.request.context.currentRound,
+			),
 		};
 		if (nextMemory.experience) {
 			nextMemory.experience = {

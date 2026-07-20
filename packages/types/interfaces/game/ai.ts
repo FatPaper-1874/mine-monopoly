@@ -139,6 +139,9 @@ export interface AIStrategyShortTermMemory {
 
 	/** 最近一次结果 */
 	lastOutcome?: string;
+
+	/** 模型建议写入的短期记忆条目 */
+	memoryPatches?: AIStrategyMemoryEntry[];
 }
 
 export interface AIStrategyMemoryStat {
@@ -195,6 +198,97 @@ export interface AIStrategyExperienceMemory {
 	compressedLessons?: string[];
 }
 
+export type AIMemoryPatchScope = "turn" | "match" | "map";
+
+export type AIMemoryPatchKind =
+	| "systemPreference"
+	| "riskRule"
+	| "timingHeuristic"
+	| "targetingBias"
+	| "plan"
+	| "experienceNote";
+
+export interface AIDecisionMemoryPatch {
+	/** 记忆适用范围 */
+	scope: AIMemoryPatchScope;
+
+	/** 记忆类型 */
+	kind: AIMemoryPatchKind;
+
+	/** 机器可复用的稳定键 */
+	key?: string;
+
+	/** 给后续决策使用的一句话摘要 */
+	summary: string;
+
+	/** 置信度 */
+	confidence?: number;
+
+	/** 记忆依据 */
+	evidence?: string;
+
+	/** 标签 */
+	tags?: string[];
+
+	/** turn 级记忆还能保留几回合 */
+	ttlTurns?: number;
+
+	/** 是否建议进入长期候选层 */
+	promoteCandidate?: boolean;
+}
+
+export interface AIStrategyMemoryEntry {
+	/** 唯一 ID */
+	id: string;
+
+	/** 稳定键 */
+	key: string;
+
+	/** 记忆适用范围 */
+	scope: AIMemoryPatchScope;
+
+	/** 记忆类型 */
+	kind: AIMemoryPatchKind;
+
+	/** 记忆摘要 */
+	summary: string;
+
+	/** 置信度 */
+	confidence?: number;
+
+	/** 记忆依据 */
+	evidence?: string;
+
+	/** 标签 */
+	tags?: string[];
+
+	/** 创建回合 */
+	createdAtRound: number;
+
+	/** 最近更新时间 */
+	lastUpdatedRound: number;
+
+	/** 若为短期记忆，到期回合 */
+	expiresAtRound?: number;
+
+	/** 来源决策 ID */
+	sourceDecisionId?: string;
+
+	/** 累积命中次数 */
+	hitCount?: number;
+
+	/** 晋升回合 */
+	promotedAtRound?: number;
+}
+
+export interface AIStrategyCandidateLongTermMemory {
+	entries?: AIStrategyMemoryEntry[];
+}
+
+export interface AIStrategyPromotedLongTermMemory {
+	entries?: AIStrategyMemoryEntry[];
+}
+
 export interface AIStrategyStructuredMemory {
 	/** 结构版本 */
 	version: number;
@@ -225,6 +319,12 @@ export interface AIStrategyStructuredMemory {
 
 	/** 经验记忆 */
 	experience?: AIStrategyExperienceMemory;
+
+	/** 候选长期记忆 */
+	candidateLongTerm?: AIStrategyCandidateLongTermMemory;
+
+	/** 已晋升长期记忆 */
+	promotedLongTerm?: AIStrategyPromotedLongTermMemory;
 }
 
 export interface AIStrategyState {
@@ -422,6 +522,9 @@ export interface AIDecisionSelection {
 
 	/** 可选聊天发言，展示为房间聊天消息 */
 	chatMessages?: string[];
+
+	/** 模型建议写入的记忆补丁 */
+	memoryPatches?: AIDecisionMemoryPatch[];
 }
 
 export type AIDecisionProviderMode = "remote";

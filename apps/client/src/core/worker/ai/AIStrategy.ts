@@ -131,6 +131,8 @@ export class AIManager {
 			selectedSourceSystem: inferSourceSystem(args.request, args.selection),
 			selectedIntent: inferIntent(args.request, args.selection),
 			outcome: args.outcome,
+			memoryPatches: args.selection.memoryPatches,
+			decisionId: getDecisionId(args.request),
 		});
 	}
 }

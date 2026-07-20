@@ -103,6 +103,22 @@ type AIPreRollOperationTask = {
 	task: Promise<void>;
 };
 
+type AIChainedDecisionStep = {
+	title: string;
+	scene?: AIDecisionRequest["scene"];
+	chosen?: string;
+	summary?: string;
+};
+
+type AIChainedDecisionState = {
+	chainId: string;
+	eventName: string;
+	round: number;
+	currentRoundPlayerId?: string;
+	steps: AIChainedDecisionStep[];
+	lastUpdatedAt: number;
+};
+
 class HostBridgeDecisionProvider implements AIDecisionProvider {
 	constructor(private readonly config: AIDecisionConfig) {}
 
@@ -577,6 +593,8 @@ export class GameProcess implements IGameProcess {
 	private aiPreRollOperationTasks: Map<string, AIPreRollOperationTask> = new Map();
 	/** AI 当前是否处于预掷骰操作 broker 中 */
 	private aiPreRollOperationPlayers: Set<string> = new Set();
+	/** AI 连续弹窗决策链 */
+	private aiDecisionChains: Map<string, AIChainedDecisionState> = new Map();
 	/** 按钮ID计数器 */
 	private buttonIdCounter: number = 0;
 	/** 缓存的 UI 替换规则（用于运行时动态创建的 modifier） */
@@ -2359,6 +2377,7 @@ export class GameProcess implements IGameProcess {
 			return this.buildAIDefaultOperationResult(player, operationType, input?.option, input?.defaultValue);
 		}
 
+		this.attachAIDecisionChainContext(player, request);
 		this.ensureAIDecisionMetadata(request, player.id, `${String(operationType)}:${request.title}`);
 
 		console.log(`${AI_LOG_PREFIX} structured request`, {
@@ -2367,6 +2386,7 @@ export class GameProcess implements IGameProcess {
 			operationType,
 			title: request.title,
 			scene: request.scene,
+			chainContext: request.metadata?.chainContext,
 			options: request.options.map((option) => ({
 				id: option.id,
 				label: option.label,
@@ -2375,6 +2395,7 @@ export class GameProcess implements IGameProcess {
 		});
 		const selection = await aiManager.decide(request);
 		const result = this.mapAIDecisionSelectionToResult(player, request, selection, input?.option, input?.defaultValue);
+		this.rememberAIDecisionChain(player.id, request, selection);
 		aiManager.feedback({
 			playerId: player.id,
 			request,
@@ -2389,6 +2410,139 @@ export class GameProcess implements IGameProcess {
 			result,
 		});
 		return result;
+	}
+
+	private isChainableAIDecisionScene(scene: AIDecisionRequest["scene"] | undefined): boolean {
+		return scene === "confirm-dialog" || scene === "target-select" || scene === "item-select" || scene === "form-dialog";
+	}
+
+	private appendAIDecisionSummary(base: string | undefined, fragment: string | undefined): string | undefined {
+		const normalizedBase = typeof base === "string" ? base.trim() : "";
+		const normalizedFragment = typeof fragment === "string" ? fragment.trim() : "";
+		if (!normalizedFragment) {
+			return normalizedBase || undefined;
+		}
+		if (!normalizedBase) {
+			return normalizedFragment;
+		}
+		return normalizedBase.includes(normalizedFragment) ? normalizedBase : `${normalizedBase} ${normalizedFragment}`;
+	}
+
+	private buildAIDecisionChainContext(player: Player, request: AIDecisionRequest): Record<string, unknown> | undefined {
+		if (!this.isChainableAIDecisionScene(request.scene)) {
+			this.aiDecisionChains.delete(player.id);
+			return undefined;
+		}
+		const eventName = this.currentEventName?.trim();
+		if (!eventName) {
+			this.aiDecisionChains.delete(player.id);
+			return undefined;
+		}
+		const currentRoundPlayerId = this.currentRoundPlayer?.id;
+		const currentRound = request.context.currentRound;
+		const existing = this.aiDecisionChains.get(player.id);
+		const canContinue =
+			Boolean(existing) &&
+			existing!.eventName === eventName &&
+			existing!.round === currentRound &&
+			existing!.currentRoundPlayerId === currentRoundPlayerId;
+		const previousDecisions = canContinue
+			? existing!.steps.slice(-2).map((step) => ({
+					title: step.title,
+					chosen: step.chosen,
+					summary: step.summary,
+				}))
+			: [];
+		const guidance =
+			previousDecisions.length > 0
+				? "这是同一串连续弹窗。默认延续上一步已做出的决定；除非当前约束显示不可执行，否则不要推翻前一步。"
+				: undefined;
+		return {
+			chainId: canContinue ? existing!.chainId : `chain-${player.id.slice(0, 6)}-${currentRound}-${randomString(4)}`,
+			step: previousDecisions.length + 1,
+			eventName,
+			previousDecisions,
+			guidance,
+		};
+	}
+
+	private attachAIDecisionChainContext(player: Player, request: AIDecisionRequest): void {
+		const chainContext = this.buildAIDecisionChainContext(player, request);
+		if (!chainContext) {
+			return;
+		}
+		request.metadata = {
+			...(request.metadata || {}),
+			chainContext,
+		};
+		const previousDecisionText = Array.isArray(chainContext.previousDecisions)
+			? chainContext.previousDecisions
+					.map((step) => {
+						if (typeof step !== "object" || step === null) {
+							return undefined;
+						}
+						const item = step as Record<string, unknown>;
+						const title = typeof item.title === "string" ? item.title : "";
+						const chosen = typeof item.chosen === "string" ? item.chosen : "";
+						const summary = typeof item.summary === "string" ? item.summary : "";
+						return [title, chosen || summary].filter(Boolean).join(" -> ");
+					})
+					.filter((item): item is string => Boolean(item))
+			: [];
+		if (previousDecisionText.length > 0) {
+			request.summary = this.appendAIDecisionSummary(
+				request.summary,
+				`连续决策上下文：上一步已决定 ${previousDecisionText.join("；")}。当前只需完成这一串操作。`,
+			);
+		}
+	}
+
+	private rememberAIDecisionChain(playerId: string, request: AIDecisionRequest, selection: AIDecisionSelection): void {
+		if (!this.isChainableAIDecisionScene(request.scene)) {
+			this.aiDecisionChains.delete(playerId);
+			return;
+		}
+		const chainContext = request.metadata?.chainContext;
+		if (typeof chainContext !== "object" || chainContext === null) {
+			return;
+		}
+		const currentRoundPlayerId = this.currentRoundPlayer?.id;
+		const chosenIds = selection.optionIds || (selection.optionId ? [selection.optionId] : []);
+		const chosenLabel = request.options.find((option) => chosenIds.includes(option.id))?.label;
+		const fieldSummary =
+			selection.fieldValues && Object.keys(selection.fieldValues).length > 0
+				? Object.entries(selection.fieldValues)
+						.map(([key, value]) => `${key}=${String(value)}`)
+						.join(", ")
+				: undefined;
+		const stepSummary =
+			request.scene === "form-dialog"
+				? selection.submitted
+					? fieldSummary || "已提交表单"
+					: "放弃提交"
+				: chosenLabel || fieldSummary;
+		const state: AIChainedDecisionState = {
+			chainId: typeof (chainContext as Record<string, unknown>).chainId === "string"
+				? ((chainContext as Record<string, unknown>).chainId as string)
+				: `chain-${playerId.slice(0, 6)}-${request.context.currentRound}`,
+			eventName:
+				typeof (chainContext as Record<string, unknown>).eventName === "string"
+					? ((chainContext as Record<string, unknown>).eventName as string)
+					: this.currentEventName,
+			round: request.context.currentRound,
+			currentRoundPlayerId,
+			steps: [
+				...((this.aiDecisionChains.get(playerId)?.steps || []).slice(-2)),
+				{
+					title: request.title,
+					scene: request.scene,
+					chosen: chosenLabel,
+					summary: stepSummary,
+				},
+			].slice(-3),
+			lastUpdatedAt: Date.now(),
+		};
+		this.aiDecisionChains.set(playerId, state);
 	}
 
 	private buildAIDecisionRequest<T extends OperateType>(
@@ -3113,10 +3267,13 @@ export class GameProcess implements IGameProcess {
 				const defaultResult = this.buildDefaultFormResult(
 					(option as FormDialogOption<FormField<string, any>[]>)?.fields || [],
 				);
+				const submitted =
+					selection.submitted === true ||
+					(selection.submitted === undefined && selection.optionId === "__submit__");
 				return {
 					...defaultResult,
 					...(selection.fieldValues || {}),
-					submitted: selection.submitted === true,
+					submitted,
 				} as PlayerOperationResult[T];
 			}
 			case OperateType.DynamicButtonClick:

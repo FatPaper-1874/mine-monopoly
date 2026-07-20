@@ -1,5 +1,6 @@
 import type {
 	AIDecisionConfig,
+	AIDecisionMemoryPatch,
 	AIDecisionOption,
 	AIDecisionProvider,
 	AIDecisionRequest,
@@ -43,7 +44,7 @@ type RemoteUsage = {
 };
 
 const SYSTEM_PROMPT =
-	"你是大富翁游戏 AI 决策器。只能基于给定 options 做选择。返回 JSON 对象，不要输出额外文本。优先返回 optionId；多选时返回 optionIds；表单场景可返回 submitted 和 fieldValues。你可以选择不返回 chatMessages；只有当你确实有自然、像玩家会说的话时才返回。若返回 chatMessages，1 条即可，用第一人称、口语化，可以带一点情绪、判断或理由，但不要提模型、提示词、JSON 或接口，也不要直接输出“确认”“取消”“提交”这类按钮词，或任何 id / 技术标识符，优先说具体对象名称、意图和原因。chatMessages 必须是字符串数组，例如 {\"chatMessages\":[\"我先买这个，后手更灵活\"]}，不要返回纯字符串。";
+	"你是大富翁游戏 AI 决策器。只能基于给定 options 做选择。返回 JSON 对象，不要输出额外文本。优先返回 optionId；多选时返回 optionIds；表单场景如果决定提交，返回 optionId:\"__submit__\"、submitted:true，并尽量填写 fieldValues；如果放弃，返回 optionId:\"__cancel__\"、submitted:false。若请求里带有 decisionChain，说明这是一串连续弹窗；除非当前约束显示不可执行，否则后续步骤应延续前一步已做出的决定，不要自相矛盾。你还可以可选返回 memoryPatches 数组，每项只允许包含 scope(kind 取值限于 turn/match/map)、kind(systemPreference/riskRule/timingHeuristic/targetingBias/plan/experienceNote)、summary、confidence、evidence、key、tags、ttlTurns、promoteCandidate。你可以选择不返回 chatMessages；只有当你确实有自然、像玩家会说的话时才返回。若返回 chatMessages，1 条即可，用第一人称、口语化，可以带一点情绪、判断或理由，但不要提模型、提示词、JSON 或接口，也不要直接输出“确认”“取消”“提交”这类按钮词，或任何 id / 技术标识符，优先说具体对象名称、意图和原因。chatMessages 必须是字符串数组，例如 {\"chatMessages\":[\"我先买这个，后手更灵活\"]}，不要返回纯字符串。";
 
 const GENERIC_CHAT_MESSAGES = new Set(["确认", "取消", "提交", "使用", "继续", "选择", "选项", "目标"]);
 const TECHNICAL_CHAT_MESSAGE_PATTERNS = [
@@ -149,6 +150,70 @@ function summarizeRecentDecisionSummaries(summaries: string[] | undefined) {
 			};
 		})
 		.filter(Boolean);
+}
+
+function summarizeMemoryEntries(
+	entries:
+		| Array<{
+				scope?: string;
+				kind?: string;
+				summary?: string;
+				confidence?: number;
+				hitCount?: number;
+			}>
+		| undefined,
+	maxItems = 3,
+): Array<Record<string, unknown>> | undefined {
+	const next = (entries || [])
+		.map((entry) => {
+			const summary = clipText(entry.summary, 36);
+			if (!summary) return undefined;
+			return {
+				scope: entry.scope,
+				kind: entry.kind,
+				summary,
+				confidence: typeof entry.confidence === "number" ? Number(entry.confidence.toFixed(2)) : undefined,
+				hitCount: entry.hitCount,
+			};
+		})
+		.filter(Boolean)
+		.slice(0, maxItems) as Array<Record<string, unknown>>;
+	return next.length > 0 ? next : undefined;
+}
+
+function summarizeDecisionChain(request: AIDecisionRequest): Record<string, unknown> | undefined {
+	const chain = request.metadata?.chainContext;
+	if (typeof chain !== "object" || chain === null) {
+		return undefined;
+	}
+	const data = chain as Record<string, unknown>;
+	const previousDecisions = Array.isArray(data.previousDecisions)
+		? data.previousDecisions
+				.map((item) => {
+					if (typeof item !== "object" || item === null) {
+						return undefined;
+					}
+					const step = item as Record<string, unknown>;
+					const title = clipText(typeof step.title === "string" ? step.title : undefined, 20);
+					const chosen = clipText(typeof step.chosen === "string" ? step.chosen : undefined, 24);
+					const summary = clipText(typeof step.summary === "string" ? step.summary : undefined, 40);
+					if (!title && !chosen && !summary) {
+						return undefined;
+					}
+					return { title, chosen, summary };
+				})
+				.filter(Boolean)
+		: undefined;
+	const guidance = clipText(typeof data.guidance === "string" ? data.guidance : undefined, 72);
+	const eventName = clipText(typeof data.eventName === "string" ? data.eventName : undefined, 28);
+	if (!previousDecisions?.length && !guidance && !eventName) {
+		return undefined;
+	}
+	return {
+		eventName,
+		previousDecisions: previousDecisions?.slice(-2),
+		guidance,
+	};
 }
 
 type ContextMapItem = AIDecisionRequest["context"]["mapItems"][number];
@@ -654,6 +719,10 @@ function summarizeStructuredStrategyMemory(
 		if (memory.shortTerm.lastOutcome) {
 			shortTerm.lastOutcome = clipText(memory.shortTerm.lastOutcome, 20);
 		}
+		const shortTermMemoryPatches = summarizeMemoryEntries(memory.shortTerm.memoryPatches, 3);
+		if (shortTermMemoryPatches?.length) {
+			shortTerm.memoryPatches = shortTermMemoryPatches;
+		}
 		if (Object.keys(shortTerm).length > 0) {
 			summary.shortTerm = shortTerm;
 		}
@@ -723,6 +792,16 @@ function summarizeStructuredStrategyMemory(
 		if (Object.keys(experience).length > 0) {
 			summary.experience = experience;
 		}
+	}
+
+	const candidateLongTermEntries = summarizeMemoryEntries(memory.candidateLongTerm?.entries, 3);
+	if (candidateLongTermEntries?.length) {
+		summary.candidateLongTerm = candidateLongTermEntries;
+	}
+
+	const promotedLongTermEntries = summarizeMemoryEntries(memory.promotedLongTerm?.entries, 3);
+	if (promotedLongTermEntries?.length) {
+		summary.promotedLongTerm = promotedLongTermEntries;
 	}
 
 	return Object.keys(summary).length > 0 ? summary : undefined;
@@ -809,7 +888,7 @@ function summarizeTableState(request: AIDecisionRequest): Record<string, unknown
 }
 
 function summarizeDecision(request: AIDecisionRequest): Record<string, unknown> {
-	return {
+	const summary: Record<string, unknown> = {
 		operationType: request.operationType,
 		scene: request.scene,
 		title: request.title,
@@ -834,6 +913,44 @@ function summarizeDecision(request: AIDecisionRequest): Record<string, unknown> 
 			return summary;
 		}),
 	};
+
+	if (request.scene === "form-dialog") {
+		const formFields = Array.isArray(request.metadata?.formFields)
+			? request.metadata?.formFields
+					.map((field) => {
+						if (typeof field !== "object" || field === null) {
+							return undefined;
+						}
+						const item = field as Record<string, unknown>;
+						return {
+							key: item.key,
+							label: item.label,
+							valueType: item.valueType,
+							min: item.min,
+							max: item.max,
+							defaultValue: item.defaultValue,
+						};
+					})
+					.filter(Boolean)
+			: undefined;
+		const defaultFieldValues =
+			typeof request.metadata?.defaultFieldValues === "object" && request.metadata.defaultFieldValues !== null
+				? request.metadata.defaultFieldValues
+				: undefined;
+		if (formFields?.length) {
+			summary.formFields = formFields;
+		}
+		if (defaultFieldValues) {
+			summary.defaultFieldValues = defaultFieldValues;
+		}
+	}
+
+	const decisionChain = summarizeDecisionChain(request);
+	if (decisionChain) {
+		summary.decisionChain = decisionChain;
+	}
+
+	return summary;
 }
 
 function buildRemotePrompt(request: AIDecisionRequest): string {
@@ -844,6 +961,10 @@ function buildRemotePrompt(request: AIDecisionRequest): string {
 	}
 	sections.push(`[board_brief]\n${JSON.stringify(summarizeTableState(request))}`);
 	sections.push(`[decision]\n${JSON.stringify(summarizeDecision(request))}`);
+	const decisionChain = summarizeDecisionChain(request);
+	if (decisionChain) {
+		sections.push(`[decision_chain]\n${JSON.stringify(decisionChain)}`);
+	}
 	const strategyState = summarizeStrategyState(request);
 	if (strategyState) {
 		sections.push(`[strategy_memory]\n${JSON.stringify(strategyState)}`);
@@ -1036,6 +1157,59 @@ function sanitizeChatMessages(value: unknown): string[] | undefined {
 	return normalized.length > 0 ? normalized : undefined;
 }
 
+function sanitizeMemoryPatches(value: unknown): AIDecisionMemoryPatch[] | undefined {
+	if (!Array.isArray(value)) {
+		return undefined;
+	}
+	const normalized = value
+		.map((item) => {
+			if (typeof item !== "object" || item === null) {
+				return undefined;
+			}
+			const patch = item as Record<string, unknown>;
+			const scope = patch.scope === "turn" || patch.scope === "match" || patch.scope === "map" ? patch.scope : undefined;
+			const kind =
+				patch.kind === "systemPreference" ||
+				patch.kind === "riskRule" ||
+				patch.kind === "timingHeuristic" ||
+				patch.kind === "targetingBias" ||
+				patch.kind === "plan" ||
+				patch.kind === "experienceNote"
+					? patch.kind
+					: undefined;
+			const summary = clipText(typeof patch.summary === "string" ? patch.summary : undefined, 120);
+			if (!scope || !kind || !summary) {
+				return undefined;
+			}
+			const tags = Array.isArray(patch.tags)
+				? Array.from(
+						new Set(
+							patch.tags
+								.filter((tag): tag is string => typeof tag === "string")
+								.map((tag) => tag.replace(/\s+/g, " ").trim())
+								.filter(Boolean),
+						),
+					).slice(0, 4)
+				: undefined;
+			return {
+				scope,
+				kind,
+				summary,
+				key: clipText(typeof patch.key === "string" ? patch.key : undefined, 80),
+				confidence: typeof patch.confidence === "number" ? Math.max(0, Math.min(1, patch.confidence)) : undefined,
+				evidence: clipText(typeof patch.evidence === "string" ? patch.evidence : undefined, 120),
+				tags,
+				ttlTurns:
+					scope === "turn" && typeof patch.ttlTurns === "number" && Number.isFinite(patch.ttlTurns)
+						? Math.max(1, Math.min(4, Math.round(patch.ttlTurns)))
+						: undefined,
+				promoteCandidate: Boolean(patch.promoteCandidate),
+			} satisfies AIDecisionMemoryPatch;
+		})
+		.filter(Boolean) as AIDecisionMemoryPatch[];
+	return normalized.length > 0 ? normalized.slice(0, 4) : undefined;
+}
+
 function normalizeSelection(request: AIDecisionRequest, value: unknown): AIDecisionSelection {
 	const availableOptions = pickAvailableOptions(request.options);
 	const validIds = new Set(availableOptions.map((option) => option.id));
@@ -1046,8 +1220,18 @@ function normalizeSelection(request: AIDecisionRequest, value: unknown): AIDecis
 		: undefined;
 	const confidence = typeof payload.confidence === "number" ? payload.confidence : undefined;
 	const reason = typeof payload.reason === "string" ? payload.reason : undefined;
-	const submitted = typeof payload.submitted === "boolean" ? payload.submitted : undefined;
+	const submitted =
+		typeof payload.submitted === "boolean"
+			? payload.submitted
+			: request.scene === "form-dialog"
+				? optionId === "__submit__"
+					? true
+					: optionId === "__cancel__"
+						? false
+						: undefined
+				: undefined;
 	const chatMessages = sanitizeChatMessages(payload.chatMessages);
+	const memoryPatches = sanitizeMemoryPatches(payload.memoryPatches);
 	const fieldValues =
 		typeof payload.fieldValues === "object" && payload.fieldValues !== null
 			? (payload.fieldValues as Record<string, unknown>)
@@ -1062,6 +1246,7 @@ function normalizeSelection(request: AIDecisionRequest, value: unknown): AIDecis
 			submitted,
 			fieldValues,
 			chatMessages,
+			memoryPatches,
 		};
 	}
 
@@ -1070,6 +1255,7 @@ function normalizeSelection(request: AIDecisionRequest, value: unknown): AIDecis
 		confidence: 0.2,
 		reason: "fallback_first_option",
 		chatMessages,
+		memoryPatches,
 	};
 }
 
