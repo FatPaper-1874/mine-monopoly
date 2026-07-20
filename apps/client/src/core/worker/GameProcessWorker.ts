@@ -1069,7 +1069,7 @@ export class GameProcess implements IGameProcess {
 					actionType: option.actionType,
 				})),
 			});
-			const selection = await aiManager.decide(request);
+			const selection = await this.runAIDecision(player, request);
 			console.log(`${AI_LOG_PREFIX} dynamic-button selection`, {
 				decisionId: request.metadata?.decisionId,
 				playerId,
@@ -1233,7 +1233,7 @@ export class GameProcess implements IGameProcess {
 					actionKind: option.payload?.actionKind,
 				})),
 			});
-			const selection = await aiManager.decide(request);
+			const selection = await this.runAIDecision(player, request);
 			console.log(`${AI_LOG_PREFIX} pre-roll selection`, {
 				decisionId: request.metadata?.decisionId,
 				playerId,
@@ -2393,7 +2393,7 @@ export class GameProcess implements IGameProcess {
 				actionType: option.actionType,
 			})),
 		});
-		const selection = await aiManager.decide(request);
+		const selection = await this.runAIDecision(player, request);
 		const result = this.mapAIDecisionSelectionToResult(player, request, selection, input?.option, input?.defaultValue);
 		this.rememberAIDecisionChain(player.id, request, selection);
 		aiManager.feedback({
@@ -3053,7 +3053,7 @@ export class GameProcess implements IGameProcess {
 			cancelText: "取消",
 		});
 		this.ensureAIDecisionMetadata(request, player.id, `chance-card-target:${request.title}`);
-		const selection = await aiManager.decide(request);
+		const selection = await this.runAIDecision(player, request);
 		aiManager.feedback({
 			playerId: player.id,
 			request,
@@ -3803,32 +3803,49 @@ export class GameProcess implements IGameProcess {
 		};
 		this.ensureAIDecisionMetadata(request, playerId, `scripted:${request.title}`);
 
-		console.log(`${AI_LOG_PREFIX} scripted request`, {
-			decisionId: request.metadata?.decisionId,
-			playerId,
-			title: request.title,
-			operationType: request.operationType,
-			scene: request.scene,
-			options: request.options.map((option) => ({
-				id: option.id,
-				label: option.label,
-				actionType: option.actionType,
-			})),
-		});
-		const selection = await aiManager.decide(request);
-		aiManager.feedback({
-			playerId,
-			request,
-			selection,
-			outcome: "scripted",
-		});
-		console.log(`${AI_LOG_PREFIX} scripted selection`, {
-			decisionId: request.metadata?.decisionId,
-			playerId,
-			title: request.title,
-			selection,
-		});
-		return selection;
+		try {
+			console.log(`${AI_LOG_PREFIX} scripted request`, {
+				decisionId: request.metadata?.decisionId,
+				playerId,
+				title: request.title,
+				operationType: request.operationType,
+				scene: request.scene,
+				options: request.options.map((option) => ({
+					id: option.id,
+					label: option.label,
+					actionType: option.actionType,
+				})),
+			});
+			const selection = await this.runAIDecision(player, request);
+			aiManager.feedback({
+				playerId,
+				request,
+				selection,
+				outcome: "scripted",
+			});
+			console.log(`${AI_LOG_PREFIX} scripted selection`, {
+				decisionId: request.metadata?.decisionId,
+				playerId,
+				title: request.title,
+				selection,
+			});
+			return selection;
+		} finally {
+		}
+	}
+
+	private async runAIDecision(player: Player, request: AIDecisionRequest): Promise<AIDecisionSelection> {
+		if (player.beginAIThinking()) {
+			this.gameDataBroadcast();
+		}
+
+		try {
+			return await aiManager.decide(request);
+		} finally {
+			if (player.endAIThinking()) {
+				this.gameDataBroadcast();
+			}
+		}
 	}
 
 	private ensureAIDecisionMetadata(request: AIDecisionRequest, playerId: string, label: string): void {

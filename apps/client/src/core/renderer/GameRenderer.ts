@@ -64,6 +64,11 @@ type ActiveSpeechBubble = {
 	timeoutId: number;
 };
 
+type ActiveThinkingMarker = {
+	sprite: THREE.Sprite;
+	spinTween: gsap.core.Tween;
+};
+
 type SpeechBubblePlacement = {
 	playerId: string;
 	containerEl: HTMLDivElement;
@@ -134,6 +139,7 @@ export class GameRenderer {
 	private diceManager: DiceManager | null = null;
 	private activeMoneyParticles: Map<string, CSS2DObject[]> = new Map();
 	private activeSpeechBubbles: Map<string, ActiveSpeechBubble> = new Map();
+	private activeThinkingMarkers: Map<string, ActiveThinkingMarker> = new Map();
 	private isRenderDice = false;
 	private diceRollQueue: DiceResult[][] = []; // 骰子动画队列
 	private isProcessingDiceRoll: boolean = false; // 是否正在处理骰子动画
@@ -1179,6 +1185,10 @@ export class GameRenderer {
 			),
 		);
 
+		useEventBus().on("player-isThinking", (playerId: string, _oldValue: boolean, newValue: boolean) => {
+			this.syncPlayerThinkingMarker(playerId, Boolean(newValue));
+		});
+
 		useEventBus().on(
 			"player-walk",
 			async (walkPlayerId: string, step: number, walkId: string, totalSteps?: number, startStep?: number) => {
@@ -1420,6 +1430,7 @@ export class GameRenderer {
 		useEventBus().removeAll();
 		this.commonWatchers.forEach((f) => f());
 		this.clearAllSpeechBubbles();
+		this.clearAllThinkingMarkers();
 			this.diceManager && this.diceManager.dispose();
 			// 释放动画管理器
 			this.animationManager.dispose();
@@ -1498,6 +1509,7 @@ export class GameRenderer {
 				playerEntity.model.add(nameSprite);
 				playerEntity.model.scale.set(PLAY_MODEL_SIZE, PLAY_MODEL_SIZE, PLAY_MODEL_SIZE);
 				this.scene.add(playerEntity.model);
+				this.syncPlayerThinkingMarker(playerInfo.id, playerInfo.isThinking);
 			} catch (e) {
 				console.error("🚀 ~ GameRenderer ~ loadPlayersModules ~ e:", e);
 			}
@@ -1847,6 +1859,7 @@ export class GameRenderer {
 	public async reloadScene() {
 		// 1. 取消所有动画
 		this.playerPendingWalks.clear();
+		this.clearAllThinkingMarkers();
 
 		// 2. 清空场景动态对象
 		this.playerEntities.forEach((player) => this.scene.remove(player.model));
@@ -2248,6 +2261,62 @@ export class GameRenderer {
 
 	private clearAllSpeechBubbles() {
 		Array.from(this.activeSpeechBubbles.keys()).forEach((playerId) => this.clearSpeechBubble(playerId));
+	}
+
+	private syncPlayerThinkingMarker(playerId: string, isThinking: boolean) {
+		if (isThinking) {
+			this.showThinkingMarker(playerId);
+			return;
+		}
+		this.clearThinkingMarker(playerId);
+	}
+
+	private showThinkingMarker(playerId: string) {
+		if (this.activeThinkingMarkers.has(playerId)) return;
+		const playerEntity = this.playerEntities.get(playerId);
+		if (!playerEntity) return;
+		const sprite = createThinkingSpinnerSprite();
+		const parent = playerEntity.bodyMesh ?? playerEntity.model;
+		const baseScale = 0.42;
+
+		sprite.position.set(0.5, PLAY_MODEL_SIZE - 0.28, 0);
+		sprite.scale.set(baseScale, baseScale, baseScale);
+		sprite.renderOrder = 9999998;
+		parent.add(sprite);
+
+		const material = sprite.material as THREE.SpriteMaterial;
+		const spinTween = gsap.to(material, {
+			rotation: Math.PI * 2,
+			duration: 1.25,
+			ease: "none",
+			repeat: -1,
+		});
+
+		this.activeThinkingMarkers.set(playerId, { sprite, spinTween });
+	}
+
+	private clearThinkingMarker(playerId: string) {
+		const marker = this.activeThinkingMarkers.get(playerId);
+		if (!marker) return;
+
+		marker.spinTween.kill();
+		marker.sprite.parent?.remove(marker.sprite);
+		marker.sprite.geometry?.dispose();
+		const material = marker.sprite.material;
+		if (Array.isArray(material)) {
+			material.forEach((item) => {
+				item.map?.dispose();
+				item.dispose();
+			});
+		} else {
+			material.map?.dispose();
+			material.dispose();
+		}
+		this.activeThinkingMarkers.delete(playerId);
+	}
+
+	private clearAllThinkingMarkers() {
+		Array.from(this.activeThinkingMarkers.keys()).forEach((playerId) => this.clearThinkingMarker(playerId));
 	}
 
 	private updateActiveSpeechBubbleLayout() {
@@ -2654,6 +2723,55 @@ function createCSS2DObjectFromVue(rootComponent: Component, rootProps?: Record<s
 
 	// 返回CSS2DObject
 	return { css2DObject, appInstance, containerEl, unmount };
+}
+
+function createThinkingSpinnerSprite(): THREE.Sprite {
+	const canvas = document.createElement("canvas");
+	canvas.width = 192;
+	canvas.height = 192;
+	const context = canvas.getContext("2d");
+	if (!context) {
+		const fallback = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true }));
+		return fallback;
+	}
+
+	const center = canvas.width / 2;
+	const spokeCount = 9;
+	const orbitRadius = 40;
+	const spokeWidth = 14;
+	const spokeHeight = 30;
+	const rgb = { r: 150, g: 150, b: 150 };
+
+	context.clearRect(0, 0, canvas.width, canvas.height);
+	context.translate(center, center);
+
+	for (let i = 0; i < spokeCount; i++) {
+		const angle = (Math.PI * 2 * i) / spokeCount;
+		const alpha = 0.18 + (0.82 * (i + 1)) / spokeCount;
+
+		context.save();
+		context.rotate(angle);
+		context.beginPath();
+		context.roundRect(-spokeWidth / 2, -orbitRadius - spokeHeight / 2, spokeWidth, spokeHeight, spokeWidth / 2);
+		context.fillStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha.toFixed(3)})`;
+		context.fill();
+		context.lineWidth = 5;
+		context.strokeStyle = `rgba(255,255,255,${Math.min(0.98, alpha + 0.2).toFixed(3)})`;
+		context.stroke();
+		context.restore();
+	}
+
+	const texture = new THREE.CanvasTexture(canvas);
+	texture.colorSpace = THREE.SRGBColorSpace;
+	texture.needsUpdate = true;
+
+	const material = new THREE.SpriteMaterial({
+		map: texture,
+		depthWrite: false,
+		transparent: true,
+	});
+
+	return new THREE.Sprite(material);
 }
 
 function enableShadows(object: THREE.Object3D, enable: boolean) {

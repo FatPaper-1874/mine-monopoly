@@ -73,6 +73,8 @@ export interface PlayerInfo {
 	isOffline: boolean;
 	/** 是否为 AI 托管 */
 	isAI: boolean;
+	/** AI 是否正在思考（请求决策中） */
+	isThinking: boolean;
 
 	/** 玩家信息展示 UI Schema */
 	infoDisplay: UISchema;

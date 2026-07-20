@@ -44,6 +44,7 @@ export class Player implements IPlayer {
 	public isBankrupted: boolean = false; //是否破产
 	public isOffline: boolean; //是否断线
 	public isAI: boolean = false; //是否为AI托管
+	private aiThinkingRequestCount: number = 0;
 	public stop: number = 0;
 	public infoDisplay: UISchema;
 
@@ -259,6 +260,22 @@ export class Player implements IPlayer {
 		];
 	}
 
+	public isAIThinking(): boolean {
+		return this.aiThinkingRequestCount > 0;
+	}
+
+	public beginAIThinking(): boolean {
+		const wasThinking = this.isAIThinking();
+		this.aiThinkingRequestCount += 1;
+		return !wasThinking;
+	}
+
+	public endAIThinking(): boolean {
+		const wasThinking = this.isAIThinking();
+		this.aiThinkingRequestCount = Math.max(0, this.aiThinkingRequestCount - 1);
+		return wasThinking && !this.isAIThinking();
+	}
+
 	public getCardById(id: string) {
 		const index = this.chanceCards.findIndex((card) => card.getId() === id);
 		return this.chanceCards[index] || undefined;
@@ -274,8 +291,9 @@ export class Player implements IPlayer {
 			"modifierManager", "buffManager", "commandBus", "roundPhases",
 			"id", "user", "dices", "money", "properties", "chanceCards",
 			"positionIndex", "isStop", "stop", "isBankrupted", "isOffline",
-			"isAI", "infoDisplay",
+			"isAI", "isThinking", "infoDisplay",
 			"name", "roleId",
+			"aiThinkingRequestCount",
 			"exportData",
 		]);
 
@@ -292,6 +310,7 @@ export class Player implements IPlayer {
 			isBankrupted: this.isBankrupted,
 			isOffline: this.isOffline,
 			isAI: this.isAI,
+			isThinking: this.isAIThinking(),
 			infoDisplay: this.infoDisplay,
 			...pickSerializableFields(this, excludeKeys),
 		};
@@ -354,7 +373,7 @@ export class Player implements IPlayer {
 		"modifierManager", "buffManager", "commandBus", "roundPhases",
 		"infoDisplay", "user", "roleInitFunction",
 		"properties", "chanceCards",
-		"dices", "stop",
+		"dices", "stop", "aiThinkingRequestCount",
 		"exportData",
 	]);
 
@@ -387,6 +406,8 @@ export class Player implements IPlayer {
 	]);
 
 	public restoreFromSnapshot(snapshot: PlayerSnapshot, gameProcess: any): void {
+		this.aiThinkingRequestCount = 0;
+
 		// 通用恢复：遍历快照中所有字段，跳过由专门逻辑处理的
 		for (const key of Object.keys(snapshot)) {
 			if (Player.RESTORE_SPECIAL_KEYS.has(key)) continue;
