@@ -233,26 +233,7 @@ apiClient.interceptors.response.use(
 			}
 		}
 
-		// 记录错误日志
-		await logService.error({
-			category: errorCategory,
-			message,
-			stack: error.stack,
-			context: {
-				requestConfig: originalConfig ? {
-					url: originalConfig.url ?? "",
-					method: originalConfig.method ?? "",
-					data: originalConfig.data
-				} : undefined,
-				responseInfo: error.response ? {
-					status: error.response.status,
-					statusText: error.response.statusText,
-					data: error.response.data
-				} : undefined
-			}
-		});
-
-		// 显示错误消息
+		// 显示错误消息（必须在日志记录之前，防止日志异常导致消息丢失）
 		if (showErrorMessage && message) {
 			FPMessage({ type: "error", message });
 		}
@@ -260,6 +241,29 @@ apiClient.interceptors.response.use(
 		// 标记错误已在拦截器中处理
 		// 避免 main.ts 的 unhandledrejection 重复显示
 		(error as any)[AXIOS_HANDLED_ERROR] = true;
+
+		// 记录错误日志（放在 try-catch 中，防止 FormData 等不可序列化数据导致日志写入异常中断错误处理流程）
+		try {
+			await logService.error({
+				category: errorCategory,
+				message,
+				stack: error.stack,
+				context: {
+					requestConfig: originalConfig ? {
+						url: originalConfig.url ?? "",
+						method: originalConfig.method ?? "",
+						data: originalConfig.data instanceof FormData ? "[FormData]" : originalConfig.data
+					} : undefined,
+					responseInfo: error.response ? {
+						status: error.response.status,
+						statusText: error.response.statusText,
+						data: error.response.data
+					} : undefined
+				}
+			});
+		} catch {
+			// 日志记录失败不应影响业务流程
+		}
 
 		return Promise.reject(error);
 	}
