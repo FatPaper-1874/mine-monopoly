@@ -88,6 +88,21 @@ async function bootstrap() {
 		}, () => {
 			serverLog(`${chalk.bold.bgGreen(` ICE服务启动成功 ${iceServerPort}端口`)}`);
 		});
+		const peerServerWithEvents = peerServer as {
+			on?: (event: string, handler: (...args: any[]) => void) => void;
+		};
+		if (typeof peerServerWithEvents.on === "function") {
+			peerServerWithEvents.on("error", (error: unknown) => {
+				const err = error instanceof Error ? error : new Error(String(error));
+				serverLog(`${chalk.bold.bgRed(" ICE服务 WebSocket 异常 ")}`, "error");
+				console.error({
+					message: err.message,
+					code: (err as any).code,
+					statusCode: (err as any)[Object.getOwnPropertySymbols(err).find((symbol) => symbol.toString() === "Symbol(status-code)") as any],
+					stack: err.stack,
+				});
+			});
+		}
 
 		const adminPort = env<number>("MONOPOLY_ADMIN_PORT");
 		const adminApp = express();
