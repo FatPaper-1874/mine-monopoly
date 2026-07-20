@@ -652,9 +652,7 @@ $top-bar-height: 2.8rem;
 	max-width: 12rem;
 	font-size: 0.8rem;
 	line-height: 1.45;
-	background-color: rgba(255, 255, 255, 0.72);
-	border-radius: 0.7rem;
-	padding: 0.55rem 0.7rem;
+	padding: 0.1rem 0.2rem;
 	color: var(--fp-color-primary);
 	text-shadow: var(--fp-text-shadow);
 }

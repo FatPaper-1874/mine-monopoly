@@ -8,6 +8,7 @@ import {
 	SaveDialogOptions,
 	protocol,
 	net,
+	shell,
 } from "electron";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
@@ -282,6 +283,11 @@ function createWindow() {
 	});
 
 	if (!isProduction) win.webContents.openDevTools();
+
+	win.webContents.setWindowOpenHandler(({ url }) => {
+		void shell.openExternal(url);
+		return { action: "deny" };
+	});
 
 	win.webContents.on("did-finish-load", () => {
 		win?.webContents.send("main-process-message", new Date().toLocaleString());
@@ -584,6 +590,10 @@ ipcMain.handle("window-is-maximized", () => {
 	return win ? win.isMaximized() : false;
 });
 
+ipcMain.handle("open-external", async (_event, targetUrl: string) => {
+	await shell.openExternal(targetUrl);
+});
+
 const cacheDir = path.join(app.getPath("userData"), "map-cache");
 const indexFile = path.join(cacheDir, "index.json");
 type IndexData = Record<string, string>;
@@ -764,7 +774,6 @@ ipcMain.on("log-network", async (_event, data: { url: string; method: string; st
 
 // 打开日志文件夹
 ipcMain.handle("open-logs-folder", async () => {
-	const { shell } = require("electron");
 	await shell.openPath(logsDir);
 	return logsDir;
 });

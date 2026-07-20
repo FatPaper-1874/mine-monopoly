@@ -285,11 +285,9 @@ async function handleGetRandomPublicRoom(e: Event) {
 
 			& .tips {
 				width: max-content;
-				margin-top: 4rem;
-				font-size: 1.2rem;
-				background-color: rgba(255, 255, 255, 0.7);
+				font-size: 1.1rem;
 				border-radius: 0.7rem;
-				padding: 0.6rem;
+				padding: 0.2rem;
 				color: var(--fp-color-primary);
 				text-shadow: var(--fp-text-shadow);
 			}
