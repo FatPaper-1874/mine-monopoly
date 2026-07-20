@@ -84,8 +84,12 @@
 			// 恢复心跳检测
 			socketClient.resumeHeartBeat();
 
-			useLoading().showLoading("数据加载完成，等待其他玩家加载...");
-			socketClient.gameInitFinished();
+			if (amISpectator.value) {
+				useLoading().hideLoading();
+			} else {
+				useLoading().showLoading("数据加载完成，等待其他玩家加载...");
+				socketClient.gameInitFinished();
+			}
 
 			// 监听玩家金钱变化事件
 			const audioManager = useAudioManager();
