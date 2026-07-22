@@ -6,9 +6,11 @@ import { connectionDiagnostics } from "@src/utils/connection-diagnostics";
 export class PeerClient {
 	private peer: Peer;
 	private conn: DataConnection | null = null;
+	private rtcConfig: RTCConfiguration;
 
-	private constructor(peer: Peer) {
+	private constructor(peer: Peer, rtcConfig: RTCConfiguration) {
 		this.peer = peer;
+		this.rtcConfig = rtcConfig;
 	}
 
 	public async linkToHost(hostId: string) {
@@ -48,7 +50,7 @@ export class PeerClient {
 				});
 				// 兜底：本地连接可能跳过 ICE 流程
 				if (useUtil().connectionMode === "unknown") {
-					useUtil().connectionMode = "p2p";
+					useUtil().connectionMode = this.rtcConfig.iceTransportPolicy === "relay" ? "relay" : "p2p";
 				}
 				resolve(conn);
 			});
@@ -71,9 +73,9 @@ export class PeerClient {
 		return { conn: this.conn, peer: this.peer };
 	}
 
-	public static async create(host: string, port: number, iceServers: RTCIceServer[]) {
+	public static async create(host: string, port: number, rtcConfig: RTCConfiguration) {
 		connectionDiagnostics.stageStart("SignalingConnect");
-		connectionDiagnostics.setIceServers(iceServers);
+		connectionDiagnostics.setIceServers(rtcConfig.iceServers || []);
 		connectionDiagnostics.setSignalingInfo(
 			__ICE_USE_PREFIX__ ? `${__FATPAPER_HOST__}${__ICE_SERVER_PATH__}` : `${host}:${port}`,
 			!!__ICE_USE_PREFIX__,
@@ -90,15 +92,16 @@ export class PeerClient {
 						path: __ICE_SERVER_PATH__,
 						secure: true,
 						debug: 0,
-						config: { iceServers },
+						config: rtcConfig,
 					}
-				: { host, port, debug: 0, config: { iceServers } };
+				: { host, port, debug: 0, config: rtcConfig };
 
 			connectionDiagnostics.logPeerEvent("Peer.constructor", JSON.stringify({
 				mode: __ICE_USE_PREFIX__ ? "prefix" : "port",
 				host: __ICE_USE_PREFIX__ ? __FATPAPER_HOST__ : host,
 				path: __ICE_USE_PREFIX__ ? __ICE_SERVER_PATH__ : undefined,
 				port: __ICE_USE_PREFIX__ ? undefined : port,
+				iceTransportPolicy: rtcConfig.iceTransportPolicy || "all",
 			}));
 
 			const peer = new Peer(peerOptions);
@@ -130,7 +133,7 @@ export class PeerClient {
 			PeerClient.patchPeerForIceLogging(peer);
 		});
 
-		return new PeerClient(peer);
+		return new PeerClient(peer, rtcConfig);
 	}
 
 	/**

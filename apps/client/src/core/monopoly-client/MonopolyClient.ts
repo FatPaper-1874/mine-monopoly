@@ -34,8 +34,14 @@ type MonopolyClientOptions = {
 	};
 };
 
+type ConnectionStrategy = "prefer-p2p" | "force-relay";
+type ConnectionIssueReason = "initial_connect" | "connection_closed" | "connection_error" | "heartbeat_timeout" | "high_latency";
+
 export class MonopolyClient {
 	private static instance: MonopolyClient | null;
+	private static readonly HIGH_LATENCY_THRESHOLD_MS = 800;
+	private static readonly HIGH_LATENCY_STREAK_LIMIT = 3;
+	private static readonly RELAY_ESCALATION_ATTEMPT = 3;
 	private options: MonopolyClientOptions;
 	private iceServerHost: string;
 	private iceServerPort: number;
@@ -52,6 +58,10 @@ export class MonopolyClient {
 	private heartBeatPaused = false;
 	private reconnectionManager: ReconnectionManager | null = null;
 	private currentHostPeerId: string | null = null; // 保存当前主机 PeerId 用于重连
+	private connectionStrategy: ConnectionStrategy = "prefer-p2p";
+	private peerClientStrategy: ConnectionStrategy | null = null;
+	private lastIssueReason: ConnectionIssueReason = "initial_connect";
+	private consecutiveHighLatencyCount = 0;
 
 	public static getInstance(): MonopolyClient;
 	public static getInstance(options: MonopolyClientOptions): Promise<MonopolyClient>;
@@ -87,6 +97,8 @@ export class MonopolyClient {
 		// 重置诊断数据
 		connectionDiagnostics.reset();
 		connectionDiagnostics.stageStart("joinRoom_Total");
+		this.resetConnectionRecoveryState();
+		this.updateConnectionPresentation("正在连接房间", "正在向房主查询连接信息");
 
 		try {
 			connectionDiagnostics.stageStart("HTTP_JoinRequest");
@@ -118,6 +130,7 @@ export class MonopolyClient {
 				this.gameHost.addDestoryListener(() => {
 					this.gameHost = null;
 					this.peerClient = null;
+					this.peerClientStrategy = null;
 				});
 				hostPeerId = this.gameHost.getPeerId();
 				connectionDiagnostics.stageEnd("Host_Create", { hostPeerId });
@@ -145,111 +158,38 @@ export class MonopolyClient {
 
 	private async linkToGameHost(hostPeerId: string) {
 		try {
-			// 保存主机 PeerId 用于重连
 			this.currentHostPeerId = hostPeerId;
 
-			// 清理旧的连接和事件监听器
 			if (this.conn) {
 				this.conn.removeAllListeners();
 				this.conn.close();
 				this.conn = null;
 			}
 
-			// 停止旧的重连管理器
 			if (this.reconnectionManager) {
 				this.reconnectionManager.destroy();
 				this.reconnectionManager = null;
 			}
 
-			// 清理所有定时器
 			this.intervalList.forEach((timer) => clearInterval(timer));
 			this.intervalList = [];
 
-			if (!this.peerClient) {
-				connectionDiagnostics.stageStart("PeerClient_Create");
-				useLoading().showLoading("正在连接信令服务器...");
-				this.peerClient = await PeerClient.create(this.iceServerHost, this.iceServerPort, this.currentIceServers);
-				connectionDiagnostics.stageEnd("PeerClient_Create");
-			}
-			useLoading().showLoading("正在建立P2P通道...");
-			const { conn, peer } = await this.peerClient.linkToHost(hostPeerId);
-			this.conn = conn;
-			const { userId, username, color, avatar } = useUserInfo();
-			const user: User = {
-				userId,
-				username,
-				color,
-				avatar,
-				isReady: false,
-			};
-
-			connectionDiagnostics.stageStart("Send_JoinRoom");
-			this.sendMsg({ type: SocketMsgType.JoinRoom, source: SocketMsgSource.Client, data: user });
-			connectionDiagnostics.stageEnd("Send_JoinRoom");
-
-			FPMessage({
-				type: "success",
-				message: "主机连接成功🤗",
-			});
-			this.isOnline = true;
-
-			// 初始化心跳超时定时器
-			this.initHeartBeat();
-
-			// 启动心跳发送定时器
-			this.intervalList.push(
-				setInterval(() => {
-					if (this.heartBeatPaused) return;
-					this.sendHeartTime = Date.now();
-					this.sendMsg({ type: SocketMsgType.Heart, source: SocketMsgSource.Client, data: undefined });
-				}, 3000),
+			await this.ensurePeerClient();
+			useLoading().showLoading(this.connectionStrategy === "force-relay" ? "正在通过 TURN 中继建立连接..." : "正在建立 P2P 通道...");
+			this.updateConnectionPresentation(
+				this.connectionStrategy === "force-relay" ? "正在通过 TURN 中继连接房主" : "正在建立 P2P 连接",
+				this.connectionStrategy === "force-relay" ? "系统已改用稳定性优先的中继链路" : "当前优先尝试 P2P 直连",
 			);
 
-			this.conn.on("data", (_data: any) => {
-					let data: ServerSocketMessage;
-					try {
-						data = JSON.parse(_data, (key, value) => {
-							if (value === "Infinity") return Infinity;
-							if (value === "-Infinity") return -Infinity;
-							return value;
-						});
-					} catch {
-						console.error("Failed to parse server message:", _data);
-						connectionDiagnostics.warn("收到无法解析的主机消息");
-						return;
-					}
-					if (data.msg) {
-					// 在显示通知消息时，隐藏任何正在显示的 loading
-					useLoading().hideLoading();
-					FPMessage({
-						type: data.msg.type,
-						message: data.msg.content,
-					});
-				}
-				// console.log("Client Receive: ", data);
-
-				handleServerSocketMessage(data, this);
-			});
-
-			this.conn.on("close", () => {
-				connectionDiagnostics.logPeerEvent("DataConnection.close", "连接关闭");
-				if (this.isOnline) {
-					this.isOnline = false;
-					this.startReconnection();
-				}
-			});
-
-			this.conn.on("error", (err) => {
-				connectionDiagnostics.logPeerEvent("DataConnection.error", `type=${err.type} message=${err.message}`);
-				if (this.isOnline && err.type === "not-open-yet") {
-					this.isOnline = false;
-					this.startReconnection();
-				}
-			});
+			const { conn } = await this.peerClient!.linkToHost(hostPeerId);
+			this.bindConnection(conn);
+			await this.sendJoinRoomMessage(false);
+			this.markConnectionEstablished(false);
 		} catch (e: any) {
 			if (this.peerClient) {
 				this.peerClient.destory();
 				this.peerClient = null;
+				this.peerClientStrategy = null;
 			}
 			connectionDiagnostics.checkRelayCandidates();
 			connectionDiagnostics.error(`linkToGameHost 异常: ${e?.message || e}`);
@@ -261,36 +201,51 @@ export class MonopolyClient {
 	/**
 	 * 启动自动重连
 	 */
-	private startReconnection() {
-		// 如果没有主机 PeerId，无法重连
+	private startReconnection(reason: ConnectionIssueReason = "connection_closed") {
 		if (!this.currentHostPeerId) {
 			this.handleDisconnect();
 			return;
 		}
 
-		// 停止心跳
 		this.pauseHeartBeat();
+		this.lastIssueReason = reason;
+		this.consecutiveHighLatencyCount = 0;
+		useUtil().connectionMode = "unknown";
+		this.updateConnectionPresentation("准备重新连接房主", this.getReasonText(reason), 0);
 
-		// 创建重连管理器
 		this.reconnectionManager = new ReconnectionManager(
 			async () => {
-				// 重连函数：尝试重新连接主机
 				await this.performReconnect();
 			},
 			{
 				retryInterval: 3000,
-				maxRetries: Number.POSITIVE_INFINITY, // 无限重试
+				maxRetries: Number.POSITIVE_INFINITY,
 				showCountdown: true,
+				getDisplayState: (attempt, maxRetries) => ({
+					title: this.connectionStrategy === "force-relay" ? "切换到 TURN 中继中" : "正在恢复连接",
+					message: `正在第 ${attempt} 次恢复房间连接`,
+					detail: `原因：${this.getReasonText(this.lastIssueReason)}；当前策略：${this.getStrategyText()}；最大重试：${maxRetries === Number.POSITIVE_INFINITY ? "无限" : maxRetries}`,
+					actionLabel: "离开房间",
+				}),
 				onRetry: (attempt, maxRetries) => {
-					console.log(`[MonopolyClient] 重连尝试 ${attempt}/${maxRetries === Number.POSITIVE_INFINITY ? '∞' : maxRetries}`);
+					if (this.shouldEscalateToRelay(this.lastIssueReason, attempt)) {
+						this.promoteToRelay(this.lastIssueReason);
+					}
+					this.updateConnectionPresentation(
+						this.connectionStrategy === "force-relay" ? "正在通过 TURN 中继恢复连接" : "正在尝试重新连接房主",
+						`${this.getReasonText(this.lastIssueReason)}；当前策略：${this.getStrategyText()}`,
+						attempt,
+					);
+					console.log(`[MonopolyClient] 重连尝试 ${attempt}/${maxRetries === Number.POSITIVE_INFINITY ? "∞" : maxRetries}`);
 				},
 				onSuccess: () => {
-					console.log('[MonopolyClient] 重连成功');
-					// isOnline 状态已由 ReconnectionManager 管理
+					console.log("[MonopolyClient] 重连成功");
+					this.markConnectionEstablished(true);
 					this.resumeHeartBeat();
 				},
 				onFail: (error) => {
-					console.error('[MonopolyClient] 重连失败:', error);
+					console.error("[MonopolyClient] 重连失败:", error);
+					this.updateConnectionPresentation("重连失败", error.message);
 					FPMessage({
 						type: "error",
 						message: `重连失败: ${error.message}`,
@@ -300,13 +255,13 @@ export class MonopolyClient {
 					});
 				},
 				onCancel: () => {
-					console.log('[MonopolyClient] 用户取消重连');
+					console.log("[MonopolyClient] 用户取消重连");
+					this.updateConnectionPresentation("已放弃重连", this.getReasonText(this.lastIssueReason));
 					this.handleDisconnect();
-				}
-			}
+				},
+			},
 		);
 
-		// 开始重连
 		this.reconnectionManager.start();
 	}
 
@@ -325,24 +280,10 @@ export class MonopolyClient {
 			this.conn = null;
 		}
 
-		// 使用现有的 peerClient 重新连接
-		if (!this.peerClient) {
-			throw new Error('无法重连：PeerClient 不存在');
-		}
-
-		const { conn } = await this.peerClient.linkToHost(this.currentHostPeerId);
-		this.conn = conn;
-
-		// 重新发送加入房间消息
-		const { userId, username, color, avatar } = useUserInfo();
-		const user: User = {
-			userId,
-			username,
-			color,
-			avatar,
-			isReady: useRoomInfo().isReady, // 恢复准备状态
-		};
-		this.sendMsg({ type: SocketMsgType.JoinRoom, source: SocketMsgSource.Client, data: user });
+		await this.ensurePeerClient();
+		const { conn } = await this.peerClient!.linkToHost(this.currentHostPeerId);
+		this.bindConnection(conn);
+		await this.sendJoinRoomMessage(useRoomInfo().isReady);
 	}
 
 	/**
@@ -363,14 +304,16 @@ export class MonopolyClient {
 	}
 
 	public handleHeartReply() {
-		useUtil().ping = Math.round((Date.now() - this.sendHeartTime) / 2);
+		const ping = Math.round((Date.now() - this.sendHeartTime) / 2);
+		useUtil().ping = ping;
+		this.trackNetworkHealth(ping);
 		this.handleNoHeartTimer?.fn();
 	}
 
 	private handleNoHeart = debounce(
 		() => {
 			this.isOnline = false;
-			this.startReconnection();
+			this.startReconnection("heartbeat_timeout");
 		},
 		5000,
 		true,
@@ -406,6 +349,222 @@ export class MonopolyClient {
 		useGameLog().$reset();
 		router.replace({ name: "room-router" });
 		this.destory();
+	}
+
+	private async ensurePeerClient(): Promise<void> {
+		if (this.peerClient && this.peerClientStrategy === this.connectionStrategy) {
+			return;
+		}
+
+		if (this.peerClient) {
+			this.peerClient.destory();
+			this.peerClient = null;
+			this.peerClientStrategy = null;
+		}
+
+		connectionDiagnostics.stageStart("PeerClient_Create");
+		useLoading().showLoading(this.connectionStrategy === "force-relay" ? "正在切换到 TURN 中继..." : "正在连接信令服务器...");
+		const rtcConfig = this.buildRtcConfig();
+		this.peerClient = await PeerClient.create(this.iceServerHost, this.iceServerPort, rtcConfig);
+		this.peerClientStrategy = this.connectionStrategy;
+		connectionDiagnostics.stageEnd("PeerClient_Create", {
+			strategy: this.connectionStrategy,
+			iceTransportPolicy: rtcConfig.iceTransportPolicy || "all",
+		});
+	}
+
+	private buildRtcConfig(): RTCConfiguration {
+		const rtcConfig: RTCConfiguration = {
+			iceServers: this.currentIceServers,
+		};
+		if (this.connectionStrategy === "force-relay") {
+			rtcConfig.iceTransportPolicy = "relay";
+		}
+		return rtcConfig;
+	}
+
+	private bindConnection(conn: DataConnection): void {
+		this.conn = conn;
+		this.initHeartBeat();
+		this.intervalList.forEach((timer) => clearInterval(timer));
+		this.intervalList = [];
+		this.intervalList.push(
+			setInterval(() => {
+				if (this.heartBeatPaused) return;
+				this.sendHeartTime = Date.now();
+				this.sendMsg({ type: SocketMsgType.Heart, source: SocketMsgSource.Client, data: undefined });
+			}, 3000),
+		);
+
+		this.conn.on("data", (_data: any) => {
+			let data: ServerSocketMessage;
+			try {
+				data = JSON.parse(_data, (key, value) => {
+					if (value === "Infinity") return Infinity;
+					if (value === "-Infinity") return -Infinity;
+					return value;
+				});
+			} catch {
+				console.error("Failed to parse server message:", _data);
+				connectionDiagnostics.warn("收到无法解析的主机消息");
+				return;
+			}
+			if (data.msg) {
+				useLoading().hideLoading();
+				FPMessage({
+					type: data.msg.type,
+					message: data.msg.content,
+				});
+			}
+
+			handleServerSocketMessage(data, this);
+		});
+
+		this.conn.on("close", () => {
+			connectionDiagnostics.logPeerEvent("DataConnection.close", "连接关闭");
+			if (this.isOnline) {
+				this.isOnline = false;
+				this.startReconnection("connection_closed");
+			}
+		});
+
+		this.conn.on("error", (err) => {
+			connectionDiagnostics.logPeerEvent("DataConnection.error", `type=${err.type} message=${err.message}`);
+			if (this.isOnline) {
+				this.isOnline = false;
+				this.startReconnection("connection_error");
+			}
+		});
+	}
+
+	private async sendJoinRoomMessage(isReady: boolean): Promise<void> {
+		const { userId, username, color, avatar } = useUserInfo();
+		const user: User = {
+			userId,
+			username,
+			color,
+			avatar,
+			isReady,
+		};
+
+		connectionDiagnostics.stageStart("Send_JoinRoom");
+		await this.sendMsg({ type: SocketMsgType.JoinRoom, source: SocketMsgSource.Client, data: user });
+		connectionDiagnostics.stageEnd("Send_JoinRoom");
+	}
+
+	private markConnectionEstablished(isReconnect: boolean): void {
+		this.isOnline = true;
+		this.consecutiveHighLatencyCount = 0;
+		useUtil().connectionPolicy = this.connectionStrategy === "force-relay" ? "relay" : "auto";
+		useUtil().connectionReconnectAttempt = 0;
+		useUtil().connectionMode = this.connectionStrategy === "force-relay" ? "relay" : "p2p";
+		this.updateConnectionPresentation(
+			this.connectionStrategy === "force-relay" ? "已通过 TURN 中继恢复连接" : "已通过 P2P 直连连接",
+			this.connectionStrategy === "force-relay" ? "当前使用稳定性优先的服务器中继链路" : "当前使用点对点直连链路",
+		);
+
+		FPMessage({
+			type: "success",
+			message: isReconnect
+				? (this.connectionStrategy === "force-relay" ? "网络已切换到 TURN 中继并恢复连接" : "房间连接已恢复")
+				: (this.connectionStrategy === "force-relay" ? "已通过 TURN 中继连接到主机" : "主机连接成功🤗"),
+		});
+	}
+
+	private trackNetworkHealth(ping: number): void {
+		if (this.connectionStrategy === "force-relay" || this.isReconnecting()) {
+			if (ping < MonopolyClient.HIGH_LATENCY_THRESHOLD_MS) {
+				this.consecutiveHighLatencyCount = 0;
+			}
+			return;
+		}
+
+		if (ping >= MonopolyClient.HIGH_LATENCY_THRESHOLD_MS) {
+			this.consecutiveHighLatencyCount++;
+		} else {
+			this.consecutiveHighLatencyCount = 0;
+		}
+
+		if (this.isOnline && this.consecutiveHighLatencyCount >= MonopolyClient.HIGH_LATENCY_STREAK_LIMIT) {
+			this.consecutiveHighLatencyCount = 0;
+			this.isOnline = false;
+			FPMessage({
+				type: "warning",
+				message: "检测到连接延迟持续偏高，正在切换到 TURN 中继以提升稳定性",
+			});
+			this.startReconnection("high_latency");
+		}
+	}
+
+	private shouldEscalateToRelay(reason: ConnectionIssueReason, attempt: number): boolean {
+		if (this.connectionStrategy === "force-relay") {
+			return false;
+		}
+
+		if (reason === "high_latency" || reason === "heartbeat_timeout") {
+			return true;
+		}
+
+		return attempt >= MonopolyClient.RELAY_ESCALATION_ATTEMPT;
+	}
+
+	private promoteToRelay(reason: ConnectionIssueReason): void {
+		if (this.connectionStrategy === "force-relay") {
+			return;
+		}
+
+		this.connectionStrategy = "force-relay";
+		useUtil().connectionPolicy = "relay";
+		useUtil().connectionMode = "unknown";
+		this.updateConnectionPresentation("正在切换到 TURN 中继", `触发原因：${this.getReasonText(reason)}`);
+		FPMessage({
+			type: "warning",
+			message: "检测到当前链路不稳定，系统将改用 TURN 中继继续重连",
+		});
+	}
+
+	private getStrategyText(): string {
+		return this.connectionStrategy === "force-relay" ? "TURN 中继优先" : "优先 P2P 直连";
+	}
+
+	private getReasonText(reason: ConnectionIssueReason): string {
+		switch (reason) {
+			case "high_latency":
+				return "连续高延迟";
+			case "heartbeat_timeout":
+				return "心跳超时";
+			case "connection_error":
+				return "连接异常";
+			case "connection_closed":
+				return "连接关闭";
+			default:
+				return "正在建立连接";
+		}
+	}
+
+	private updateConnectionPresentation(statusText: string, reasonText = "", reconnectAttempt = useUtil().connectionReconnectAttempt): void {
+		const utilStore = useUtil();
+		utilStore.connectionPolicy = this.connectionStrategy === "force-relay" ? "relay" : "auto";
+		utilStore.connectionStatusText = statusText;
+		utilStore.connectionStatusReason = reasonText;
+		utilStore.connectionReconnectAttempt = reconnectAttempt;
+	}
+
+	private resetConnectionRecoveryState(): void {
+		this.connectionStrategy = "prefer-p2p";
+		this.peerClientStrategy = null;
+		this.lastIssueReason = "initial_connect";
+		this.consecutiveHighLatencyCount = 0;
+		this.resetConnectionPresentation();
+	}
+
+	private resetConnectionPresentation(): void {
+		const utilStore = useUtil();
+		utilStore.connectionMode = "unknown";
+		utilStore.connectionPolicy = "auto";
+		utilStore.connectionStatusText = "等待连接";
+		utilStore.connectionStatusReason = "";
+		utilStore.connectionReconnectAttempt = 0;
 	}
 
 	public sendRoomChatMessage(message: string, roomId: string) {
@@ -650,6 +809,7 @@ export class MonopolyClient {
 		if (this.peerClient) {
 			this.peerClient.destory();
 			this.peerClient = null;
+			this.peerClientStrategy = null;
 		}
 
 		// 7. 清理游戏主机（如果存在）
@@ -657,6 +817,8 @@ export class MonopolyClient {
 			this.gameHost.destory();
 			this.gameHost = null;
 		}
+
+		this.resetConnectionPresentation();
 	}
 
 	public static destoryInstance() {

@@ -116,6 +116,14 @@ export const useUtil = defineStore("util", {
 			fps: 0,
 			/** 连接模式：unknown=未确定, p2p=直连, relay=TURN中继 */
 			connectionMode: "unknown" as "unknown" | "p2p" | "relay",
+			/** 当前连接策略：auto=优先直连, relay=强制中继 */
+			connectionPolicy: "auto" as "auto" | "relay",
+			/** 面向用户的连接状态说明 */
+			connectionStatusText: "等待连接" as string,
+			/** 最近一次连接异常原因 */
+			connectionStatusReason: "" as string,
+			/** 当前重连尝试次数 */
+			connectionReconnectAttempt: 0,
 			isRollDiceAnimationPlay: false,
 			rollDiceResult: new Array<number>(),
 			currentEventName: "",

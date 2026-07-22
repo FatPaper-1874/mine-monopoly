@@ -42,6 +42,11 @@ export class ReconnectionManager {
       retryInterval: config.retryInterval ?? 3000,
       maxRetries: config.maxRetries ?? Number.POSITIVE_INFINITY,
       showCountdown: config.showCountdown ?? true,
+      getDisplayState: config.getDisplayState ?? ((attempt, maxRetries) => ({
+        title: "重连中",
+        message: `正在尝试重新连接... (${attempt}/${maxRetries === Number.POSITIVE_INFINITY ? "∞" : maxRetries})`,
+        actionLabel: "放弃重连",
+      })),
       onRetry: config.onRetry ?? (() => {}),
       onSuccess: config.onSuccess ?? (() => {}),
       onFail: config.onFail ?? (() => {}),
@@ -125,20 +130,17 @@ export class ReconnectionManager {
   private showReconnectMessage(): void {
     // 先关闭旧消息
     this.closeMessageCard();
-
-    const maxRetriesText = this.config.maxRetries === Number.POSITIVE_INFINITY
-      ? '无限'
-      : this.config.maxRetries;
+    const displayState = this.config.getDisplayState(this.retryCount, this.config.maxRetries);
 
     // 使用 VNode 创建内容，包含放弃按钮
     const content = h('div', {
       style: 'text-align: center; padding: 0.625rem;'
     }, [
       h('div', { style: 'font-size: 1.5rem; margin-bottom: 0.625rem;' }, '⚠️'),
-      h('div', { style: 'font-weight: bold; margin-bottom: 0.3125rem;' }, '连接已断开'),
+      h('div', { style: 'font-weight: bold; margin-bottom: 0.3125rem;' }, displayState.message),
       h('div', {
         style: 'font-size: 0.875rem; color: #666; margin-bottom: 0.9375rem;'
-      }, `正在尝试重新连接... (${this.retryCount}/${maxRetriesText})`),
+      }, displayState.detail || '系统正在尝试恢复连接'),
       h('button', {
         style: `
           padding: 0.5rem 1.25rem;
@@ -150,11 +152,11 @@ export class ReconnectionManager {
           font-size: 0.875rem;
         `,
         onClick: () => this.cancel()
-      }, '放弃重连')
+      }, displayState.actionLabel || '放弃重连')
     ]);
 
     this.currentMessageCard = FPMessageCard({
-      title: '重连中',
+      title: displayState.title || '重连中',
       content,
       duration: 0, // 不自动关闭
     });

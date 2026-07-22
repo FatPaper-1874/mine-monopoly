@@ -150,6 +150,13 @@ export interface ReconnectConfig {
   maxRetries?: number;
   /** 是否显示倒计时，默认 true */
   showCountdown?: boolean;
+  /** 自定义重连提示内容 */
+  getDisplayState?: (attempt: number, maxRetries: number) => {
+    title?: string;
+    message: string;
+    detail?: string;
+    actionLabel?: string;
+  };
   /** 重连回调函数 */
   onRetry?: (attempt: number, maxRetries: number) => void;
   /** 成功回调 */
