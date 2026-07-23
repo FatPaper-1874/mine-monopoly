@@ -30,6 +30,9 @@
 	import { useAudioManager } from "@src/utils/audio/AudioManager";
 	import { SoundName } from "@src/utils/audio/types";
 	import useEventBus from "@src/utils/event-bus";
+	import { FPMessageBox } from "@src/components/utils/fp-message-box";
+	import { buildGameInitDiagnostics, wrapGameInitError } from "@src/utils/game-init-diagnostics";
+	import { ErrorCategory, logErrorWithOptions } from "@src/utils/log";
 	import { storeToRefs } from "pinia";
 	import UiRenderer from "@src/components/utils/ui-renderer/ui-renderer.vue";
 	import FpErrorBoundary from "@src/components/utils/fp-error-boundary/index.vue";
@@ -61,6 +64,35 @@
 		}
 	}
 
+	function renderInitFailureDialog(lines: string[]) {
+		return h("div", { style: "max-width: 44rem;" }, [
+			h(
+				"div",
+				{
+					style: "margin-bottom: 0.75rem; font-weight: 600; color: var(--fp-color-primary, #333);",
+				},
+				"初始化失败。请截图下面完整内容发给开发者。",
+			),
+			h(
+				"pre",
+				{
+					style: [
+						"margin: 0",
+						"padding: 0.9rem 1rem",
+						"border-radius: 0.5rem",
+						"background: rgba(0, 0, 0, 0.06)",
+						"white-space: pre-wrap",
+						"word-break: break-word",
+						"overflow-wrap: anywhere",
+						"font-size: 0.92rem",
+						"line-height: 1.55",
+					].join("; "),
+				},
+				lines.join("\n"),
+			),
+		]);
+	}
+
 	onMounted(async () => {
 		try {
 			socketClient = useMonopolyClient();
@@ -73,7 +105,7 @@
 			const canvas = document.getElementById("game-canvas") as HTMLCanvasElement;
 			const container = document.getElementsByClassName("game-page")[0] as HTMLDivElement;
 			if (!canvas || !container) {
-				throw new Error("游戏画布元素未找到");
+				throw wrapGameInitError("game-page-mounted", new Error("游戏画布元素未找到"));
 			}
 			const mapData = JSON.parse(JSON.stringify(mapDataStore.$state)) as GameMap;
 			console.log("🚀 ~ mapData:", mapData);
@@ -143,8 +175,31 @@
 		} catch (e: any) {
 			// 异常时也要恢复心跳，防止永久暂停
 			socketClient?.resumeHeartBeat();
-			console.error(e);
+			const diagnostics = buildGameInitDiagnostics(e, {
+				mapName: mapDataStore.info?.name || "unknown",
+				route: window.location.pathname,
+			});
+			console.error("[GameInitFailure]", diagnostics, e);
+			logErrorWithOptions({
+				category: ErrorCategory.UI_RENDER,
+				type: diagnostics.errorCode,
+				message: diagnostics.logMessage,
+				error:
+					e instanceof Error
+						? e
+						: diagnostics.logStack
+							? ({ message: diagnostics.rawMessage, stack: diagnostics.logStack } as Error)
+							: undefined,
+				extraInfo: diagnostics.extraInfo,
+				context: diagnostics.context,
+			});
 			useLoading().hideLoading();
+			await FPMessageBox({
+				title: "游戏初始化失败",
+				content: renderInitFailureDialog(diagnostics.lines),
+				confirmText: "返回房间",
+				showCancel: false,
+			}).catch(() => {});
 			router.replace({ name: "room-router" });
 		}
 	});

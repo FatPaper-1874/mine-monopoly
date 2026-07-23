@@ -42,6 +42,7 @@ import { getModelById } from "@src/utils/file/game-map";
 import { PlayerModel, AnimationManager } from "@mine-monopoly/utils";
 import { DiceManager } from "./DiceManager";
 import { loadModel } from "@src/utils/three/model-loader";
+import { type GameInitStage, wrapGameInitError } from "@src/utils/game-init-diagnostics";
 import { clone } from "lodash";
 import { getDracoLoader } from "@src/utils/draco/draco";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
@@ -167,134 +168,140 @@ export class GameRenderer {
 		this.container = container;
 		this.canvas = canvas;
 
-		// 初始化画质设置（必须在 WebGLRenderer 之前，决定 antialias 等）
-		const settingStore = useSettig();
-		settingStore.initGraphicQuality();
-		const isLowEnd = settingStore.graphicQuality === "low";
-		this.isLowEnd = isLowEnd;
+		try {
+			// 初始化画质设置（必须在 WebGLRenderer 之前，决定 antialias 等）
+			const settingStore = useSettig();
+			settingStore.initGraphicQuality();
+			const isLowEnd = settingStore.graphicQuality === "low";
+			this.isLowEnd = isLowEnd;
 
-		this.renderer = new THREE.WebGLRenderer({ canvas, antialias: !isLowEnd });
-		this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-		this.renderer.setClearAlpha(0);
+			try {
+				this.renderer = new THREE.WebGLRenderer({ canvas, antialias: !isLowEnd });
+				this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+				this.renderer.setClearAlpha(0);
 
-		// 应用初始像素比
-		const initialPixelRatio = settingStore.getPixelRatio();
-		console.log("[画质设置] 初始化像素比:", initialPixelRatio);
-		this.renderer.setPixelRatio(initialPixelRatio);
+				// 应用初始像素比
+				const initialPixelRatio = settingStore.getPixelRatio();
+				console.log("[画质设置] 初始化像素比:", initialPixelRatio);
+				this.renderer.setPixelRatio(initialPixelRatio);
 
-		// 初始化阴影设置
-		console.log("[阴影设置] 初始化阴影设置:", settingStore.enableShadow ? "开启" : "关闭");
-		this.renderer.toneMapping = THREE.LinearToneMapping;
-		this.renderer.toneMappingExposure = 1.1;
-		this.renderer.shadowMap.enabled = settingStore.enableShadow;
-		this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+				// 初始化阴影设置
+				console.log("[阴影设置] 初始化阴影设置:", settingStore.enableShadow ? "开启" : "关闭");
+				this.renderer.toneMapping = THREE.LinearToneMapping;
+				this.renderer.toneMappingExposure = 1.1;
+				this.renderer.shadowMap.enabled = settingStore.enableShadow;
+				this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+			} catch (error) {
+				throw wrapGameInitError("webgl-renderer", error);
+			}
 
-		this.scene = new THREE.Scene();
-		this.camera = new THREE.PerspectiveCamera(45, canvas.width / canvas.height, 0.1, 1000);
-		this.composer = new EffectComposer(this.renderer);
-		this.renderPass = new RenderPass(this.scene, this.camera);
-		this.chanceCardTargetOutlinePass = new OutlinePass(
-			new THREE.Vector2(canvas.clientWidth, canvas.clientHeight),
-			this.scene,
-			this.camera,
-		);
-		this.playerInRoundOutlinePass = new OutlinePass(
-			new THREE.Vector2(canvas.clientWidth, canvas.clientHeight),
-			this.scene,
-			this.camera,
-		);
-		const pixelRatio = this.renderer.getPixelRatio();
-		// width、height是canva画布的宽高度
+			try {
+				this.scene = new THREE.Scene();
+				this.camera = new THREE.PerspectiveCamera(45, canvas.width / canvas.height, 0.1, 1000);
+				this.composer = new EffectComposer(this.renderer);
+				this.renderPass = new RenderPass(this.scene, this.camera);
+				this.chanceCardTargetOutlinePass = new OutlinePass(
+					new THREE.Vector2(canvas.clientWidth, canvas.clientHeight),
+					this.scene,
+					this.camera,
+				);
+				this.playerInRoundOutlinePass = new OutlinePass(
+					new THREE.Vector2(canvas.clientWidth, canvas.clientHeight),
+					this.scene,
+					this.camera,
+				);
 
-		// const smaaPass = new SMAAPass(canvas.clientWidth * pixelRatio, canvas.clientHeight * pixelRatio);
-		//
-		// this.composer.addPass(smaaPass);
-		this.composer.addPass(this.renderPass);
-		this.composer.addPass(this.chanceCardTargetOutlinePass);
-		this.composer.addPass(this.playerInRoundOutlinePass);
-		const gammaPass = new ShaderPass(GammaCorrectionShader);
-		this.composer.addPass(gammaPass);
+				this.composer.addPass(this.renderPass);
+				this.composer.addPass(this.chanceCardTargetOutlinePass);
+				this.composer.addPass(this.playerInRoundOutlinePass);
+				const gammaPass = new ShaderPass(GammaCorrectionShader);
+				this.composer.addPass(gammaPass);
 
-		const { css2DObject: propertyCSS2DObject, appInstance: propertyInfoLabelInstance } = createCSS2DObjectFromVue(
-			PropertyInfoCard,
-			{
-				property: null,
-			},
-		);
-		this.propertyInfoLabel = propertyCSS2DObject;
-		this.propertyInfoLabelInstance = propertyInfoLabelInstance;
+				const {
+					css2DObject: propertyCSS2DObject,
+					appInstance: propertyInfoLabelInstance,
+				} = createCSS2DObjectFromVue(PropertyInfoCard, {
+					property: null,
+				});
+				this.propertyInfoLabel = propertyCSS2DObject;
+				this.propertyInfoLabelInstance = propertyInfoLabelInstance;
 
-		const { css2DObject: arrivedEventCSS2DObject, appInstance: arrivedEventLabelInstance } = createCSS2DObjectFromVue(
-			MapEventCard,
-			{
-				property: null,
-			},
-		);
-		this.arrivedEventInfoLabel = arrivedEventCSS2DObject;
-		this.arrivedEventInfoLabelInstance = arrivedEventLabelInstance;
+				const {
+					css2DObject: arrivedEventCSS2DObject,
+					appInstance: arrivedEventLabelInstance,
+				} = createCSS2DObjectFromVue(MapEventCard, {
+					property: null,
+				});
+				this.arrivedEventInfoLabel = arrivedEventCSS2DObject;
+				this.arrivedEventInfoLabelInstance = arrivedEventLabelInstance;
 
-		this.scene.add(this.propertyInfoLabel);
-		this.scene.add(this.arrivedEventInfoLabel);
+				this.scene.add(this.propertyInfoLabel);
+				this.scene.add(this.arrivedEventInfoLabel);
 
-		this.popElementRenderer = new CSS2DRenderer();
-		this.popElementRenderer.setSize(container.clientWidth, container.clientHeight);
-		this.popElementRenderer.domElement.style.position = "absolute";
-		this.popElementRenderer.domElement.style.left = "0";
-		this.popElementRenderer.domElement.style.top = "0";
-		this.popElementRenderer.domElement.style.pointerEvents = "none";
-		this.popElementRenderer.domElement.style.zIndex = "var(--z-ui)";
-		container.appendChild(this.popElementRenderer.domElement);
+				this.popElementRenderer = new CSS2DRenderer();
+				this.popElementRenderer.setSize(container.clientWidth, container.clientHeight);
+				this.popElementRenderer.domElement.style.position = "absolute";
+				this.popElementRenderer.domElement.style.left = "0";
+				this.popElementRenderer.domElement.style.top = "0";
+				this.popElementRenderer.domElement.style.pointerEvents = "none";
+				this.popElementRenderer.domElement.style.zIndex = "var(--z-ui)";
+				container.appendChild(this.popElementRenderer.domElement);
 
-		const controls = new OrbitControls(this.camera, this.canvas);
-		controls.enableDamping = true;
-		controls.maxDistance = 30;
-		controls.minDistance = 1;
-		controls.maxPolarAngle = Math.PI / 2;
-		controls.minPolarAngle = Math.PI / 3;
-		controls.update();
-		this.controls = controls;
+				const controls = new OrbitControls(this.camera, this.canvas);
+				controls.enableDamping = true;
+				controls.maxDistance = 30;
+				controls.minDistance = 1;
+				controls.maxPolarAngle = Math.PI / 2;
+				controls.minPolarAngle = Math.PI / 3;
+				controls.update();
+				this.controls = controls;
 
-		const handleResize = () => {
-			this.camera.aspect = container.clientWidth / container.clientHeight; //相机视角长宽比
-			this.camera.updateProjectionMatrix();
-			this.renderer.setSize(container.clientWidth, container.clientHeight);
-			this.renderPass.setSize(container.clientWidth, container.clientHeight);
-			this.composer.setSize(container.clientWidth, container.clientHeight);
-			this.popElementRenderer.setSize(container.clientWidth, container.clientHeight);
-			this.diceManager && this.diceManager.updateAspect(container.clientWidth / container.clientHeight);
-		};
+				const handleResize = () => {
+					this.camera.aspect = container.clientWidth / container.clientHeight; //相机视角长宽比
+					this.camera.updateProjectionMatrix();
+					this.renderer.setSize(container.clientWidth, container.clientHeight);
+					this.renderPass.setSize(container.clientWidth, container.clientHeight);
+					this.composer.setSize(container.clientWidth, container.clientHeight);
+					this.popElementRenderer.setSize(container.clientWidth, container.clientHeight);
+					this.diceManager && this.diceManager.updateAspect(container.clientWidth / container.clientHeight);
+				};
 
-		window.addEventListener("resize", debounce(handleResize.bind(this), 500));
+				window.addEventListener("resize", debounce(handleResize.bind(this), 500));
 
-		handleResize();
+				handleResize();
+			} catch (error) {
+				throw wrapGameInitError("scene-overlay", error);
+			}
+		} catch (error) {
+			throw wrapGameInitError("scene-overlay", error);
+		}
 	}
 
 	public async init() {
-		await this.initDiceManager();
+		await this.runInitStage("dice-model", () => this.initDiceManager());
 
 		loadingMask.loading = true;
 		loadingMask.text = "正在进行初始化加载：地图数据";
 		//加载地图
-		await this.initMap();
+		await this.runInitStage("map-data", () => this.initMap());
 
 		loadingMask.text = "正在进行初始化加载：背景";
 		//加载背景
-		this.initBackground();
+		await this.runInitStage("background", async () => {
+			this.initBackground();
+		});
 
 		loadingMask.text = "正在进行初始化加载：玩家数据";
 		//加载玩家模型
-		await this.initPlayer();
+		await this.runInitStage("player-models", () => this.initPlayer());
 
 		loadingMask.text = "正在进行初始化加载：机会卡、场景设置";
-		// 并发执行：机会卡预加载 与 灯光/OutlinePass/事件监听（它们不依赖机会卡纹理）
-		await Promise.all([
-			this.initChanceCard(),
-			Promise.resolve().then(() => {
-				this.initLight();
-				this.initOutlinePass();
-				this.initEventListener();
-			}),
-		]);
+		await this.runInitStage("chance-card-assets", () => this.initChanceCard());
+		await this.runInitStage("scene-effects", async () => {
+			this.initLight();
+			this.initOutlinePass();
+			this.initEventListener();
+		});
 
 		this.focusMe();
 
@@ -346,53 +353,63 @@ export class GameRenderer {
 			window.addEventListener("pointermove", onPointerMove);
 		}
 
-		const loop = () => {
-			this.requestAnimationFrameId = requestAnimationFrame(loop);
+		await this.runInitStage("render-loop", async () => {
+			const loop = () => {
+				this.requestAnimationFrameId = requestAnimationFrame(loop);
 
-			// 更新 GLB 模型动画
-			const delta = this.clock.getDelta();
-			this.animationManager.update(delta);
+				// 更新 GLB 模型动画
+				const delta = this.clock.getDelta();
+				this.animationManager.update(delta);
 
-			this.handlePropertyRaycaster(propertyRaycaster, pointer);
-			this.handleMapEventRaycaster(propertyRaycaster, pointer);
+				this.handlePropertyRaycaster(propertyRaycaster, pointer);
+				this.handleMapEventRaycaster(propertyRaycaster, pointer);
 
-			if (this.isLockingRole && this.isLockingRoleFromSetting && this.currentFocusModule) {
-				this.updateCamera(this.controls, this.currentFocusModule, 7, 30);
-			}
-			this.controls.update(100);
+				if (this.isLockingRole && this.isLockingRoleFromSetting && this.currentFocusModule) {
+					this.updateCamera(this.controls, this.currentFocusModule, 7, 30);
+				}
+				this.controls.update(100);
 
-			Array.from(this.playerEntities.values()).forEach((player) => {
-				player.update(this.camera);
-			});
+				Array.from(this.playerEntities.values()).forEach((player) => {
+					player.update(this.camera);
+				});
 
-			// 1. 关闭自动清除，完全由我们接管
-			this.renderer.autoClear = false;
+				// 1. 关闭自动清除，完全由我们接管
+				this.renderer.autoClear = false;
 
-			// 2. 每一帧开始时，手动清除颜色、深度、模板缓冲区
-			this.renderer.clear();
+				// 2. 每一帧开始时，手动清除颜色、深度、模板缓冲区
+				this.renderer.clear();
 
-			// 3. 渲染主场景
-			if (this.isLowEnd) {
-				// 移动端跳过 EffectComposer（省去 3 次全屏后处理 pass）
-				this.renderer.render(this.scene, this.camera);
-			} else {
-				this.composer.render();
-			}
+				// 3. 渲染主场景
+				if (this.isLowEnd) {
+					// 移动端跳过 EffectComposer（省去 3 次全屏后处理 pass）
+					this.renderer.render(this.scene, this.camera);
+				} else {
+					this.composer.render();
+				}
 
-			this.popElementRenderer.render(this.scene, this.camera);
-			this.updateActiveSpeechBubbleLayout();
+				this.popElementRenderer.render(this.scene, this.camera);
+				this.updateActiveSpeechBubbleLayout();
 
-			if (this.isRenderDice && this.diceManager) {
-				this.diceManager.update();
-				this.renderer.clearDepth();
-				this.renderer.render(this.diceManager.getScene(), this.diceManager.getCamera());
-			}
+				if (this.isRenderDice && this.diceManager) {
+					this.diceManager.update();
+					this.renderer.clearDepth();
+					this.renderer.render(this.diceManager.getScene(), this.diceManager.getCamera());
+				}
 
-			// 计算 FPS
-			this.updateFPS();
-		};
+				// 计算 FPS
+				this.updateFPS();
+			};
 
-		loop();
+			loop();
+		});
+	}
+
+	private async runInitStage<T>(stage: GameInitStage, fn: () => Promise<T> | T): Promise<T> {
+		try {
+			return await fn();
+		} catch (error) {
+			throw wrapGameInitError(stage, error);
+		}
 	}
 
 	private async initDiceManager() {
