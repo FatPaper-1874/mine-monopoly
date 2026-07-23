@@ -40,7 +40,7 @@ function toIssues() {
 }
 
 function toBilibili() {
-	openExternalLink("https://www.bilibili.com/video/BV1mPHFedEH1");
+	openExternalLink("https://www.bilibili.com/video/BV1XKTv66EHY");
 }
 </script>
 
