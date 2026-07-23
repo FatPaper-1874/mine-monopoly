@@ -1630,50 +1630,46 @@ export class GameProcess implements IGameProcess {
 			player.commandBus.setHandler("player.walk", async (payload) => {
 				this.setCurrentEventName(`${player.name} 正在走路`);
 				const { steps } = payload;
-				const sourceIndex = player.positionIndex;
 				const total = this.mapData.mapIndex.length;
 				const direction = steps > 0 ? 1 : -1;
 				const totalSteps = Math.abs(steps);
 
 				let currentStep = 0;
+				let cursorIndex = player.positionIndex;
 				const passedItems: { mapItemId: string; index: number; mapItem?: MapItem }[] = [];
 				let passedIndex = 0;
 
-				// 分段走路：每段检查是否有事件格，遇到事件格时触发事件后继续
+				// 分段走路：每段都基于玩家的当前逻辑位置继续推进，
+				// 这样经过事件里发生传送后，剩余步数会从新位置继续结算。
 				while (currentStep < totalSteps) {
-					// 计算当前段的起点
-					const segmentStartIndex = this.normalizeIndex(sourceIndex + currentStep * direction, total);
+					const segmentStartIndex = cursorIndex;
 
 					// 向前看，累积连续的无事件步数
 					let continuousSteps = 0;
 					while (currentStep + continuousSteps < totalSteps) {
-						const checkStep = currentStep + continuousSteps + 1;
-						const checkIndex = this.normalizeIndex(sourceIndex + checkStep * direction, total);
+						const checkStep = continuousSteps + 1;
+						const checkIndex = this.normalizeIndex(segmentStartIndex + checkStep * direction, total);
 						const mapItemId = this.mapData.mapIndex[checkIndex];
 
+						continuousSteps++;
 						if (this.checkMapItemHasPassedEvent(mapItemId)) {
-							// 遇到事件格，包括这一步并停止累积
-							continuousSteps++;
 							break;
 						}
-						continuousSteps++;
 					}
 
 					// 至少走一步
 					if (continuousSteps === 0) continuousSteps = 1;
 
-					const segmentEndIndex = this.normalizeIndex(sourceIndex + (currentStep + continuousSteps) * direction, total);
+					const segmentEndIndex = this.normalizeIndex(segmentStartIndex + continuousSteps * direction, total);
 
 					// 走这一段
 					await this.walkSegment(player, segmentStartIndex, continuousSteps * direction, totalSteps, currentStep + 1);
 					currentStep += continuousSteps;
-
-					// 不立即更新 positionIndex，避免动画期间的位置冲突
-					// 只在所有动画完成后才统一更新位置
+					cursorIndex = segmentEndIndex;
+					player.setPositionIndex(cursorIndex);
 
 					// 检查当前位置是否有事件
-					const currentIndex = this.normalizeIndex(sourceIndex + currentStep * direction, total);
-					const currentMapItemId = this.mapData.mapIndex[currentIndex];
+					const currentMapItemId = this.mapData.mapIndex[cursorIndex];
 
 					if (this.checkMapItemHasPassedEvent(currentMapItemId)) {
 						// 收集经过信息
@@ -1685,6 +1681,7 @@ export class GameProcess implements IGameProcess {
 						// 触发经过事件
 						try {
 							await this.handlePlayerPassedEvents(player, [currentMapItemId]);
+							cursorIndex = player.positionIndex;
 						} catch (error) {
 							console.error("经过事件执行失败:", error);
 							// 继续走路，不中断游戏
@@ -1692,9 +1689,7 @@ export class GameProcess implements IGameProcess {
 					}
 				}
 
-				// 最终位置更新：在所有动画完成后一次性更新
-				const finalIndex = this.normalizeIndex(sourceIndex + steps, total);
-				player.setPositionIndex(finalIndex);
+				player.setPositionIndex(cursorIndex);
 				this.gameDataBroadcast();
 
 				// 填充经过信息供 after 修饰器使用
