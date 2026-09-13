@@ -1265,6 +1265,8 @@ export class GameRenderer {
 				// 标记动画开始
 				this.playerPendingWalks.set(walkPlayerId, walkId);
 
+				// 实体可能暂时不存在（如 reloadScene 正在重建），此时跳过动画，
+				// 但位置记录、标记清理和 AnimationComplete 回报必须执行，否则会卡死队列并阻塞房主推进
 				const playerEntity = this.playerEntities.get(walkPlayerId);
 				if (playerEntity) {
 					const model = this.playerEntities.get(walkPlayerId)?.model;
@@ -1275,18 +1277,22 @@ export class GameRenderer {
 						y: Math.sign(playerEntity.model.scale.y),
 						z: Math.sign(playerEntity.model.scale.z),
 					});
+				}
 
-					try {
-						if (segment) {
+				try {
+					if (segment) {
+						if (playerEntity) {
 							await this.updatePlayerPositionBySegment(walkPlayerId, segment, totalSteps, startStep);
-							this.playerPosition.set(walkPlayerId, segment.toMapItemId);
+						}
+						this.playerPosition.set(walkPlayerId, segment.toMapItemId);
+					} else {
+						const sourcePosition = this.getLegacyPositionIndex(walkPlayerId);
+						const mapIndexLength = mapDataStore.mapIndex.length;
+						if (sourcePosition === undefined || mapIndexLength <= 0) {
+							console.warn(`[渲染器] 无法解析旧版走路起点: ${walkPlayerId}`);
 						} else {
-							const sourcePosition = this.getLegacyPositionIndex(walkPlayerId);
-							const mapIndexLength = mapDataStore.mapIndex.length;
-							if (sourcePosition === undefined || mapIndexLength <= 0) {
-								console.warn(`[渲染器] 无法解析旧版走路起点: ${walkPlayerId}`);
-							} else {
-								const endIndex = (((sourcePosition + step) % mapIndexLength) + mapIndexLength) % mapIndexLength;
+							const endIndex = (((sourcePosition + step) % mapIndexLength) + mapIndexLength) % mapIndexLength;
+							if (playerEntity) {
 								await this.updatePlayerPositionByStep(
 									walkPlayerId,
 									sourcePosition,
@@ -1295,27 +1301,32 @@ export class GameRenderer {
 									totalSteps ?? Math.abs(step),
 									startStep ?? 1,
 								);
-								const endMapItemId = this.getMapItemIdByIndex(endIndex);
-								if (endMapItemId) this.playerPosition.set(walkPlayerId, endMapItemId);
 							}
+							const endMapItemId = this.getMapItemIdByIndex(endIndex);
+							if (endMapItemId) this.playerPosition.set(walkPlayerId, endMapItemId);
 						}
-					} catch (error) {
-						console.error(`[渲染器] 玩家移动动画失败: ${walkPlayerId}`, error);
-					} finally {
+					}
+				} catch (error) {
+					console.error(`[渲染器] 玩家移动动画失败: ${walkPlayerId}`, error);
+				} finally {
+					// 只清理属于本次走路的标记，避免误删后继走路已设置的标记
+					if (this.playerPendingWalks.get(walkPlayerId) === walkId) {
 						this.playerPendingWalks.delete(walkPlayerId);
 					}
+				}
 
+				if (playerEntity) {
 					this.currentFocusModule = null;
 					this.isLockingRole = false;
 					if (!this.pathChoiceController.isActive && !this.pathChoiceController.isCameraTransitioning) {
 						this.controls.enabled = true;
 					}
-
-					// 拆散重叠的玩家模型
-					this.breakUpPlayersInSameMapItem();
-					const monopolyClient = useMonopolyClient();
-					monopolyClient && monopolyClient.AnimationComplete(walkId);
 				}
+
+				// 拆散重叠的玩家模型（同时会按 playerPosition 把实体摆到正确位置）
+				this.breakUpPlayersInSameMapItem();
+				const monopolyClient = useMonopolyClient();
+				monopolyClient && monopolyClient.AnimationComplete(walkId);
 			},
 		);
 		useEventBus().on(
@@ -1562,9 +1573,9 @@ export class GameRenderer {
 	private async loadPlayersModules(playerList: Array<PlayerInfo>) {
 		for await (const playerInfo of playerList) {
 			try {
-				const mapItemId = this.resolvePlayerMapItemId(playerInfo);
-				if (mapItemId) {
-					this.playerPosition.set(playerInfo.id, mapItemId);
+				if (!this.playerPosition.has(playerInfo.id)) {
+					const mapItemId = this.resolvePlayerMapItemId(playerInfo);
+					if (mapItemId) this.playerPosition.set(playerInfo.id, mapItemId);
 				}
 				const role = useMapData().getRoleById(playerInfo.user.roleId);
 				if (!role) throw Error("初始化玩家模型时: 找不到角色信息");
@@ -2052,14 +2063,13 @@ export class GameRenderer {
 	 * 用于窗口恢复焦点时完全重新渲染
 	 */
 	public async reloadScene() {
-		// 1. 取消所有动画
-		this.playerPendingWalks.clear();
 		this.clearAllThinkingMarkers();
 
-		// 2. 清空场景动态对象
+		// 只重建实体，保留 playerPendingWalks 与 playerPosition：
+		// GameData 仅在整段走路结束后广播，走路中途切回前台时 playerPosition 才是最新位置，
+		// 进行中/排队中的走路会在重建后继续按顺序执行并把实体对齐
 		this.playerEntities.forEach((player) => this.scene.remove(player.model));
 		this.playerEntities.clear();
-		this.playerPosition.clear();
 
 		this.housesItems.forEach((houseItem) => {
 			this.mapContainer.remove(houseItem.group);
@@ -2102,7 +2112,8 @@ export class GameRenderer {
 	}
 
 	private updatePlayerPosition(playerInfo: PlayerInfo) {
-		const mapItemId = this.resolvePlayerMapItemId(playerInfo);
+		// 渲染层已记录的位置优先于 GameData 快照（见 reloadScene 说明）
+		const mapItemId = this.playerPosition.get(playerInfo.id) ?? this.resolvePlayerMapItemId(playerInfo);
 		const mapItem = this.getMapItemById(mapItemId);
 		if (!mapItem) {
 			if (mapItemId) console.warn(`[渲染器] 未找到玩家初始位置地图项: ${mapItemId}`);
