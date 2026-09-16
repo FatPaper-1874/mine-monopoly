@@ -1,5 +1,11 @@
 # @mine-monopoly/client
 
+## 1.3.2
+
+### Patch Changes
+
+- - 修复部分表单数字输入框无法输入小数的问题
+
 ## 1.3.1
 
 ### Patch Changes
