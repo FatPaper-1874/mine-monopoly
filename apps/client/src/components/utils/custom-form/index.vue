@@ -160,6 +160,7 @@ const handleSubmit = () => {
 				:min="field.min"
 				:max="field.max"
 				@blur="handleNumberBlur(field)"
+				step="any"
 				class="form-control"
 			/>
 
