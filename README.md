@@ -363,6 +363,9 @@ docker compose -f docker/docker-compose.yml up -d
 
 - 客户端字体：[Resource Han Rounded](https://github.com/CyanoHao/Resource-Han-Rounded)
 
+[![AtomGitStars](https://atomgit.com/FatPaper-1874/mine-monopoly/star/new_badge.svg)](https://atomgit.com/FatPaper-1874/mine-monopoly)
+
+
 ## 许可证
 
 本项目基于 **GNU General Public License v3.0** 许可证开源，详见 [LICENSE](LICENSE)。
