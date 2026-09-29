@@ -703,6 +703,17 @@ export type ResourcesType = {
 	url: string;
 };
 
+/**
+ * 生成不与现有资源重名的临时名称。
+ * 按数量编号（length + 1）在删除过资源后会产生重名，这里取最小的未占用编号。
+ */
+function nextTempResourceName(prefix: string, resources: ResourcesType[]): string {
+	const usedNames = new Set(resources.map((r) => r.name));
+	let index = 1;
+	while (usedNames.has(`${prefix} ${index}`)) index++;
+	return `${prefix} ${index}`;
+}
+
 export const useResourceStore = defineStore("Resources", {
 	state: (): { models: ResourcesType[]; images: ResourcesType[] } => ({
 		models: [],
@@ -724,9 +735,10 @@ export const useResourceStore = defineStore("Resources", {
 
 		/**
 		 * 添加临时模型（使用 empty.glb 模板）
+		 * @param name 资源名称（可选，缺省时自动生成不重名的"临时模型 N"）
 		 * @returns 新创建的模型资源
 		 */
-		async addTempModel(): Promise<ResourcesType> {
+		async addTempModel(name?: string): Promise<ResourcesType> {
 			const id = generateShortId('model');
 
 			// 使用 electronAPI 复制 empty.glb 到 temp 目录
@@ -734,7 +746,7 @@ export const useResourceStore = defineStore("Resources", {
 
 			const newModel: ResourcesType = {
 				id,
-				name: `临时模型 ${this.models.length + 1}`,
+				name: name || nextTempResourceName("临时模型", this.models),
 				fileType: result.fileType,
 				url: result.url, // 直接使用返回的 fp-file:// URL
 			};
@@ -744,9 +756,10 @@ export const useResourceStore = defineStore("Resources", {
 
 		/**
 		 * 添加临时图片（使用 empty.png 模板）
+		 * @param name 资源名称（可选，缺省时自动生成不重名的"临时图片 N"）
 		 * @returns 新创建的图片资源
 		 */
-		async addTempImage(): Promise<ResourcesType> {
+		async addTempImage(name?: string): Promise<ResourcesType> {
 			const id = generateShortId('image');
 
 			// 使用 electronAPI 复制 empty.png 到 temp 目录
@@ -754,7 +767,7 @@ export const useResourceStore = defineStore("Resources", {
 
 			const newImage: ResourcesType = {
 				id,
-				name: `临时图片 ${this.images.length + 1}`,
+				name: name || nextTempResourceName("临时图片", this.images),
 				fileType: result.fileType,
 				url: result.url, // 直接使用返回的 fp-file:// URL
 			};
@@ -782,6 +795,16 @@ export const useResourceStore = defineStore("Resources", {
 			const deleteIndex = this.images.findIndex((i) => i.id === id);
 			if (deleteIndex < 0) return;
 			this.images.splice(deleteIndex, 1);
+		},
+		/**
+		 * 重命名模型或图片资源（只改显示名称，ID 与文件不变，引用关系不受影响）
+		 * @returns 更新后的资源
+		 */
+		renameResource(type: "model" | "image", id: string, name: string): ResourcesType {
+			const resource = (type === "model" ? this.models : this.images).find((r) => r.id === id);
+			if (!resource) throw new Error(`找不到${type === "model" ? "模型" : "图片"}资源: ${id}`);
+			resource.name = name;
+			return resource;
 		},
 		findModelById(id: string) {
 			return this.models.find((m) => m.id === id);

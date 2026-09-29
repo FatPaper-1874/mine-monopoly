@@ -20,9 +20,23 @@ export const GetResourceByIdSchema = z.object({
 	}),
 });
 
-export const AddTempModelSchema = z.object({});
+const ResourceNameSchema = z.string().trim().min(1, "Resource name cannot be empty").max(64, "Resource name is too long");
 
-export const AddTempImageSchema = z.object({});
+export const AddTempModelSchema = z.object({
+	name: ResourceNameSchema.optional().describe("资源名称（可选，缺省时自动生成不重名的“临时模型 N”）"),
+});
+
+export const AddTempImageSchema = z.object({
+	name: ResourceNameSchema.optional().describe("资源名称（可选，缺省时自动生成不重名的“临时图片 N”）"),
+});
+
+export const UpdateResourceSchema = z.object({
+	resourceId: z.string().min(1, "Resource ID is required"),
+	type: z.enum(["model", "image"], {
+		errorMap: () => ({ message: "Type must be either 'model' or 'image'" }),
+	}),
+	name: ResourceNameSchema.describe("新的资源名称"),
+});
 export const ListResourcesSchema = z.object({
 	type: z.enum(["model", "image"]).optional(),
 	query: z.string().optional(),
@@ -104,6 +118,19 @@ export async function addTempImage(args: unknown) {
 }
 
 /**
+ * Rename a model or image resource
+ */
+export async function updateResource(args: unknown) {
+	try {
+		const validated = UpdateResourceSchema.parse(args);
+		const result = await invokeTool("update_resource", validated);
+		return successResult(result);
+	} catch (error: any) {
+		return errorResult(error.message || "Failed to update resource");
+	}
+}
+
+/**
  * Export tool definitions for MCP server
  */
 export const resourceTools = [
@@ -134,14 +161,20 @@ export const resourceTools = [
 	},
 	{
 		name: "add_temp_model",
-		description: "添加一个临时3D模型资源（使用 empty.glb 作为模板）。返回新创建的模型信息，包括 id、name、fileType 和 url。",
+		description: "添加一个临时3D模型资源（使用 empty.glb 作为模板）。可选参数 name 指定资源名称。返回新创建的模型信息，包括 id、name、fileType 和 url。",
 		inputSchema: AddTempModelSchema,
 		handler: addTempModel,
 	},
 	{
 		name: "add_temp_image",
-		description: "添加一个临时图片资源（使用 empty.png 作为模板）。返回新创建的图片信息，包括 id、name、fileType 和 url。",
+		description: "添加一个临时图片资源（使用 empty.png 作为模板）。可选参数 name 指定资源名称。返回新创建的图片信息，包括 id、name、fileType 和 url。",
 		inputSchema: AddTempImageSchema,
 		handler: addTempImage,
+	},
+	{
+		name: "update_resource",
+		description: "重命名模型或图片资源。只修改显示名称，资源 ID 和文件不变，已有引用不受影响。需要 resourceId、type（'model' 或 'image'）和 name。",
+		inputSchema: UpdateResourceSchema,
+		handler: updateResource,
 	},
 ];

@@ -280,14 +280,19 @@ export async function handleToolInvocation(toolName: MCPToolName, args: any): Pr
 			}
 
 			case "add_temp_model": {
-				const tempModel = await resourceStore.addTempModel();
+				const tempModel = await resourceStore.addTempModel(args.name);
 				result = toPlain(tempModel);
 				break;
 			}
 
 			case "add_temp_image": {
-				const tempImage = await resourceStore.addTempImage();
+				const tempImage = await resourceStore.addTempImage(args.name);
 				result = toPlain(tempImage);
+				break;
+			}
+
+			case "update_resource": {
+				result = toPlain(resourceStore.renameResource(args.type, args.resourceId, args.name));
 				break;
 			}
 

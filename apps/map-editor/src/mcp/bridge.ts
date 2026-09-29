@@ -43,6 +43,7 @@ export type MCPToolName =
 	| "get_resource_by_id"
 	| "add_temp_model"
 	| "add_temp_image"
+	| "update_resource"
 	| "list_resources"
 	// Map item tools
 	| "list_map_items"
