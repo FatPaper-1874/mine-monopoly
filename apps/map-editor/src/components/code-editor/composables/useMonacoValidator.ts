@@ -72,10 +72,12 @@ export function useMonacoValidator() {
 		}
 
 		// 使用与编辑器完全相同的类型库来源。若类型已是最新内容，不会触发 TS worker 重载。
+		// 校验额外库本身时，待校验代码就是新的额外库，不能再叠加当前（旧）额外库，
+		// 否则同名声明会被误报为重复定义（"Definitions ... conflict with those in another file"）。
 		const mapDataStore = useMapDataStore();
 		syncMonacoTypeLibs(monacoInstance, {
 			staticTypes: staticEditorLib,
-			extraLibs: mapDataStore.extraLibs || "",
+			extraLibs: normalizedCodeType === "extra-libs" ? "" : (mapDataStore.extraLibs || ""),
 			uiTemplates: mapDataStore.uiTemplates || [],
 			gameSettingForm: mapDataStore.gameSettingForm || [],
 			modifierTemplates: mapDataStore.modifierTemplates || [],
