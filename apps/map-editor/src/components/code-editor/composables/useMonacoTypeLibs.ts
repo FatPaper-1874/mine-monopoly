@@ -122,17 +122,44 @@ function hasSameTypeLibs(
 		&& expectedLibs.every(({ filePath, content }) => currentLibs[filePath]?.content === content);
 }
 
+/**
+ * 同步与类型库同路径的 editor model。
+ *
+ * Monaco 的 TS worker 读取文件时优先使用同 URI 的 model，其次才是 extraLibs。
+ * 当诊断的 relatedInformation 指向某个类型库文件（例如 "xxx 已在此处声明"）时，
+ * Monaco 会用该类型库当时的内容创建一个同路径 model，且之后不会自动更新或销毁，
+ * 导致后续 setExtraLibs 被这个旧 model 遮住，直到重启编辑器。
+ */
+function syncTypeLibModels(
+	monacoInstance: typeof monaco,
+	previousPaths: string[],
+	typeLibs: MonacoTypeLib[],
+): void {
+	const expected = new Map(typeLibs.map((lib) => [lib.filePath, lib.content]));
+	for (const [filePath, content] of expected) {
+		const model = monacoInstance.editor.getModel(monacoInstance.Uri.parse(filePath));
+		if (model && model.getValue() !== content) model.setValue(content);
+	}
+	for (const filePath of previousPaths) {
+		if (expected.has(filePath)) continue;
+		monacoInstance.editor.getModel(monacoInstance.Uri.parse(filePath))?.dispose();
+	}
+}
+
 export function syncMonacoTypeLibs(
 	monacoInstance: typeof monaco,
 	options: MonacoTypeLibOptions,
 ): void {
 	const typeLibs = buildMonacoTypeLibs(options);
 	const tsDefaults = monacoInstance.languages.typescript.typescriptDefaults;
+	const currentLibs = tsDefaults.getExtraLibs();
 
 	// 内容未变时不调用 setExtraLibs，避免保存校验触发无意义的语言服务重载。
-	if (!hasSameTypeLibs(tsDefaults.getExtraLibs(), typeLibs)) {
+	if (!hasSameTypeLibs(currentLibs, typeLibs)) {
 		tsDefaults.setExtraLibs(typeLibs);
 	}
+	// 即使 extraLibs 未变，也要检查同路径 model 是否残留旧内容
+	syncTypeLibModels(monacoInstance, Object.keys(currentLibs), typeLibs);
 }
 
 export function useMonacoTypeLibs(monacoInstance: Ref<typeof monaco | null>) {
