@@ -1,5 +1,17 @@
 # @mine-monopoly/map-editor
 
+## 1.3.3
+
+### Patch Changes
+
+- - **MCP 工具**
+    - `add_temp_model` / `add_temp_image` 支持可选参数 `name` 指定资源名称
+    - 新增 `update_resource` 工具，按 resourceId + type 重命名模型或图片资源（ID 与文件不变）
+    - 修复删除资源后新建临时资源出现重名（如两个“临时图片 2”）的问题
+  - **代码校验器**
+    - 修复额外库更新后，代码校验器仍使用旧类型库、需重启编辑器才能生效的问题
+    - 校验额外库本身时不再叠加当前额外库，避免新旧代码的同名声明被误报为重复定义
+
 ## 1.3.2
 
 ### Patch Changes
