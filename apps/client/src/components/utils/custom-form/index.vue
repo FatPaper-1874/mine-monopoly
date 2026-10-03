@@ -61,7 +61,7 @@ watch([() => props.schema, () => props.initialData], initData, { immediate: true
 // 监听 formData 变化，实时通知父组件
 watch(formData, (newData) => {
 	emit("update:modelValue", { ...newData });
-}, { deep: true });
+}, { deep: true, immediate: true });
 
 // 数字输入失焦时校验和修正
 const handleNumberBlur = (field: FormSchema) => {
@@ -160,6 +160,7 @@ const handleSubmit = () => {
 				:min="field.min"
 				:max="field.max"
 				@blur="handleNumberBlur(field)"
+				step="any"
 				class="form-control"
 			/>
 

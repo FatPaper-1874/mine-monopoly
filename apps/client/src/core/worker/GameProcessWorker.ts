@@ -1,4 +1,4 @@
-import { OperateListener } from "./class/OperateListener";
+import { OperateListener, type TimeoutInfo } from "./class/OperateListener";
 import {
 	WorkerCommMsg,
 	type GameProcessDebugState,
@@ -178,11 +178,7 @@ function applyAIDecisionConfig(config: AIDecisionConfig): void {
 	aiManager.setProvider(new HostBridgeDecisionProvider(config));
 }
 
-function resolveAIDecisionResponse(data: {
-	requestId: string;
-	selection?: AIDecisionSelection;
-	error?: string;
-}): void {
+function resolveAIDecisionResponse(data: { requestId: string; selection?: AIDecisionSelection; error?: string }): void {
 	const pending = pendingAIDecisionRequests.get(data.requestId);
 	if (!pending) return;
 	clearTimeout(pending.timeoutId);
@@ -481,10 +477,8 @@ async function handleMessage(data: WorkerCommMsg) {
 			break;
 		case WorkerCommType.DebugGetState:
 			{
-				console.log("[DebugGetState] received");
 				try {
 					const state = gameProcess ? gameProcess.getDebugState() : null;
-					console.log("[DebugGetState] state serialized, players:", state?.players?.length);
 					self.postMessage(<WorkerCommMsg>{
 						type: WorkerCommType.DebugStateResponse,
 						data: { state },
@@ -500,7 +494,6 @@ async function handleMessage(data: WorkerCommMsg) {
 			break;
 		case WorkerCommType.GMAction:
 			{
-				console.log("[GMAction] received:", data.data);
 				try {
 					const action = data.data as GMAction;
 					const response = await handleGMAction(action, gameProcess);
@@ -535,7 +528,6 @@ function sendToUsers(userIdList: string[], msg: ServerSocketMessage) {
 }
 
 (async () => {})();
-
 
 export class GameProcess implements IGameProcess {
 	private initSessionId = "";
@@ -679,9 +671,6 @@ export class GameProcess implements IGameProcess {
 			});
 		}
 
-		console.dir(gameSetting);
-		console.dir(gameSetting.initMoney.value);
-
 		// 组合完整的类型定义（包含 GameProcessTypes 和 extraLibs）
 		this.fullTypes = `${GameProcessTypes}\n${mapData.extraLibs || ""}`;
 
@@ -689,39 +678,36 @@ export class GameProcess implements IGameProcess {
 		operationListener.setGlobalTickCallback((timeouts) => {
 			if (timeouts.length === 0) {
 				this.roundRemainingTimeBroadcast(0, 0);
+				this.updateCurrentEventShowCountdown(false);
 				return;
 			}
 
-			// 找到最小的剩余时间（最紧急的操作），向上取整显示为整数秒
-			const minRemaining = Math.min(...timeouts.map((t) => t.remainingMs));
-			const minTotalTime = Math.min(...timeouts.map((t) => t.totalTime));
-			const remainingSeconds = Math.ceil(minRemaining / 1000);
-			const totalSeconds = Math.ceil(minTotalTime / 1000);
+			// 嵌套 show 调用时，UI 应展示最近发起的那一个等待，且剩余/总时间必须来自同一计时器。
+			const currentTimeout = timeouts.reduce((latest, timeout) =>
+				timeout.startedAt >= latest.startedAt ? timeout : latest,
+			);
+			const remainingSeconds = Math.ceil(currentTimeout.remainingMs / 1000);
+			const totalSeconds = Math.ceil(currentTimeout.totalTime / 1000);
 
-			// 发送倒计时消息
-			this.roundRemainingTimeBroadcast(remainingSeconds, totalSeconds);
-
-			// 如果有倒计时，通知客户端显示倒计时
-			if (remainingSeconds > 0) {
-				this.updateCurrentEventShowCountdown(true);
-			}
+			this.roundRemainingTimeBroadcast(remainingSeconds, totalSeconds, currentTimeout);
+			this.updateCurrentEventShowCountdown(remainingSeconds > 0);
 		});
 
 		// 绑定超时回调到 OperateListener
-		operationListener.setTimeoutCallback((playerId, eventType) => {
-			// 超时后通知客户端不显示倒计时
-			this.updateCurrentEventShowCountdown(false);
-
+		operationListener.setTimeoutCallback((timeout) => {
 			this.gameBroadcast(<ServerSocketMessage>{
 				type: SocketMsgType.RoundTimeOut,
 				source: SocketMsgSource.Server,
-				data: { playerId, eventType },
+				data: {
+					playerId: timeout.playerId,
+					eventType: timeout.eventType,
+					timeoutId: timeout.timeoutId,
+				},
 			});
 		});
 
 		// 暂停/恢复：房主切后台自动触发(deviceStatus)，也可通过设置界面手动触发
 		operationListener.on(roomOwnerId, OperateType.PauseGame, () => {
-			console.log("PauseGame");
 			this.setGamePaused(true);
 			this.gameBroadcast(<ServerSocketMessage>{
 				type: SocketMsgType.PauseGame,
@@ -732,7 +718,6 @@ export class GameProcess implements IGameProcess {
 			});
 		});
 		operationListener.on(roomOwnerId, OperateType.ResumeGame, () => {
-			console.log("ResumeGame");
 			this.setGamePaused(false);
 			this.gameBroadcast(<ServerSocketMessage>{
 				type: SocketMsgType.ResumeGame,
@@ -763,11 +748,7 @@ export class GameProcess implements IGameProcess {
 	 * @param callback 点击回调函数
 	 * @returns ButtonController 按钮控制实例
 	 */
-	public registerPlayerButton(
-		playerId: string,
-		text: string,
-		callback: () => Promise<void> | void,
-	): ButtonController {
+	public registerPlayerButton(playerId: string, text: string, callback: () => Promise<void> | void): ButtonController {
 		// 验证玩家ID
 		if (!this.players.has(playerId)) {
 			throw new Error(`玩家不存在: ${playerId}`);
@@ -1098,23 +1079,7 @@ export class GameProcess implements IGameProcess {
 
 		this.aiDynamicButtonInFlight.add(playerId);
 		try {
-			console.log(`${AI_LOG_PREFIX} dynamic-button request`, {
-				decisionId: request.metadata?.decisionId,
-				playerId,
-				title: request.title,
-				scene: request.scene,
-				options: request.options.map((option) => ({
-					id: option.id,
-					label: option.label,
-					actionType: option.actionType,
-				})),
-			});
 			const selection = await this.runAIDecision(player, request);
-			console.log(`${AI_LOG_PREFIX} dynamic-button selection`, {
-				decisionId: request.metadata?.decisionId,
-				playerId,
-				selection,
-			});
 			const selectedOptionId = selection.optionId;
 			const selectedOption = request.options.find((option) => option.id === selectedOptionId);
 			const buttonId = String(selectedOption?.payload?.id || selectedOptionId || "");
@@ -1128,12 +1093,6 @@ export class GameProcess implements IGameProcess {
 				request,
 				selection,
 				outcome: "dynamic-button",
-			});
-			console.log(`${AI_LOG_PREFIX} execute dynamic button`, {
-				decisionId: request.metadata?.decisionId,
-				playerId,
-				buttonId,
-				label: selectedOption.label,
 			});
 			await this.handleDynamicButtonClick(playerId, buttonId);
 		} finally {
@@ -1245,10 +1204,6 @@ export class GameProcess implements IGameProcess {
 			});
 			if (!request) {
 				if (allowRollDice) {
-					console.log(`${AI_LOG_PREFIX} pre-roll broker auto-roll`, {
-						playerId,
-						reason: "no_active_actions",
-					});
 					this.closeAIPreRollOperationSessionAndEmit(
 						playerId,
 						sessionId,
@@ -1260,31 +1215,8 @@ export class GameProcess implements IGameProcess {
 			}
 			this.ensureAIDecisionMetadata(request, playerId, `pre-roll:${request.title}`);
 
-			console.log(`${AI_LOG_PREFIX} pre-roll request`, {
-				decisionId: request.metadata?.decisionId,
-				playerId,
-				sessionId,
-				title: request.title,
-				scene: request.scene,
-				options: request.options.map((option) => ({
-					id: option.id,
-					label: option.label,
-					actionType: option.actionType,
-					actionKind: option.payload?.actionKind,
-				})),
-			});
 			const selection = await this.runAIDecision(player, request);
-			console.log(`${AI_LOG_PREFIX} pre-roll selection`, {
-				decisionId: request.metadata?.decisionId,
-				playerId,
-				sessionId,
-				selection,
-			});
 			if (!this.isAIPreRollOperationSessionActive(playerId, sessionId)) {
-				console.log(`${AI_LOG_PREFIX} stale pre-roll selection ignored`, {
-					playerId,
-					sessionId,
-				});
 				return;
 			}
 
@@ -1341,13 +1273,6 @@ export class GameProcess implements IGameProcess {
 					request,
 					selection,
 					outcome: "dynamic-button",
-				});
-				console.log(`${AI_LOG_PREFIX} pre-roll execute dynamic button`, {
-					decisionId: request.metadata?.decisionId,
-					playerId,
-					sessionId,
-					buttonId,
-					label: selectedOption.label,
 				});
 				await this.handleDynamicButtonClick(playerId, buttonId);
 				if (!this.isAIPreRollOperationSessionActive(playerId, sessionId)) {
@@ -1407,14 +1332,6 @@ export class GameProcess implements IGameProcess {
 					request,
 					selection,
 					outcome: "chance-card",
-				});
-				console.log(`${AI_LOG_PREFIX} pre-roll emit chance card`, {
-					decisionId: request.metadata?.decisionId,
-					playerId,
-					sessionId,
-					chanceCardId,
-					label: selectedOption.label,
-					targetIdList,
 				});
 				this.closeAIPreRollOperationSessionAndEmit(playerId, sessionId, OperateType.UseChanceCard, {
 					chanceCardId,
@@ -1661,6 +1578,7 @@ export class GameProcess implements IGameProcess {
 				0,
 				this.mapData.phases.playerRound,
 				role,
+				this.mapData.startMapItemId || "",
 				this.mapData.extraLibs,
 			);
 			player.isAI = Boolean(u.isAI);
@@ -1677,7 +1595,13 @@ export class GameProcess implements IGameProcess {
 				const totalSteps = Math.abs(steps);
 				const isForcedReverse = steps < 0;
 				const segments: MapMovementSegment[] = [];
-				const passedItems: { mapItemId: string; index: number; mapItem?: MapItem; pathId?: string; direction?: MapMoveDirection }[] = [];
+				const passedItems: {
+					mapItemId: string;
+					index: number;
+					mapItem?: MapItem;
+					pathId?: string;
+					direction?: MapMoveDirection;
+				}[] = [];
 				let passedIndex = 0;
 				let completedSteps = 0;
 				const rejectedAutomaticPathIds = new Set<string>();
@@ -1736,10 +1660,11 @@ export class GameProcess implements IGameProcess {
 							const selectableCandidates: MapMoveOption[] = isForcedReverse
 								? options
 								: player.returnFromMapItemId
-									? options.filter((option) =>
-										option.targetMapItemId !== player.returnFromMapItemId &&
-										option.targetMapItemId !== incomingMapItemId,
-									)
+									? options.filter(
+											(option) =>
+												option.targetMapItemId !== player.returnFromMapItemId &&
+												option.targetMapItemId !== incomingMapItemId,
+										)
 									: options.filter((option) => option.targetMapItemId !== incomingMapItemId);
 
 							if (selectableCandidates.length === 0) {
@@ -1810,7 +1735,9 @@ export class GameProcess implements IGameProcess {
 									try {
 										const choice = await choicePromise;
 										if (choice?.requestId === request.requestId) {
-											selectedOption = selectableCandidates.find((option) => option.path.id === choice.pathId) ?? defaultSelectedOption;
+											selectedOption =
+												selectableCandidates.find((option) => option.path.id === choice.pathId) ??
+												defaultSelectedOption;
 										}
 									} finally {
 										if (this.pendingMapPathChoice?.requestId === request.requestId) {
@@ -2363,7 +2290,10 @@ export class GameProcess implements IGameProcess {
 					const targetMapItem = this.mapItems.get(targetMapItemId);
 					if (!targetMapItem) throw new Error("目标地图项不存在");
 					await this.executeChanceCardWithAnimation(sourcePlayer, chanceCard, targetMapItemId, [targetMapItem.id]);
-					this.msgNotifyBroadcast("info", `${sourcePlayer.name} 对格子 ${targetMapItem.type.name} 使用了机会卡: "${cardName}"`);
+					this.msgNotifyBroadcast(
+						"info",
+						`${sourcePlayer.name} 对格子 ${targetMapItem.type.name} 使用了机会卡: "${cardName}"`,
+					);
 					this.gameLogBroadcast(`${sourceLink} 对格子 ${targetMapItem.id} 使用了机会卡: ${cardLink}`);
 					break;
 				}
@@ -2602,7 +2532,9 @@ export class GameProcess implements IGameProcess {
 		return getAvailableMapPathsFromAdjacency(this.mapPathAdjacency, mapItemId, direction, this.enabledPathIds);
 	}
 
-	public isMapPathEnabled(pathId: string): boolean { return this.enabledPathIds.has(pathId); }
+	public isMapPathEnabled(pathId: string): boolean {
+		return this.enabledPathIds.has(pathId);
+	}
 
 	public setMapPathEnabled(pathId: string, enabled: boolean, canPass?: MapPathCanPass): void {
 		if (!this.getMapPathById(pathId)) throw new Error(`找不到地图路径: ${pathId}`);
@@ -2712,29 +2644,12 @@ export class GameProcess implements IGameProcess {
 	): Promise<PlayerOperationResult[T]> {
 		const request = this.buildAIDecisionRequest(player, operationType, input?.option);
 		if (!request) {
-			console.log(`${AI_LOG_PREFIX} no request built`, {
-				playerId: player.id,
-				operationType,
-			});
 			return this.buildAIDefaultOperationResult(player, operationType, input?.option, input?.defaultValue);
 		}
 
 		this.attachAIDecisionChainContext(player, request);
 		this.ensureAIDecisionMetadata(request, player.id, `${String(operationType)}:${request.title}`);
 
-		console.log(`${AI_LOG_PREFIX} structured request`, {
-			decisionId: request.metadata?.decisionId,
-			playerId: player.id,
-			operationType,
-			title: request.title,
-			scene: request.scene,
-			chainContext: request.metadata?.chainContext,
-			options: request.options.map((option) => ({
-				id: option.id,
-				label: option.label,
-				actionType: option.actionType,
-			})),
-		});
 		const selection = await this.runAIDecision(player, request);
 		const result = this.mapAIDecisionSelectionToResult(player, request, selection, input?.option, input?.defaultValue);
 		this.rememberAIDecisionChain(player.id, request, selection);
@@ -2744,18 +2659,13 @@ export class GameProcess implements IGameProcess {
 			selection,
 			outcome: "mapped-operation",
 		});
-		console.log(`${AI_LOG_PREFIX} mapped result`, {
-			decisionId: request.metadata?.decisionId,
-			playerId: player.id,
-			operationType,
-			selection,
-			result,
-		});
 		return result;
 	}
 
 	private isChainableAIDecisionScene(scene: AIDecisionRequest["scene"] | undefined): boolean {
-		return scene === "confirm-dialog" || scene === "target-select" || scene === "item-select" || scene === "form-dialog";
+		return (
+			scene === "confirm-dialog" || scene === "target-select" || scene === "item-select" || scene === "form-dialog"
+		);
 	}
 
 	private appendAIDecisionSummary(base: string | undefined, fragment: string | undefined): string | undefined {
@@ -2864,9 +2774,10 @@ export class GameProcess implements IGameProcess {
 					: "放弃提交"
 				: chosenLabel || fieldSummary;
 		const state: AIChainedDecisionState = {
-			chainId: typeof (chainContext as Record<string, unknown>).chainId === "string"
-				? ((chainContext as Record<string, unknown>).chainId as string)
-				: `chain-${playerId.slice(0, 6)}-${request.context.currentRound}`,
+			chainId:
+				typeof (chainContext as Record<string, unknown>).chainId === "string"
+					? ((chainContext as Record<string, unknown>).chainId as string)
+					: `chain-${playerId.slice(0, 6)}-${request.context.currentRound}`,
 			eventName:
 				typeof (chainContext as Record<string, unknown>).eventName === "string"
 					? ((chainContext as Record<string, unknown>).eventName as string)
@@ -2874,7 +2785,7 @@ export class GameProcess implements IGameProcess {
 			round: request.context.currentRound,
 			currentRoundPlayerId,
 			steps: [
-				...((this.aiDecisionChains.get(playerId)?.steps || []).slice(-2)),
+				...(this.aiDecisionChains.get(playerId)?.steps || []).slice(-2),
 				{
 					title: request.title,
 					scene: request.scene,
@@ -2990,9 +2901,7 @@ export class GameProcess implements IGameProcess {
 
 	private buildDialogDecisionSummary(title?: string, content?: unknown): string | undefined {
 		const contentText =
-			typeof content === "string"
-				? this.normalizeDecisionText(content)
-				: this.extractDisplayText(content);
+			typeof content === "string" ? this.normalizeDecisionText(content) : this.extractDisplayText(content);
 		const titleText = this.normalizeDecisionText(title);
 		if (contentText && titleText && contentText !== titleText) {
 			return `${titleText}：${contentText}`;
@@ -3272,11 +3181,7 @@ export class GameProcess implements IGameProcess {
 		return attemptedDynamicButtons[button.id] === signature;
 	}
 
-	private markAITurnDynamicButtonAttempt(
-		playerId: string,
-		buttonId: string,
-		text: string,
-	): void {
+	private markAITurnDynamicButtonAttempt(playerId: string, buttonId: string, text: string): void {
 		const previous = this.getAITurnActionState(playerId);
 		this.aiTurnActionState.set(playerId, {
 			...previous,
@@ -3371,19 +3276,10 @@ export class GameProcess implements IGameProcess {
 	private async buildAIChanceCardTargetIds(player: Player, chanceCardId: string): Promise<string[]> {
 		const chanceCard = player.getCardById(chanceCardId);
 		if (!chanceCard) {
-			console.log(`${AI_LOG_PREFIX} chance card target build failed`, {
-				playerId: player.id,
-				chanceCardId,
-				reason: "card_not_found",
-			});
 			return [];
 		}
 
 		if (chanceCard.getType() === TargetSelectType.ToSelf) {
-			console.log(`${AI_LOG_PREFIX} chance card target self`, {
-				playerId: player.id,
-				chanceCardId,
-			});
 			return [];
 		}
 
@@ -3403,14 +3299,6 @@ export class GameProcess implements IGameProcess {
 			outcome: "chance-card-target",
 		});
 		const targetIds = selection.optionIds || (selection.optionId ? [selection.optionId] : []);
-		console.log(`${AI_LOG_PREFIX} chance card target selection`, {
-			decisionId: request.metadata?.decisionId,
-			playerId: player.id,
-			chanceCardId,
-			title: request.title,
-			selection,
-			targetIds,
-		});
 		return targetIds;
 	}
 
@@ -3423,7 +3311,15 @@ export class GameProcess implements IGameProcess {
 			return undefined;
 		}
 
-		const variableText = this.extractObjectStringByKeys(display, ["description", "summary", "content", "text", "label", "title", "name"]);
+		const variableText = this.extractObjectStringByKeys(display, [
+			"description",
+			"summary",
+			"content",
+			"text",
+			"label",
+			"title",
+			"name",
+		]);
 		if (variableText) {
 			return variableText;
 		}
@@ -3436,7 +3332,15 @@ export class GameProcess implements IGameProcess {
 			}
 		}
 		if (record.variable && typeof record.variable === "object") {
-			const variableContent = this.extractObjectStringByKeys(record.variable, ["description", "summary", "content", "text", "label", "title", "name"]);
+			const variableContent = this.extractObjectStringByKeys(record.variable, [
+				"description",
+				"summary",
+				"content",
+				"text",
+				"label",
+				"title",
+				"name",
+			]);
 			if (variableContent) {
 				return variableContent;
 			}
@@ -3454,9 +3358,7 @@ export class GameProcess implements IGameProcess {
 
 	private buildSelectorItemLabel(item: any, index: number, keyName?: PropertyKey): string {
 		const explicitLabel =
-			keyName !== undefined && item && typeof item === "object"
-				? item[keyName as keyof typeof item]
-				: undefined;
+			keyName !== undefined && item && typeof item === "object" ? item[keyName as keyof typeof item] : undefined;
 		const label =
 			this.normalizeDecisionText(explicitLabel) ??
 			this.normalizeDecisionText(item?.name) ??
@@ -3573,7 +3475,9 @@ export class GameProcess implements IGameProcess {
 			case OperateType.ItemSelectDialogResult:
 				return { selected: [] } as unknown as PlayerOperationResult[T];
 			case OperateType.FormDialogResult:
-				return this.buildDefaultFormResult((option as FormDialogOption<FormField<string, any>[]>)?.fields || []) as PlayerOperationResult[T];
+				return this.buildDefaultFormResult(
+					(option as FormDialogOption<FormField<string, any>[]>)?.fields || [],
+				) as PlayerOperationResult[T];
 			case OperateType.DynamicButtonClick:
 				return { buttonId: "", success: false } as PlayerOperationResult[T];
 			default:
@@ -3610,8 +3514,7 @@ export class GameProcess implements IGameProcess {
 					(option as FormDialogOption<FormField<string, any>[]>)?.fields || [],
 				);
 				const submitted =
-					selection.submitted === true ||
-					(selection.submitted === undefined && selection.optionId === "__submit__");
+					selection.submitted === true || (selection.submitted === undefined && selection.optionId === "__submit__");
 				return {
 					...defaultResult,
 					...(selection.fieldValues || {}),
@@ -3628,7 +3531,9 @@ export class GameProcess implements IGameProcess {
 		}
 	}
 
-	public setInitSessionId(initSessionId: string): void { this.initSessionId = initSessionId; }
+	public setInitSessionId(initSessionId: string): void {
+		this.initSessionId = initSessionId;
+	}
 
 	private prepareInitialInitBarrier(): void {
 		this.initialInitBarrier.clear();
@@ -3639,7 +3544,12 @@ export class GameProcess implements IGameProcess {
 
 	private async waitInitFinished(): Promise<void> {
 		if (this.initialInitBarrier.size === 0) {
-			this.gameBroadcast({ type: SocketMsgType.GameInitFinished, data: undefined, source: SocketMsgSource.Server, extra: { initSessionId: this.initSessionId } });
+			this.gameBroadcast({
+				type: SocketMsgType.GameInitFinished,
+				data: undefined,
+				source: SocketMsgSource.Server,
+				extra: { initSessionId: this.initSessionId },
+			});
 			return;
 		}
 		await new Promise<void>((resolve) => {
@@ -3651,10 +3561,18 @@ export class GameProcess implements IGameProcess {
 				this.resolveInitialBarrierIfComplete();
 			}, GameProcess.INIT_BARRIER_TIMEOUT);
 		});
-		this.gameBroadcast({ type: SocketMsgType.GameInitFinished, data: undefined, source: SocketMsgSource.Server, extra: { initSessionId: this.initSessionId } });
+		this.gameBroadcast({
+			type: SocketMsgType.GameInitFinished,
+			data: undefined,
+			source: SocketMsgSource.Server,
+			extra: { initSessionId: this.initSessionId },
+		});
 	}
 
-	public handleInitSignal(userId: string, metadata?: { initSessionId?: string; initStatus?: "ready" | "failed"; reason?: string; messageId?: string }): void {
+	public handleInitSignal(
+		userId: string,
+		metadata?: { initSessionId?: string; initStatus?: "ready" | "failed"; reason?: string; messageId?: string },
+	): void {
 		if (metadata?.messageId) {
 			if (this.processedInitMessageIds.has(metadata.messageId)) return;
 			this.processedInitMessageIds.add(metadata.messageId);
@@ -3664,17 +3582,30 @@ export class GameProcess implements IGameProcess {
 			clearTimeout(reconnect.timeout);
 			this.reconnectInitSessions.delete(userId);
 			if (metadata?.initStatus === "failed") {
-				this.sendToPlayer(userId, { type: SocketMsgType.GameInitAborted, source: SocketMsgSource.Server, data: { initSessionId: reconnect.sessionId, reason: metadata?.reason || "游戏初始化失败" } });
+				this.sendToPlayer(userId, {
+					type: SocketMsgType.GameInitAborted,
+					source: SocketMsgSource.Server,
+					data: { initSessionId: reconnect.sessionId, reason: metadata?.reason || "游戏初始化失败" },
+				});
 				this.handlePlayerOffline(userId);
 			} else {
-				this.sendToPlayer(userId, { type: SocketMsgType.GameInitFinished, source: SocketMsgSource.Server, data: undefined, extra: { initSessionId: reconnect.sessionId } });
+				this.sendToPlayer(userId, {
+					type: SocketMsgType.GameInitFinished,
+					source: SocketMsgSource.Server,
+					data: undefined,
+					extra: { initSessionId: reconnect.sessionId },
+				});
 			}
 			return;
 		}
 		if (metadata?.initSessionId !== this.initSessionId || !this.initialInitBarrier.has(userId)) return;
 		if (metadata?.initStatus === "failed") {
 			this.initialInitBarrier.set(userId, "failed");
-			this.sendToPlayer(userId, { type: SocketMsgType.GameInitAborted, source: SocketMsgSource.Server, data: { initSessionId: this.initSessionId, reason: metadata.reason || "游戏初始化失败" } });
+			this.sendToPlayer(userId, {
+				type: SocketMsgType.GameInitAborted,
+				source: SocketMsgSource.Server,
+				data: { initSessionId: this.initSessionId, reason: metadata.reason || "游戏初始化失败" },
+			});
 			this.markInitialPlayerOffline(userId, metadata.reason || "游戏初始化失败");
 		} else {
 			this.initialInitBarrier.set(userId, "ready");
@@ -3748,11 +3679,17 @@ export class GameProcess implements IGameProcess {
 		this.gameRuntimeStack.push(...gameEvents);
 	}
 
-	public roundRemainingTimeBroadcast = (remainingTime: number, totalTime: number) => {
+	public roundRemainingTimeBroadcast = (remainingTime: number, totalTime: number, timeout?: TimeoutInfo) => {
 		const msg: ServerSocketMessage = {
 			type: SocketMsgType.RemainingTime,
 			source: SocketMsgSource.Server,
-			data: { remainingTime, totalTime },
+			data: {
+				remainingTime,
+				totalTime,
+				timeoutId: timeout?.timeoutId,
+				playerId: timeout?.playerId,
+				eventType: timeout?.eventType,
+			},
 		};
 		this.gameBroadcast(msg);
 	};
@@ -3832,12 +3769,11 @@ export class GameProcess implements IGameProcess {
 
 		// 如果玩家是AI托管，直接返回决策，不显示对话框
 		if (player?.isAI) {
-			console.log(`${AI_LOG_PREFIX} intercept confirm dialog for AI`, {
-				playerId,
-				title: option.title,
-			});
 			return (await this.makeAIDecision(player, OperateType.ConfirmDialogResult, { option })) as ConfirmDialogResult;
 		}
+
+		const timeoutId = randomString(16);
+		const timeout = config?.timeout ?? this.defaultTimeoutMs;
 
 		// 真实玩家，显示对话框
 		sendToUsers([playerId], {
@@ -3846,12 +3782,15 @@ export class GameProcess implements IGameProcess {
 			data: {
 				playerId,
 				option,
+				timeoutId,
 			},
 		});
 
 		// 使用带超时的方法
 		return (await operationListener.onceAsyncWithTimeout(playerId, OperateType.ConfirmDialogResult, {
-			timeout: config?.timeout ?? this.defaultTimeoutMs,
+			timeout,
+			timeoutId,
+			match: (result) => result.timeoutId === timeoutId,
 			defaultValue: config?.defaultValue ?? { id: playerId, confirm: false },
 		})) as ConfirmDialogResult;
 	}
@@ -3865,15 +3804,13 @@ export class GameProcess implements IGameProcess {
 
 		// 如果玩家是AI托管，直接返回决策，不显示对话框
 		if (player?.isAI) {
-			console.log(`${AI_LOG_PREFIX} intercept target dialog for AI`, {
-				playerId,
-				title: option.title,
-				type: option.type,
-			});
 			return (await this.makeAIDecision(player, OperateType.TargetSelectDialogResult, {
 				option,
 			})) as TargetSelectDialogResult<I>;
 		}
+
+		const timeoutId = randomString(16);
+		const timeout = config?.timeout ?? this.defaultTimeoutMs;
 
 		// 真实玩家，显示对话框
 		sendToUsers([playerId], {
@@ -3882,11 +3819,14 @@ export class GameProcess implements IGameProcess {
 			data: {
 				playerId,
 				option,
+				timeoutId,
 			},
 		});
 
 		return (await operationListener.onceAsyncWithTimeout(playerId, OperateType.TargetSelectDialogResult, {
-			timeout: config?.timeout ?? this.defaultTimeoutMs,
+			timeout,
+			timeoutId,
+			match: (result) => result.timeoutId === timeoutId,
 			defaultValue: config?.defaultValue ?? { target: [] },
 		})) as TargetSelectDialogResult<I>;
 	}
@@ -3900,15 +3840,13 @@ export class GameProcess implements IGameProcess {
 
 		// 如果玩家是AI托管，直接返回决策，不显示对话框
 		if (player?.isAI) {
-			console.log(`${AI_LOG_PREFIX} intercept item dialog for AI`, {
-				playerId,
-				title: option.title,
-				itemCount: option.itemList?.length || 0,
-			});
 			return (await this.makeAIDecision(player, OperateType.ItemSelectDialogResult, {
 				option,
 			})) as ItemSelectDialogResult;
 		}
+
+		const timeoutId = randomString(16);
+		const timeout = config?.timeout ?? this.defaultTimeoutMs;
 
 		// 真实玩家，显示对话框
 		sendToUsers([playerId], {
@@ -3917,11 +3855,14 @@ export class GameProcess implements IGameProcess {
 			data: {
 				playerId,
 				option,
+				timeoutId,
 			},
 		});
 
 		return (await operationListener.onceAsyncWithTimeout(playerId, OperateType.ItemSelectDialogResult, {
-			timeout: config?.timeout ?? this.defaultTimeoutMs,
+			timeout,
+			timeoutId,
+			match: (result) => result.timeoutId === timeoutId,
 			defaultValue: config?.defaultValue ?? { selected: [] },
 		})) as ItemSelectDialogResult;
 	}
@@ -3942,15 +3883,13 @@ export class GameProcess implements IGameProcess {
 
 		// 如果玩家是 AI 托管，直接返回决策，不显示对话框
 		if (player?.isAI) {
-			console.log(`${AI_LOG_PREFIX} intercept form dialog for AI`, {
-				playerId,
-				title: option.title,
-				fieldCount: option.fields?.length || 0,
-			});
 			return (await this.makeAIDecision(player, OperateType.FormDialogResult, {
 				option,
 			})) as FormDialogResult<F>;
 		}
+
+		const timeoutId = randomString(16);
+		const timeout = config?.timeout ?? this.defaultTimeoutMs;
 
 		// 真实玩家，显示表单对话框
 		sendToUsers([playerId], {
@@ -3959,12 +3898,15 @@ export class GameProcess implements IGameProcess {
 			data: {
 				playerId,
 				option,
+				timeoutId,
 			},
 		});
 
 		// 使用带超时的方法等待响应
 		return (await operationListener.onceAsyncWithTimeout(playerId, OperateType.FormDialogResult, {
-			timeout: config?.timeout ?? this.defaultTimeoutMs,
+			timeout,
+			timeoutId,
+			match: (result) => result.timeoutId === timeoutId,
 			defaultValue: config?.defaultValue ?? this.buildDefaultFormResult(option.fields),
 		})) as FormDialogResult<F>;
 	}
@@ -4054,9 +3996,7 @@ export class GameProcess implements IGameProcess {
 
 	private appendMessageCardTextFragment(fragments: string[], value: unknown): void {
 		const normalized =
-			typeof value === "string"
-				? this.stripMessageCardRichText(value)
-				: this.normalizeDecisionText(value);
+			typeof value === "string" ? this.stripMessageCardRichText(value) : this.normalizeDecisionText(value);
 		if (!normalized || fragments.includes(normalized)) {
 			return;
 		}
@@ -4104,10 +4044,7 @@ export class GameProcess implements IGameProcess {
 	}
 
 	private extractAIMessageCardSummary(option: MessageCardOption, maxLength: number = 24): string | undefined {
-		const candidates = [
-			option.title,
-			this.extractMessageCardContentText(option.content),
-		];
+		const candidates = [option.title, this.extractMessageCardContentText(option.content)];
 		const genericTitles = new Set(["提示", "消息", "信息", "通知", "提醒"]);
 		for (const candidate of candidates) {
 			const trimmed = candidate?.trim();
@@ -4187,11 +4124,6 @@ export class GameProcess implements IGameProcess {
 	public async requestAIDecision(playerId: string, prompt: AIDecisionPrompt): Promise<AIDecisionSelection | null> {
 		const player = this.players.get(playerId);
 		if (!player?.isAI) {
-			console.log(`${AI_LOG_PREFIX} requestAIDecision ignored`, {
-				playerId,
-				reason: "player_not_ai",
-				title: prompt.title,
-			});
 			return null;
 		}
 
@@ -4203,30 +4135,12 @@ export class GameProcess implements IGameProcess {
 		this.ensureAIDecisionMetadata(request, playerId, `scripted:${request.title}`);
 
 		try {
-			console.log(`${AI_LOG_PREFIX} scripted request`, {
-				decisionId: request.metadata?.decisionId,
-				playerId,
-				title: request.title,
-				operationType: request.operationType,
-				scene: request.scene,
-				options: request.options.map((option) => ({
-					id: option.id,
-					label: option.label,
-					actionType: option.actionType,
-				})),
-			});
 			const selection = await this.runAIDecision(player, request);
 			aiManager.feedback({
 				playerId,
 				request,
 				selection,
 				outcome: "scripted",
-			});
-			console.log(`${AI_LOG_PREFIX} scripted selection`, {
-				decisionId: request.metadata?.decisionId,
-				playerId,
-				title: request.title,
-				selection,
 			});
 			return selection;
 		} finally {
@@ -4281,7 +4195,7 @@ export class GameProcess implements IGameProcess {
 							userId,
 							(snap as any).roleId,
 						]),
-				  )
+					)
 				: undefined;
 
 			// 步骤1: 初始化玩家和地皮（包含预初始化阶段）
@@ -4528,7 +4442,6 @@ export class GameProcess implements IGameProcess {
 			player.setIsOffline(true);
 			// 启用AI托管
 			player.isAI = true;
-			console.log(`[AI托管] 玩家 ${player.name} 离线，启用AI托管`);
 			this.gameDataBroadcast();
 		}
 	}
@@ -4547,7 +4460,6 @@ export class GameProcess implements IGameProcess {
 			player.setIsOffline(false);
 			// 取消AI托管
 			player.isAI = false;
-			console.log(`[AI托管] 玩家 ${player.name} 重连，取消AI托管`);
 			sendToUsers([userId], {
 				type: SocketMsgType.GameStart,
 				source: SocketMsgSource.Server,
@@ -4557,7 +4469,11 @@ export class GameProcess implements IGameProcess {
 			const initSessionId = randomString(16);
 			const timeout = setTimeout(() => {
 				this.reconnectInitSessions.delete(userId);
-				this.sendToPlayer(userId, { type: SocketMsgType.GameInitAborted, source: SocketMsgSource.Server, data: { initSessionId, reason: "重连初始化超时" } });
+				this.sendToPlayer(userId, {
+					type: SocketMsgType.GameInitAborted,
+					source: SocketMsgSource.Server,
+					data: { initSessionId, reason: "重连初始化超时" },
+				});
 				this.handlePlayerOffline(userId);
 			}, GameProcess.INIT_BARRIER_TIMEOUT);
 			this.reconnectInitSessions.set(userId, { sessionId: initSessionId, timeout });
@@ -4569,7 +4485,6 @@ export class GameProcess implements IGameProcess {
 			});
 			this.gameDataBroadcast();
 		} else {
-			console.log("奇怪的玩家 in game");
 		}
 	}
 
@@ -4597,9 +4512,9 @@ export class GameProcess implements IGameProcess {
 				currentMoveDirection: this.currentMapMoveDirection,
 				pendingChoice: this.pendingMapPathChoice
 					? {
-						...this.pendingMapPathChoice,
-						candidates: this.pendingMapPathChoice.candidates.map((candidate) => ({ ...candidate })),
-					}
+							...this.pendingMapPathChoice,
+							candidates: this.pendingMapPathChoice.candidates.map((candidate) => ({ ...candidate })),
+						}
 					: undefined,
 			},
 		};
@@ -4641,15 +4556,13 @@ export class GameProcess implements IGameProcess {
 		const mapPathRuntimeState = snapshot.mapPathRuntimeState;
 		if (mapPathRuntimeState) {
 			const validPathIds = new Set(this.mapData.mapPaths.map((path) => path.id));
-			this.enabledPathIds = new Set(
-				mapPathRuntimeState.enabledPathIds.filter((pathId) => validPathIds.has(pathId)),
-			);
+			this.enabledPathIds = new Set(mapPathRuntimeState.enabledPathIds.filter((pathId) => validPathIds.has(pathId)));
 			this.currentMapMoveDirection = mapPathRuntimeState.currentMoveDirection;
 			this.pendingMapPathChoice = mapPathRuntimeState.pendingChoice
 				? {
-					...mapPathRuntimeState.pendingChoice,
-					candidates: mapPathRuntimeState.pendingChoice.candidates.map((candidate) => ({ ...candidate })),
-				}
+						...mapPathRuntimeState.pendingChoice,
+						candidates: mapPathRuntimeState.pendingChoice.candidates.map((candidate) => ({ ...candidate })),
+					}
 				: undefined;
 		} else {
 			this.enabledPathIds = new Set(getInitialEnabledMapPathIds(this.mapData.mapPaths));

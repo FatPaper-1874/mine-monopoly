@@ -110,7 +110,7 @@
 | Custom UIs | list_custom_uis / create_custom_ui / update_custom_ui / delete_custom_ui | 自定义 UI CRUD |
 | Extra Libs | list_extra_libs / create_extra_lib / update_extra_lib / delete_extra_lib | 额外库 CRUD |
 | Type Libs | list_type_libs / create_type_lib / update_type_lib / delete_type_lib | 类型库 CRUD |
-| Resources | list_models / list_images / get_resource_by_id / add_temp_model / add_temp_image | 资源文件管理 |
+| Resources | list_models / list_images / get_resource_by_id / add_temp_model / add_temp_image / update_resource | 资源文件管理；add_temp_* 可指定 name，update_resource 重命名资源 |
 | Validation | validate_effect_code | 校验 effectCode TypeScript 类型 |
 
 ### 游戏存档系统

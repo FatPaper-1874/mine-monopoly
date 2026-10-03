@@ -32,6 +32,7 @@ import useEventBus from "@src/utils/event-bus";
 import { createVNode } from "vue";
 import PropertyInfoVue from "@src/components/common/property-card.vue";
 import { useGameData, useMapData, useResourceStore } from "@src/store/game";
+import { getCurrentClientPlayerId, useLocalParty } from "@src/store/local-party";
 import { GameMap } from "@mine-monopoly/utils/protos/game-map";
 import { loadGameMapFromFile, loadGameMapFromServer } from "@src/utils/file/game-map";
 import { base64ToArrayBuffer } from "@mine-monopoly/utils";
@@ -286,7 +287,6 @@ const handleRoomListReply: ServerMessageHandler<SocketMsgType.RoomList> = (msg) 
 
 const handleJoinRoomReply: ServerMessageHandler<SocketMsgType.JoinRoom> = (msg) => {
 	const roomId = msg.data.roomId;
-	console.log("🚀 ~ handleJoinRoomReply ~ roomId:", roomId);
 	if (roomId) {
 		useRoomInfo().roomId = roomId;
 		router.replace({ name: "room" });
@@ -495,11 +495,11 @@ const handleGameInit: ServerMessageHandler<SocketMsgType.GameInit> = (msg, clien
 		// 重置状态管理器，然后设置破产状态
 		const utilStore = useUtil();
 		utilStore.resetTurnState();
-		const me = gameData.players.find((p) => p.id === useUserInfo().userId);
+		const me = gameData.players.find((p) => p.id === getCurrentClientPlayerId());
 		utilStore.setBankrupted(me?.isBankrupted ?? false);
 
 		// 同步回合状态
-		const isMyTurn = Boolean(me) && gameData.currentPlayerIdInRound === useUserInfo().userId;
+		const isMyTurn = Boolean(me) && gameData.currentPlayerIdInRound === getCurrentClientPlayerId();
 		utilStore.changeTurn(isMyTurn);
 	}
 	const loadingStore = useLoading();
@@ -553,12 +553,12 @@ const handleGameData: ServerMessageHandler<SocketMsgType.GameData> = (msg) => {
 			}
 		}
 
-		const me = gameData.players.find((p) => p.id === useUserInfo().userId);
+		const me = gameData.players.find((p) => p.id === getCurrentClientPlayerId());
 		const utilStore = useUtil();
 		utilStore.setBankrupted(me?.isBankrupted ?? false);
 
 		// 同步回合状态
-		const isMyTurn = Boolean(me) && gameData.currentPlayerIdInRound === useUserInfo().userId;
+		const isMyTurn = Boolean(me) && gameData.currentPlayerIdInRound === getCurrentClientPlayerId();
 		utilStore.changeTurn(isMyTurn);
 	}
 };
@@ -589,9 +589,9 @@ const handleRemainingTime: ServerMessageHandler<SocketMsgType.RemainingTime> = (
  */
 const handleRoundTimeOut: ServerMessageHandler<SocketMsgType.RoundTimeOut> = (msg) => {
 	if (!msg.data) return;
-	const { playerId } = msg.data;
+	const { playerId, timeoutId } = msg.data;
 	const utilStore = useUtil();
-	const currentUserId = useUserInfo().userId;
+	const currentUserId = getCurrentClientPlayerId();
 
 	// 只有当前玩家的超时才触发
 	if (playerId === currentUserId) {
@@ -600,7 +600,15 @@ const handleRoundTimeOut: ServerMessageHandler<SocketMsgType.RoundTimeOut> = (ms
 		utilStore.showCountdown = false; // 超时后不显示倒计时
 		// 将剩余时间设置为 0，确保 UI 正确更新
 		utilStore.waitingFor = { ...utilStore.waitingFor, remainingTime: 0 };
-		useEventBus().emit(GameEventType.TimeOut);
+		useEventBus().emit(GameEventType.TimeOut, { timeoutId });
+		return;
+	}
+
+	// 派对模式下，交互弹窗目标玩家不是当前接管者时，超时只关闭对应弹窗，不影响回合状态。
+	const localParty = useLocalParty();
+	if (timeoutId && localParty.dialogTimeoutOwners[timeoutId] === playerId) {
+		delete localParty.dialogTimeoutOwners[timeoutId];
+		useEventBus().emit(GameEventType.TimeOut, { timeoutId });
 	}
 };
 
@@ -622,7 +630,7 @@ const handleRoundTurn: ServerMessageHandler<SocketMsgType.RoundTurn> = (msg) => 
 	if (!msg.data) return;
 	const currentRoundPlayerId = msg.data;
 	const utilStore = useUtil();
-	const isMyTurn = currentRoundPlayerId === useUserInfo().userId;
+	const isMyTurn = currentRoundPlayerId === getCurrentClientPlayerId();
 
 	// 使用 store 的 action 处理回合切换
 	utilStore.changeTurn(isMyTurn);
@@ -729,14 +737,14 @@ const handleGameResume: ServerMessageHandler<SocketMsgType.ResumeGame> = () => {
 
 const handleConfirmDialog: ServerMessageHandler<SocketMsgType.ConfirmDialog> = (msg, client) => {
 	const data = msg.data;
-	FPMessageBox(data.option)
+	FPMessageBox({ ...data.option, timeoutId: data.timeoutId })
 		.then(() => {
 			client.sendMsg({
 				type: SocketMsgType.Operation,
 				source: SocketMsgSource.Client,
 				data: {
 					operateType: OperateType.ConfirmDialogResult,
-					data: { id: data.playerId, confirm: true },
+					data: { id: data.playerId, confirm: true, timeoutId: data.timeoutId },
 				},
 			});
 		})
@@ -746,7 +754,7 @@ const handleConfirmDialog: ServerMessageHandler<SocketMsgType.ConfirmDialog> = (
 				source: SocketMsgSource.Client,
 				data: {
 					operateType: OperateType.ConfirmDialogResult,
-					data: { id: data.playerId, confirm: false },
+					data: { id: data.playerId, confirm: false, timeoutId: data.timeoutId },
 				},
 			});
 		});
@@ -773,6 +781,7 @@ const handleFormDialog: ServerMessageHandler<SocketMsgType.FormDialog> = (msg, c
 		form: formSchema,
 		confirmText: data.option.confirmText || "提交",
 		cancelText: data.option.cancelText || "取消",
+		timeoutId: data.timeoutId,
 	})
 		.then((formData) => {
 			// 用户提交，formData 包含表单数据
@@ -783,6 +792,7 @@ const handleFormDialog: ServerMessageHandler<SocketMsgType.FormDialog> = (msg, c
 					operateType: OperateType.FormDialogResult,
 					data: {
 						id: data.playerId,
+						timeoutId: data.timeoutId,
 						submitted: true,
 						...formData,
 					},
@@ -800,6 +810,7 @@ const handleFormDialog: ServerMessageHandler<SocketMsgType.FormDialog> = (msg, c
 					operateType: OperateType.FormDialogResult,
 					data: {
 						id: data.playerId,
+						timeoutId: data.timeoutId,
 						submitted: false,
 						...defaultData,
 					},
@@ -810,14 +821,14 @@ const handleFormDialog: ServerMessageHandler<SocketMsgType.FormDialog> = (msg, c
 
 const handleTargetSelect: ServerMessageHandler<SocketMsgType.TargetSelectDialog> = (msg, client) => {
 	const data = msg.data;
-	showTargetSelector(data.option.type)
+	showTargetSelector(data.option.type, { ...data.option, timeoutId: data.timeoutId })
 		.then((res) => {
 			client.sendMsg({
 				type: SocketMsgType.Operation,
 				source: SocketMsgSource.Client,
 				data: {
 					operateType: OperateType.TargetSelectDialogResult,
-					data: { target: res },
+					data: { target: Array.from(res), timeoutId: data.timeoutId },
 				},
 			});
 		})
@@ -827,7 +838,7 @@ const handleTargetSelect: ServerMessageHandler<SocketMsgType.TargetSelectDialog>
 				source: SocketMsgSource.Client,
 				data: {
 					operateType: OperateType.TargetSelectDialogResult,
-					data: { target: [] },
+					data: { target: [], timeoutId: data.timeoutId },
 				},
 			});
 		});
@@ -835,14 +846,14 @@ const handleTargetSelect: ServerMessageHandler<SocketMsgType.TargetSelectDialog>
 
 const handleItemSelectDialog: ServerMessageHandler<SocketMsgType.ItemSelectDialog> = (msg, client) => {
 	const data = msg.data;
-	showItemSelector(data.option)
+	showItemSelector({ ...data.option, timeoutId: data.timeoutId })
 		.then((res) => {
 			client.sendMsg({
 				type: SocketMsgType.Operation,
 				source: SocketMsgSource.Client,
 				data: {
 					operateType: OperateType.ItemSelectDialogResult,
-					data: { selected: res },
+					data: { selected: Array.from(res), timeoutId: data.timeoutId },
 				},
 			});
 		})
@@ -852,7 +863,7 @@ const handleItemSelectDialog: ServerMessageHandler<SocketMsgType.ItemSelectDialo
 				source: SocketMsgSource.Client,
 				data: {
 					operateType: OperateType.ItemSelectDialogResult,
-					data: { selected: [] },
+					data: { selected: [], timeoutId: data.timeoutId },
 				},
 			});
 		});
@@ -1113,7 +1124,6 @@ const handleMapChunkStart: ServerMessageHandler<SocketMsgType.MapChunkStart> = (
 		data.totalBytes ? `地图加载中... 0 B / ${formatBytes(data.totalBytes)}` : "地图加载中...",
 		0,
 	);
-	console.log(`[MapTransfer] Started receiving ${data.totalChunks} chunks (${formatBytes(data.totalBytes ?? 0)})`);
 };
 
 const handleMapChunk: ServerMessageHandler<SocketMsgType.MapChunk> = (msg) => {

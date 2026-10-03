@@ -17,6 +17,7 @@ import { getUserByToken } from "@src/utils/api/user";
 import { getPlatformType } from "@src/utils/platform";
 import { normalizeAIDecisionConfig } from "@src/core/ai/ai-decision-config";
 import { useGameData } from "./game";
+import { useLocalParty } from "./local-party";
 
 /**
  * 回合状态枚举
@@ -103,9 +104,9 @@ export const useRoomInfo = defineStore("roomInfo", {
 	},
 	actions: {},
 	getters: {
-		amIRoomOwner: (state) => useUserInfo().userId === state.ownerId,
-		isReady: (state) => state.userList.find((user) => user.userId === useUserInfo().userId)?.isReady ?? false,
-		amISpectator: (state) => Boolean(state.userList.find((user) => user.userId === useUserInfo().userId)?.isSpectator),
+		amIRoomOwner: (state) => useLocalParty().isActive ? state.ownerId === useLocalParty().players[0]?.userId : useUserInfo().userId === state.ownerId,
+		isReady: (state) => state.userList.find((user) => user.userId === (useLocalParty().isActive ? useLocalParty().players[0]?.userId : useUserInfo().userId))?.isReady ?? false,
+		amISpectator: (state) => useLocalParty().isActive ? false : Boolean(state.userList.find((user) => user.userId === useUserInfo().userId)?.isSpectator),
 	},
 });
 
@@ -115,7 +116,7 @@ export const useUtil = defineStore("util", {
 			ping: 0,
 			fps: 0,
 			/** 连接模式：unknown=未确定, p2p=直连, relay=TURN中继 */
-			connectionMode: "unknown" as "unknown" | "p2p" | "relay",
+			connectionMode: "unknown" as "unknown" | "p2p" | "relay" | "local",
 			/** 当前连接策略：auto=优先直连, relay=强制中继 */
 			connectionPolicy: "auto" as "auto" | "relay",
 			/** 面向用户的连接状态说明 */
@@ -307,7 +308,6 @@ export const useSettig = defineStore("setting", {
 				this.graphicQuality = "low";
 				this.enableShadow = false;
 				this.enableModelAnimation = false;
-				console.log("[画质设置] 移动端强制 low，关闭阴影和模型动画");
 				return;
 			}
 
@@ -315,12 +315,10 @@ export const useSettig = defineStore("setting", {
 				const saved = localStorage.getItem("graphicQuality");
 				if (saved && (saved === "low" || saved === "medium" || saved === "high")) {
 					this.graphicQuality = saved;
-					console.log("[画质设置] 从 localStorage 读取画质设置:", saved);
 				} else {
 					// 自动检测：根据 CPU 核心数
 					const cores = navigator.hardwareConcurrency || 4;
 					this.graphicQuality = cores <= 4 ? "low" : "medium";
-					console.log("[画质设置] 自动检测画质:", this.graphicQuality, "(CPU 核心数:", cores, ")");
 				}
 			} catch (e) {
 				// localStorage 失败，回退到自动检测

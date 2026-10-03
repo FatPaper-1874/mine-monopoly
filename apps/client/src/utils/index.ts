@@ -327,7 +327,6 @@ export async function copyToClipboard(text: string): Promise<void> {
 
 	try {
 		await navigator.clipboard.writeText(text);
-		console.log("Text copied to clipboard:", text);
 	} catch (err) {
 		console.error("Failed to copy text to clipboard:", err);
 	}
@@ -372,7 +371,12 @@ export function compareObjectArrays<T extends Record<string, any>>(
 		const itemId = String(newItem[idKey]);
 		const oldItem = oldMap.get(itemId);
 		if (oldItem) {
-			(Object.keys(newItem) as Array<keyof T>).forEach((key) => {
+			const keys = new Set<keyof T>([
+				...(Object.keys(oldItem) as Array<keyof T>),
+				...(Object.keys(newItem) as Array<keyof T>),
+			]);
+
+			keys.forEach((key) => {
 				if (!isEqual(newItem[key], oldItem[key])) {
 					callback(itemId, key, oldItem[key], newItem[key]);
 				}
