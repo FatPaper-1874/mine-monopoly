@@ -24,6 +24,13 @@ export const menus: menuItem[] = [
 		icon: "map-location-dot",
 	},
 	{
+		path: "/map-review",
+		menuName: "待审查地图",
+		name: "map-review",
+		component: () => import("@/views/manage/map-review/map-review.vue"),
+		icon: "clipboard-check",
+	},
+	{
 		path: "/user",
 		menuName: "用户管理",
 		name: "user",

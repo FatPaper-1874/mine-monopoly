@@ -50,3 +50,15 @@ export function createLoginIframeOnBody(url: string): Promise<string> {
 export function isMobileDevice() {
 	return /Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 }
+
+/** 待审地图入队时间展示：存量数据可能没有入队时间，用统一文案兜底 */
+export function formatSubmitTime(value?: Date | string | null, fallback = "历史数据（无入队时间）") {
+	if (!value) return fallback;
+	return new Date(value).toLocaleString();
+}
+
+/** 创作者展示：用户名（账号）；creatorName 可能为空（历史数据未绑定创作者） */
+export function formatCreator(creatorName?: string | null, creatorAccount?: string | null) {
+	if (!creatorName) return "未知创作者";
+	return creatorAccount ? `${creatorName}（${creatorAccount}）` : creatorName;
+}
