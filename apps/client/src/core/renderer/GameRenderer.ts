@@ -102,6 +102,8 @@ export class GameRenderer {
 	private canvas: HTMLCanvasElement;
 	private renderer: THREE.WebGLRenderer;
 	private popElementRenderer: CSS2DRenderer;
+	private mapInfoRenderer: CSS2DRenderer;
+	private mapInfoScene = new THREE.Scene();
 	private scene: THREE.Scene;
 	private cameraRig!: CameraRig;
 	private composer: EffectComposer;
@@ -157,9 +159,11 @@ export class GameRenderer {
 
 	private currentFocusModule: THREE.Object3D | null = null;
 
+	private selectedPropertyId: string | null = null;
 	private propertyInfoLabel: CSS2DObject;
 	private propertyInfoLabelInstance: ComponentPublicInstance;
 
+	private selectedMapEventItemId: string | null = null;
 	private arrivedEventInfoLabel: CSS2DObject;
 	private arrivedEventInfoLabelInstance: ComponentPublicInstance;
 
@@ -261,13 +265,13 @@ export class GameRenderer {
 
 				const { css2DObject: arrivedEventCSS2DObject, appInstance: arrivedEventLabelInstance } =
 					createCSS2DObjectFromVue(MapEventCard, {
-						property: null,
+						mapEvent: null,
 					});
 				this.arrivedEventInfoLabel = arrivedEventCSS2DObject;
 				this.arrivedEventInfoLabelInstance = arrivedEventLabelInstance;
 
-				this.scene.add(this.propertyInfoLabel);
-				this.scene.add(this.arrivedEventInfoLabel);
+				this.mapInfoScene.add(this.propertyInfoLabel);
+				this.mapInfoScene.add(this.arrivedEventInfoLabel);
 
 				this.popElementRenderer = new CSS2DRenderer();
 				this.popElementRenderer.setSize(container.clientWidth, container.clientHeight);
@@ -277,6 +281,16 @@ export class GameRenderer {
 				this.popElementRenderer.domElement.style.pointerEvents = "none";
 				this.popElementRenderer.domElement.style.zIndex = "var(--z-ui)";
 				container.appendChild(this.popElementRenderer.domElement);
+
+				this.mapInfoRenderer = new CSS2DRenderer();
+				Object.assign(this.mapInfoRenderer.domElement.style, {
+					position: "absolute",
+					left: "0",
+					top: "0",
+					pointerEvents: "none",
+					zIndex: "var(--z-map-info)",
+				});
+				container.appendChild(this.mapInfoRenderer.domElement);
 
 				this.pathChoiceController = new MapPathChoiceSceneController({
 					scene: this.scene,
@@ -295,6 +309,7 @@ export class GameRenderer {
 					this.renderPass.setSize(container.clientWidth, container.clientHeight);
 					this.composer.setSize(container.clientWidth, container.clientHeight);
 					this.popElementRenderer.setSize(container.clientWidth, container.clientHeight);
+					this.mapInfoRenderer.setSize(container.clientWidth, container.clientHeight);
 					this.diceManager && this.diceManager.updateAspect(container.clientWidth / container.clientHeight);
 				};
 
@@ -349,6 +364,7 @@ export class GameRenderer {
 		const propertyRaycaster = new THREE.Raycaster();
 		const arrivedEventRaycaster = new THREE.Raycaster();
 		const pointer = new THREE.Vector2();
+		let isPointerOnCanvas = false;
 
 		// 创建轨道控制器
 
@@ -391,6 +407,72 @@ export class GameRenderer {
 			window.addEventListener("pointermove", onPointerMove);
 		}
 
+		// 点击查看地图信息时，保留选中项；拖动相机、右键和路线选择不触发查看。
+		let propertyPointerDown: { id: number; x: number; y: number; dragged: boolean } | null = null;
+		const onPropertyPointerDown = (event: PointerEvent) => {
+			isPointerOnCanvas = true;
+			if (!event.isPrimary) {
+				propertyPointerDown = null;
+				return;
+			}
+			if (event.button !== 0 || useSettig().propertyInfoTrigger !== "click" || this.pathChoiceController.isActive) return;
+			propertyPointerDown = { id: event.pointerId, x: event.clientX, y: event.clientY, dragged: false };
+		};
+		const onPropertyPointerMove = (event: PointerEvent) => {
+			isPointerOnCanvas = isTargetOnCanvas(event.target);
+			if (!propertyPointerDown || propertyPointerDown.id !== event.pointerId) return;
+			if (Math.hypot(event.clientX - propertyPointerDown.x, event.clientY - propertyPointerDown.y) > 6) {
+				propertyPointerDown.dragged = true;
+			}
+		};
+		const onPropertyPointerUp = (event: PointerEvent) => {
+			if (!propertyPointerDown || propertyPointerDown.id !== event.pointerId) return;
+			onPropertyPointerMove(event);
+			const wasDragging = propertyPointerDown.dragged;
+			propertyPointerDown = null;
+			if (
+				wasDragging ||
+				event.button !== 0 ||
+				!isTargetOnCanvas(event.target) ||
+				useSettig().propertyInfoTrigger !== "click" ||
+				this.pathChoiceController.isActive
+			) {
+				return;
+			}
+			updatePointer(event.clientX, event.clientY);
+			this.handlePropertyRaycaster(propertyRaycaster, pointer, true);
+			this.handleMapEventRaycaster(arrivedEventRaycaster, pointer, true);
+		};
+		const onPropertyPointerCancel = () => {
+			propertyPointerDown = null;
+		};
+		const onPropertyPointerLeave = () => {
+			isPointerOnCanvas = false;
+		};
+		this.canvas.addEventListener("pointerleave", onPropertyPointerLeave);
+		this.canvas.addEventListener("pointerdown", onPropertyPointerDown);
+		window.addEventListener("pointermove", onPropertyPointerMove);
+		window.addEventListener("pointerup", onPropertyPointerUp);
+		window.addEventListener("pointercancel", onPropertyPointerCancel);
+		this.commonWatchers.push(() => {
+			this.canvas.removeEventListener("pointerleave", onPropertyPointerLeave);
+			this.canvas.removeEventListener("pointerdown", onPropertyPointerDown);
+			this.canvas.style.cursor = "";
+			window.removeEventListener("pointermove", onPropertyPointerMove);
+			window.removeEventListener("pointerup", onPropertyPointerUp);
+			window.removeEventListener("pointercancel", onPropertyPointerCancel);
+		});
+		this.commonWatchers.push(
+			watch(
+				() => useSettig().propertyInfoTrigger,
+				() => {
+					this.selectedPropertyId = null;
+					this.selectedMapEventItemId = null;
+					propertyPointerDown = null;
+				},
+			),
+		);
+
 		// 加载期间用户可能已经点过切换按钮，这里按设置再同步一次（幂等）
 		const pendingViewMode = useSettig().viewMode;
 		if (pendingViewMode && pendingViewMode !== this.cameraRig.mode) {
@@ -406,8 +488,9 @@ export class GameRenderer {
 				this.animationManager.update(delta);
 
 				this.handlePropertyRaycaster(propertyRaycaster, pointer);
-				this.handleMapEventRaycaster(propertyRaycaster, pointer);
+				this.handleMapEventRaycaster(arrivedEventRaycaster, pointer);
 				this.pathChoiceController.update();
+				this.updateMapInfoCursor(propertyRaycaster, pointer, isPointerOnCanvas);
 
 				if (
 					this.cameraRig.mode === "3d" &&
@@ -455,6 +538,7 @@ export class GameRenderer {
 				}
 
 				this.popElementRenderer.render(this.scene, this.camera);
+				this.mapInfoRenderer.render(this.mapInfoScene, this.camera);
 				this.updateActiveSpeechBubbleLayout();
 
 				if (this.isRenderDice && this.diceManager) {
@@ -1507,53 +1591,71 @@ export class GameRenderer {
 		this.isProcessingDiceRoll = false;
 	}
 
-	private handlePropertyRaycaster(raycaster: THREE.Raycaster, pointer: THREE.Vector2) {
-		// 通过摄像机和鼠标位置更新射线
+	private getPropertyAtPointer(raycaster: THREE.Raycaster, pointer: THREE.Vector2): THREE.Object3D | null {
 		raycaster.setFromCamera(pointer, this.camera);
-
 		const intersects = raycaster.intersectObjects(Array.from(this.housesItems.values()).map((h) => h.group));
-		if (intersects.length > 0) {
-			const intersect = intersects[0];
-			const target = intersect.object.parent as THREE.Group;
-			const propertyInfo = target.userData as any;
-			if (propertyInfo.isProperty) {
-				this.propertyInfoLabel.position.copy(target.position);
-				this.propertyInfoLabel.position.y += new THREE.Box3().setFromObject(target).max.y;
-				//@ts-ignore
-				this.propertyInfoLabelInstance.updateProperty(propertyInfo);
-			}
+		let target: THREE.Object3D | null = intersects[0]?.object ?? null;
+		while (target && !target.userData.isProperty) {
+			target = target.parent;
+		}
+		return target;
+	}
+
+	private getMapEventAtPointer(raycaster: THREE.Raycaster, pointer: THREE.Vector2): THREE.Object3D | null {
+		raycaster.setFromCamera(pointer, this.camera);
+		const intersects = raycaster.intersectObjects(Array.from(this.mapItemsInScene.values()));
+		let target: THREE.Object3D | null = intersects[0]?.object ?? null;
+		while (target && !target.userData.isMapItem) {
+			target = target.parent;
+		}
+		return target?.userData.mapEvent ? target : null;
+	}
+
+	private updateMapInfoCursor(raycaster: THREE.Raycaster, pointer: THREE.Vector2, isPointerOnCanvas: boolean) {
+		// 选路期间由路线控制器管理光标。
+		if (this.pathChoiceController.isActive) return;
+		const clickable =
+			useSettig().propertyInfoTrigger === "click" &&
+			isPointerOnCanvas &&
+			(this.getPropertyAtPointer(raycaster, pointer) !== null || this.getMapEventAtPointer(raycaster, pointer) !== null);
+		this.canvas.style.cursor = clickable ? "pointer" : "";
+	}
+
+	private handlePropertyRaycaster(raycaster: THREE.Raycaster, pointer: THREE.Vector2, selectOnClick = false) {
+		const clickMode = useSettig().propertyInfoTrigger === "click";
+		let target: THREE.Object3D | null = null;
+		if (!clickMode || selectOnClick) {
+			target = this.getPropertyAtPointer(raycaster, pointer);
+			this.selectedPropertyId = clickMode && target ? target.userData.id : null;
+		} else if (this.selectedPropertyId) {
+			// 按 ID 读取当前模型，确保地皮升级或归属变化后仍显示最新信息。
+			target = this.housesItems.get(this.selectedPropertyId)?.group ?? null;
+		}
+		if (target?.userData.isProperty) {
+			this.propertyInfoLabel.position.copy(target.position);
+			this.propertyInfoLabel.position.y += new THREE.Box3().setFromObject(target).max.y;
+			//@ts-ignore
+			this.propertyInfoLabelInstance.updateProperty(target.userData);
 		} else {
 			//@ts-ignore
 			this.propertyInfoLabelInstance.updateProperty(null);
 		}
 	}
 
-	private handleMapEventRaycaster(raycaster: THREE.Raycaster, pointer: THREE.Vector2) {
-		// 通过摄像机和鼠标位置更新射线
-		raycaster.setFromCamera(pointer, this.camera);
-
-		const intersects = raycaster.intersectObjects(Array.from(this.mapItemsInScene.values()));
-		if (intersects.length > 0) {
-			const firstInstance = intersects[0];
-			let target: THREE.Object3D | null = firstInstance.object;
-			while (target) {
-				if (target.userData.isMapItem) {
-					break;
-				} else {
-					target = target.parent;
-				}
-			}
-			if (target && target.userData.mapEvent) {
-				const mapEvent = target.userData.mapEvent;
-
-				this.arrivedEventInfoLabel.position.copy(target.position);
-				// this.arrivedEventInfoLabel.position.y += 2.2;
-				//@ts-ignore
-				this.arrivedEventInfoLabelInstance.updateArrivedEvent(mapEvent);
-			} else {
-				//@ts-ignore
-				this.arrivedEventInfoLabelInstance.updateArrivedEvent(null);
-			}
+	private handleMapEventRaycaster(raycaster: THREE.Raycaster, pointer: THREE.Vector2, selectOnClick = false) {
+		const clickMode = useSettig().propertyInfoTrigger === "click";
+		let target: THREE.Object3D | null = null;
+		if (!clickMode || selectOnClick) {
+			target = this.getMapEventAtPointer(raycaster, pointer);
+			this.selectedMapEventItemId = clickMode && target ? target.userData.id : null;
+		} else if (this.selectedMapEventItemId) {
+			// 事件可能动态替换或移除，始终读取选中地块的当前信息。
+			target = this.mapItemsInScene.get(this.selectedMapEventItemId) ?? null;
+		}
+		if (target?.userData.mapEvent) {
+			this.arrivedEventInfoLabel.position.copy(target.position);
+			//@ts-ignore
+			this.arrivedEventInfoLabelInstance.updateArrivedEvent(target.userData.mapEvent);
 		} else {
 			//@ts-ignore
 			this.arrivedEventInfoLabelInstance.updateArrivedEvent(null);
@@ -1586,6 +1688,7 @@ export class GameRenderer {
 			}
 		});
 		this.scene.clear();
+		this.mapInfoScene.clear();
 
 		// 释放 WebGL 渲染器
 		this.renderer.dispose();
@@ -1598,6 +1701,8 @@ export class GameRenderer {
 
 		// 轨道控制器与双相机
 		this.cameraRig?.dispose();
+
+		this.mapInfoRenderer.domElement.remove();
 
 		// CSS2DRenderer DOM 清理
 		if (this.popElementRenderer.domElement?.parentElement) {
@@ -2373,7 +2478,7 @@ export class GameRenderer {
 	}
 
 	/**
-	 * 更新地图块模型上的事件 userData（控制 hover 提示）
+	 * 更新地图块模型上的事件 userData（用于地图事件信息提示）
 	 * @param mapItemId 地块 ID
 	 * @param mapEvent 事件对象，传 null 清除
 	 */
@@ -3114,6 +3219,7 @@ export class GameRenderer {
 		this.renderPass.setSize(this.container.clientWidth, this.container.clientHeight);
 		this.composer.setSize(this.container.clientWidth, this.container.clientHeight);
 		this.popElementRenderer.setSize(this.container.clientWidth, this.container.clientHeight);
+		this.mapInfoRenderer.setSize(this.container.clientWidth, this.container.clientHeight);
 		this.diceManager && this.diceManager.updateAspect(this.container.clientWidth / this.container.clientHeight);
 
 	}
