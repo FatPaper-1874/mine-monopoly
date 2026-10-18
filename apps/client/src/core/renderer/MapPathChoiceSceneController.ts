@@ -10,9 +10,11 @@ export type MapPathChoiceArrowFactory = () => THREE.Object3D;
 
 type MapPathChoiceSceneControllerOptions = {
 	scene: THREE.Scene;
-	camera: THREE.PerspectiveCamera;
+	camera: THREE.Camera;
 	controls: OrbitControls;
 	canvas: HTMLCanvasElement;
+	/** 是否允许自动取景（俯视棋盘模式下返回 false，跳过镜头推拉） */
+	shouldAutoFrame?: () => boolean;
 	getMapItemAnchor: (mapItemId: string) => THREE.Vector3 | undefined;
 	getMapItemFootprintRadius: (mapItemId: string, direction: THREE.Vector3) => number;
 	getMapItemLabel: (mapItemId: string) => string;
@@ -141,6 +143,21 @@ export class MapPathChoiceSceneController {
 
 	public get isCameraTransitioning(): boolean {
 		return this.cameraTween !== null;
+	}
+
+	/** 视图模式切换后重新注入相机，避免继续操作已被替换的相机 */
+	public setCamera(camera: THREE.Camera): void {
+		this.options.camera = camera;
+	}
+
+	/**
+	 * 视图模式切换时放弃本次取景记录：位姿改由 CameraRig 接管，
+	 * 避免退出选路时把相机拉回切换前的旧位姿。
+	 */
+	public releaseCameraFraming(): void {
+		this.cameraTween?.kill();
+		this.cameraTween = null;
+		this.cameraSnapshot = null;
 	}
 
 	public setRequest(request: MapPathChoiceRequest | null): void {
@@ -323,8 +340,16 @@ export class MapPathChoiceSceneController {
 	}
 
 	private focusChoiceArea(request: MapPathChoiceRequest): void {
+		// 俯视棋盘模式下整图可见，不需要镜头推拉；保持 cameraSnapshot 为 null，
+		// 这样退出选路时 restoreCamera() 自然是空操作。
+		if (this.options.shouldAutoFrame?.() === false) return;
+
 		const forkAnchor = this.options.getMapItemAnchor(request.currentMapItemId);
 		if (!forkAnchor) return;
+
+		// 取景高度依赖透视投影的 fov；正交相机无法用同一套公式推算，直接跳过。
+		const camera = this.options.camera;
+		if (!(camera instanceof THREE.PerspectiveCamera)) return;
 
 		const controlsEnabled = this.options.controls.enabled;
 		// 先冻结所有外部相机动画并同步 OrbitControls，再记录快照；
@@ -363,8 +388,8 @@ export class MapPathChoiceSceneController {
 				{ position: entry.label.getWorldPosition(new THREE.Vector3()), padding: 2.6 },
 			);
 		}
-		const halfVerticalFov = THREE.MathUtils.degToRad(this.options.camera.fov / 2);
-		const halfHorizontalFov = Math.atan(Math.tan(halfVerticalFov) * Math.max(this.options.camera.aspect, 0.1));
+		const halfVerticalFov = THREE.MathUtils.degToRad(camera.fov / 2);
+		const halfHorizontalFov = Math.atan(Math.tan(halfVerticalFov) * Math.max(camera.aspect, 0.1));
 		let requiredHeight = 0;
 		for (const { position, padding } of framingPoints) {
 			const horizontalOffset = Math.abs(position.x - target.x) + padding;

@@ -49,6 +49,7 @@ import { clone } from "lodash";
 import { getDracoLoader } from "@src/utils/draco/draco";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
 import { MapPathChoiceSceneController, setMapPathChoiceArrowFactory } from "./MapPathChoiceSceneController";
+import { BoardBounds, CameraRig, ViewMode } from "./CameraRig";
 
 const PLAY_MODEL_SIZE = 0.7;
 const loadingMask = useLoading();
@@ -58,6 +59,16 @@ const SPEECH_BUBBLE_STACK_GAP = 10;
 const SPEECH_BUBBLE_SCREEN_OFFSET_Y = 4;
 const MIN_SPEECH_BUBBLE_WIDTH = 120;
 const MIN_SPEECH_BUBBLE_HEIGHT = 56;
+/** TextSprite 的文字高度占纹理画布高度的比例（画布为 fontSize×10，文字为 fontSize） */
+const TEXT_SPRITE_TEXT_HEIGHT_RATIO = 0.1;
+/** 俯视棋盘下文字标签的目标屏幕文字高度（CSS px） */
+const TOP_DOWN_TEXT_TARGET_PX = 14;
+/** 俯视棋盘下文字标签的最大放大倍数，避免大地图上标签过度重叠 */
+const TOP_DOWN_TEXT_MAX_SCALE = 6;
+/** 角色立绘平面为 1×1，平铺后占据一格，半格即头顶到中心的距离 */
+const PLAYER_PORTRAIT_HALF_SIZE = 0.5;
+/** 俯视棋盘下名牌相对立绘头顶的屏幕间距（CSS px，含文字半高） */
+const TOP_DOWN_NAME_GAP_PX = 12;
 
 type SpeechBubbleEdge = "top" | "right" | "bottom" | "left";
 
@@ -92,14 +103,22 @@ export class GameRenderer {
 	private renderer: THREE.WebGLRenderer;
 	private popElementRenderer: CSS2DRenderer;
 	private scene: THREE.Scene;
-	private camera: THREE.PerspectiveCamera;
+	private cameraRig!: CameraRig;
 	private composer: EffectComposer;
 	private renderPass: RenderPass;
 	private chanceCardTargetOutlinePass: OutlinePass;
 	private playerInRoundOutlinePass: OutlinePass;
-	private controls: OrbitControls;
 	private pathChoiceController!: MapPathChoiceSceneController;
 	private isLowEnd: boolean;
+
+	/** 当前生效的相机（立体为透视相机，俯视棋盘为正交相机） */
+	private get camera(): THREE.Camera {
+		return this.cameraRig.camera;
+	}
+
+	private get controls(): OrbitControls {
+		return this.cameraRig.controls;
+	}
 
 	private mapContainer: THREE.Group = new THREE.Group();
 	private mapModules: Map<
@@ -148,6 +167,10 @@ export class GameRenderer {
 	private activeMoneyParticles: Map<string, CSS2DObject[]> = new Map();
 	private activeSpeechBubbles: Map<string, ActiveSpeechBubble> = new Map();
 	private activeThinkingMarkers: Map<string, ActiveThinkingMarker> = new Map();
+	/** 计算文字标签屏幕尺寸时复用，避免每帧分配 */
+	private readonly textWorldScale = new THREE.Vector3();
+	/** 3D 视图是否已经完成过聚焦；未聚焦时切到俯视不记录位姿 */
+	private hasInitial3DView = false;
 	private isRenderDice = false;
 	private diceRollQueue: DiceResult[][] = []; // 骰子动画队列
 	private isProcessingDiceRoll: boolean = false; // 是否正在处理骰子动画
@@ -202,7 +225,12 @@ export class GameRenderer {
 
 			try {
 				this.scene = new THREE.Scene();
-				this.camera = new THREE.PerspectiveCamera(45, canvas.width / canvas.height, 0.1, 1000);
+				this.cameraRig = new CameraRig(
+					canvas,
+					canvas.width / Math.max(1, canvas.height),
+					useSettig().viewMode ?? "3d",
+				);
+				this.cameraRig.onNeedDefault3DView = () => this.focusMe();
 				this.composer = new EffectComposer(this.renderer);
 				this.renderPass = new RenderPass(this.scene, this.camera);
 				this.chanceCardTargetOutlinePass = new OutlinePass(
@@ -250,27 +278,19 @@ export class GameRenderer {
 				this.popElementRenderer.domElement.style.zIndex = "var(--z-ui)";
 				container.appendChild(this.popElementRenderer.domElement);
 
-				const controls = new OrbitControls(this.camera, this.canvas);
-				controls.enableDamping = true;
-				controls.maxDistance = 30;
-				controls.minDistance = 1;
-				controls.maxPolarAngle = Math.PI / 2;
-				controls.minPolarAngle = Math.PI / 3;
-				controls.update();
-				this.controls = controls;
 				this.pathChoiceController = new MapPathChoiceSceneController({
 					scene: this.scene,
 					camera: this.camera,
 					controls: this.controls,
 					canvas: this.canvas,
+					shouldAutoFrame: () => this.cameraRig.mode === "3d",
 					getMapItemAnchor: (mapItemId) => this.getMapPathChoiceAnchor(mapItemId),
 					getMapItemFootprintRadius: (mapItemId, direction) => this.getMapPathChoiceFootprintRadius(mapItemId, direction),
 					getMapItemLabel: (mapItemId) => this.getMapPathChoiceLabel(mapItemId),
 				});
 
 				const handleResize = () => {
-					this.camera.aspect = container.clientWidth / container.clientHeight; //相机视角长宽比
-					this.camera.updateProjectionMatrix();
+					this.cameraRig.handleResize(container.clientWidth, container.clientHeight);
 					this.renderer.setSize(container.clientWidth, container.clientHeight);
 					this.renderPass.setSize(container.clientWidth, container.clientHeight);
 					this.composer.setSize(container.clientWidth, container.clientHeight);
@@ -316,7 +336,12 @@ export class GameRenderer {
 			this.initEventListener();
 		});
 
-		this.focusMe();
+		this.cameraRig.setBounds(this.getBoardBounds());
+		if (this.cameraRig.isTopDown) {
+			this.cameraRig.fitToBoard();
+		} else {
+			this.focusMe();
+		}
 		this.pathChoiceController.setRequest(useGameData().mapPathChoiceRequest);
 
 
@@ -366,6 +391,12 @@ export class GameRenderer {
 			window.addEventListener("pointermove", onPointerMove);
 		}
 
+		// 加载期间用户可能已经点过切换按钮，这里按设置再同步一次（幂等）
+		const pendingViewMode = useSettig().viewMode;
+		if (pendingViewMode && pendingViewMode !== this.cameraRig.mode) {
+			this.applyViewMode(pendingViewMode);
+		}
+
 		await this.runInitStage("render-loop", async () => {
 			const loop = () => {
 				this.requestAnimationFrameId = requestAnimationFrame(loop);
@@ -379,6 +410,7 @@ export class GameRenderer {
 				this.pathChoiceController.update();
 
 				if (
+					this.cameraRig.mode === "3d" &&
 					!this.pathChoiceController.isActive &&
 					!this.pathChoiceController.isCameraTransitioning &&
 					this.isLockingRole &&
@@ -392,9 +424,21 @@ export class GameRenderer {
 					this.controls.update(delta);
 				}
 
+				// 俯视棋盘下立绘固定平铺，避免相机平移时角色绕 Y 轴转动
+				const isTopDown = this.cameraRig.isTopDown;
 				Array.from(this.playerEntities.values()).forEach((player) => {
-					player.update(this.camera);
+					if (isTopDown) {
+						player.updateTopDown();
+					} else {
+						player.update(this.camera);
+					}
 				});
+
+				// 俯视下把 3D 文字标签校正到可读的屏幕字号
+				if (isTopDown) {
+					this.syncTextSpriteScale();
+					this.syncTopDownPlayerVisuals();
+				}
 
 				// 1. 关闭自动清除，完全由我们接管
 				this.renderer.autoClear = false;
@@ -576,6 +620,8 @@ export class GameRenderer {
 				82,
 			);
 			// textSprite.getSprite().scale.set(2.5, 2.5, 2.5);
+			// 标记地皮文字：俯视下只有这类标签会被限制在一格地皮以内
+			textSprite.getSprite().userData.isPropertyLabel = true;
 			this.housesItems.set(property.id, {
 				group: new THREE.Group(),
 				textSprite: textSprite,
@@ -882,23 +928,13 @@ export class GameRenderer {
 			focusCenter.z + cameraDistance * 0.8,
 		);
 
+		// 俯视棋盘模式下镜头保持静止，只播放卡片动画
+		const shouldMoveCamera = this.cameraRig.mode === "3d";
+
 		// 平滑移动摄像机和焦点
-		await Promise.all([
-			gsap.to(this.camera.position, {
-				x: newCameraPosition.x,
-				y: newCameraPosition.y,
-				z: newCameraPosition.z,
-				duration: 0.5,
-				ease: "power2.out",
-			}),
-			gsap.to(this.controls.target, {
-				x: focusCenter.x,
-				y: focusCenter.y,
-				z: focusCenter.z,
-				duration: 0.5,
-				ease: "power2.out",
-			}),
-		]);
+		if (shouldMoveCamera) {
+			await this.tweenGameCamera(newCameraPosition, focusCenter, 0.5, "power2.out");
+		}
 
 		// 计算屏幕中心位置（使用射线投射到y=1的平面）
 		const raycaster = new THREE.Raycaster();
@@ -915,23 +951,10 @@ export class GameRenderer {
 					card3d.dispose();
 					this.activeChanceCard3Ds = this.activeChanceCard3Ds.filter((c) => c !== card3d);
 
-					// 恢复摄像机位置
-					await Promise.all([
-						gsap.to(this.camera.position, {
-							x: originalCameraPosition.x,
-							y: originalCameraPosition.y,
-							z: originalCameraPosition.z,
-							duration: 0.5,
-							ease: "power2.inOut",
-						}),
-						gsap.to(this.controls.target, {
-							x: originalControlsTarget.x,
-							y: originalControlsTarget.y,
-							z: originalControlsTarget.z,
-							duration: 0.5,
-							ease: "power2.inOut",
-						}),
-					]);
+					// 恢复摄像机位置（俯视棋盘下镜头不动；飞行途中切换模式也不再回拉）
+					if (shouldMoveCamera && this.cameraRig.mode === "3d") {
+						await this.tweenGameCamera(originalCameraPosition, originalControlsTarget, 0.5, "power2.inOut");
+					}
 				})();
 			},
 		});
@@ -1006,14 +1029,23 @@ export class GameRenderer {
 
 		// ===== 阶段2：停留展示 =====
 		// ⭐ 停留时平滑转向摄像机
+		const targetQuaternion = new THREE.Quaternion();
+		if (this.cameraRig.isTopDown) {
+			// 俯视棋盘下镜头在正上方：直接给定「法线朝上、卡片顶端朝屏幕上方」的平铺朝向。
+			// 用 lookAt 在近乎垂直的方向上会退化，导致卡片在屏幕平面内随机倾斜。
+			targetQuaternion.setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0));
+			// 从出现起就正对镜头，避免阶段1里侧对镜头只剩一条边
+			pivot.quaternion.copy(targetQuaternion);
+		} else {
+			// 使用 lookAt 计算目标朝向（保持 3D 既有表现）
+			const dummyPivot = new THREE.Object3D();
+			dummyPivot.position.copy(pivot.position);
+			dummyPivot.lookAt(this.camera.position);
+			targetQuaternion.copy(dummyPivot.quaternion);
+		}
+
 		// 保存当前旋转状态
 		const currentQuaternion = pivot.quaternion.clone();
-
-		// 使用 lookAt 计算目标朝向
-		const dummyPivot = pivot.clone();
-		dummyPivot.position.copy(pivot.position);
-		dummyPivot.lookAt(this.camera.position);
-		const targetQuaternion = dummyPivot.quaternion.clone();
 
 		// 创建临时对象用于四元数插值
 		const rotationObj = { value: 0 };
@@ -1046,7 +1078,8 @@ export class GameRenderer {
 			// ⭐ 第一个目标时，添加pivot旋转回初始状态的过渡动画
 			if (i === 0) {
 				const resetRotationObj = { value: 0 };
-				const resetQuaternion = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, 0));
+				// 俯视下保持面向镜头的平铺姿态，否则飞行途中会侧对镜头变成一条线
+				const resetQuaternion = this.cameraRig.isTopDown ? targetQuaternion.clone() : new THREE.Quaternion();
 
 				timeline.to(
 					resetRotationObj,
@@ -1151,6 +1184,35 @@ export class GameRenderer {
 		await timeline;
 	}
 
+	/**
+	 * 相机 + 焦点的位移动画。写入前校验当前仍是 3D 视图：
+	 * 机会卡动画期间允许切换视图模式，此时 tween 照常跑完（保证动画队列不死锁），
+	 * 但不再拖动已经切换到正交俯视的相机。
+	 */
+	private async tweenGameCamera(
+		position: THREE.Vector3,
+		target: THREE.Vector3,
+		duration: number,
+		ease: string,
+	): Promise<void> {
+		const cameraState = { x: this.camera.position.x, y: this.camera.position.y, z: this.camera.position.z };
+		const targetState = { x: this.controls.target.x, y: this.controls.target.y, z: this.controls.target.z };
+
+		const applyCamera = () => {
+			if (this.cameraRig.mode !== "3d") return;
+			this.camera.position.set(cameraState.x, cameraState.y, cameraState.z);
+		};
+		const applyTarget = () => {
+			if (this.cameraRig.mode !== "3d") return;
+			this.controls.target.set(targetState.x, targetState.y, targetState.z);
+		};
+
+		await Promise.all([
+			gsap.to(cameraState, { x: position.x, y: position.y, z: position.z, duration, ease, onUpdate: applyCamera }),
+			gsap.to(targetState, { x: target.x, y: target.y, z: target.z, duration, ease, onUpdate: applyTarget }),
+		]);
+	}
+
 	private initEventListener() {
 		// 监听当前回合玩家变化
 		useEventBus().on("game-currentPlayerIdInRound", (newPlayerId: string, oldPlayerId: string) => {
@@ -1185,6 +1247,11 @@ export class GameRenderer {
 					this.focusPlayerById(currentPlayerId);
 				}
 			}
+		});
+
+		// 监听视图模式切换（立体 / 俯视棋盘）
+		useEventBus().on("graphics:viewMode:change", ({ mode }: { mode: ViewMode }) => {
+			this.applyViewMode(mode);
 		});
 
 		// 监听模型动画变化事件
@@ -1529,8 +1596,8 @@ export class GameRenderer {
 		this.composer.renderTarget2.dispose();
 		this.composer.passes = [];
 
-		// 轨道控制器
-		this.controls.dispose();
+		// 轨道控制器与双相机
+		this.cameraRig?.dispose();
 
 		// CSS2DRenderer DOM 清理
 		if (this.popElementRenderer.domElement?.parentElement) {
@@ -1575,13 +1642,17 @@ export class GameRenderer {
 				this.playerEntities.set(playerInfo.id, playerEntity);
 				const textSprite = new TextSprite(
 					`${playerInfo.user.username}${playerInfo.user.userId === getCurrentClientPlayerId() ? " (你)" : ""}`,
-					32,
+					// TextSprite 的画布固定为 fontSize×10，字体的世界尺寸恒为画布高度的 1/10，
+					// 因此调大 fontSize 只提升纹理分辨率、不改变显示大小，俯视缩放下更清晰。
+					64,
 					playerInfo.user.color,
-					5,
+					10,
 					0,
 				);
 				const nameSprite = textSprite.getSprite();
 				nameSprite.renderOrder = 999;
+				// 标记名牌：俯视棋盘下需要把它从立绘中间移动到头顶
+				nameSprite.userData.isPlayerName = true;
 				nameSprite.position.set(0, PLAY_MODEL_SIZE * 1.5, 0);
 				playerEntity.model.add(nameSprite);
 				playerEntity.model.scale.set(PLAY_MODEL_SIZE, PLAY_MODEL_SIZE, PLAY_MODEL_SIZE);
@@ -2388,6 +2459,181 @@ export class GameRenderer {
 		return this.isLockingRole;
 	}
 
+	/**
+	 * 切换视图模式。相机位姿（保存/恢复、约束、棋盘取景）由 CameraRig 负责，
+	 * 这里只重绑依赖相机的后处理通道与选路控制器。
+	 */
+	private applyViewMode(mode: ViewMode) {
+		if (!this.cameraRig || this.cameraRig.mode === mode) return;
+
+		// 终止正在进行的镜头动画（聚焦 / 回归视角），避免 tween 继续拖拽新相机。
+		// 机会卡推拉已改为不直接写相机（见 tweenGameCamera），不会被这里误杀。
+		gsap.killTweensOf([this.camera.position, this.controls.target]);
+		// 切换前放弃选路取景记录，避免退出选路时把新相机拉回旧位姿
+		this.pathChoiceController?.releaseCameraFraming();
+		this.cameraRig.setMode(mode, this.hasInitial3DView);
+		this.rebindCameraDependents();
+		if (mode === "3d") {
+			this.restoreTextSpriteScale();
+			this.restorePlayerVisuals();
+		}
+	}
+
+	/** 切换相机后把新的相机实例注入到各渲染通道与选路控制器 */
+	private rebindCameraDependents() {
+		const camera = this.camera;
+		this.renderPass.camera = camera;
+		this.bindOutlinePassCamera(this.chanceCardTargetOutlinePass);
+		this.bindOutlinePassCamera(this.playerInRoundOutlinePass);
+		this.pathChoiceController?.setCamera(camera);
+	}
+
+	/**
+	 * 重绑 OutlinePass 的相机。mask 着色器在构造时按相机类型烘焙了深度解码函数，
+	 * 透视 / 正交互换后需要重新替换，否则描边会因 viewZ 换算错误而失效。
+	 */
+	private bindOutlinePassCamera(pass: OutlinePass) {
+		pass.renderCamera = this.camera;
+
+		const depthToViewZ = this.camera instanceof THREE.PerspectiveCamera ? "perspectiveDepthToViewZ" : "orthographicDepthToViewZ";
+		const { prepareMaskMaterial } = pass;
+		const fragmentShader = prepareMaskMaterial.fragmentShader.replace(/perspectiveDepthToViewZ|orthographicDepthToViewZ/, depthToViewZ);
+		if (fragmentShader !== prepareMaskMaterial.fragmentShader) {
+			prepareMaskMaterial.fragmentShader = fragmentShader;
+			prepareMaskMaterial.needsUpdate = true;
+		}
+	}
+
+	/**
+	 * 俯视棋盘下把 3D 文字标签（玩家名牌、步数、地皮价格）校正到固定的屏幕字号。
+	 * 整图缩放时 1 个世界单位只有几十像素，按原始世界尺寸渲染的文字会小到看不清；
+	 * 这里根据当前「像素/世界单位」反推放大倍数，并限制最大倍数避免标签过度重叠。
+	 */
+	private syncTextSpriteScale() {
+		const pixelsPerUnit = this.cameraRig.getPixelsPerWorldUnit(this.container.clientHeight);
+		if (pixelsPerUnit <= 0) return;
+
+		this.forEachTextSprite((sprite) => {
+			const base = this.getTextBaseScale(sprite);
+			// Sprite 的屏幕尺寸取模型矩阵各轴的世界长度（精灵恒定朝向相机）
+			sprite.parent?.getWorldScale(this.textWorldScale);
+			const parentScale = Math.max(Math.abs(this.textWorldScale.x), Math.abs(this.textWorldScale.z)) || 1;
+			const baseTextPx = TEXT_SPRITE_TEXT_HEIGHT_RATIO * Math.abs(base.y) * parentScale * pixelsPerUnit;
+			if (baseTextPx <= 0) return;
+
+			// 文字宽度不超过一格地皮，避免整图视图下相邻地块的标签叠在一起。
+			// 该限制只作用于地皮文字；玩家名牌 / 步数保持目标字号，保证可读性。
+			let factor = THREE.MathUtils.clamp(TOP_DOWN_TEXT_TARGET_PX / baseTextPx, 1, TOP_DOWN_TEXT_MAX_SCALE);
+			if (sprite.userData.isPropertyLabel) {
+				const textWidthRatio = THREE.MathUtils.clamp(
+					(sprite.userData.textWidthRatio as number | undefined) ?? 0.5,
+					0.05,
+					1,
+				);
+				const maxFactorByCell = 1 / (textWidthRatio * Math.abs(base.y) * parentScale);
+				factor = Math.min(factor, maxFactorByCell);
+			}
+			sprite.scale.set(base.x * factor, base.y * factor, base.z);
+		});
+	}
+
+	/** 离开俯视棋盘时恢复文字标签的原始世界尺寸（3D 表现零改动） */
+	private restoreTextSpriteScale() {
+		this.forEachTextSprite((sprite) => {
+			sprite.scale.copy(this.getTextBaseScale(sprite));
+		});
+	}
+
+	/** 遍历需要跟随缩放校正的文字标签 */
+	private forEachTextSprite(callback: (sprite: THREE.Sprite) => void) {
+		const applyIfTextSprite = (object: THREE.Object3D) => {
+			if (!(object as THREE.Sprite).isSprite || !object.userData.isTextSprite) return;
+			callback(object as THREE.Sprite);
+		};
+		for (const player of this.playerEntities.values()) {
+			player.model.children.forEach(applyIfTextSprite);
+			// 步数等文字挂在角色立绘上
+			player.bodyMesh?.children.forEach(applyIfTextSprite);
+		}
+		for (const house of this.housesItems.values()) {
+			applyIfTextSprite(house.textSprite.getSprite());
+		}
+	}
+
+	/** 首次校正时记录标签的原始缩放，作为 3D 模式与放大倍数计算的基准 */
+	private getTextBaseScale(sprite: THREE.Sprite): THREE.Vector3 {
+		const cached = sprite.userData.textBaseScale as THREE.Vector3 | undefined;
+		if (cached) return cached;
+		const base = sprite.scale.clone();
+		sprite.userData.textBaseScale = base;
+		return base;
+	}
+
+	/**
+	 * 俯视棋盘下的玩家表现：
+	 * - 立绘已平铺在地面上，名牌从立绘中间移到头顶（屏幕上方 = -Z），留出固定像素间距；
+	 * - 脚下的圆形阴影失去意义，直接隐藏。
+	 */
+	private syncTopDownPlayerVisuals() {
+		const pixelsPerUnit = this.cameraRig.getPixelsPerWorldUnit(this.container.clientHeight);
+		if (pixelsPerUnit <= 0) return;
+
+		for (const player of this.playerEntities.values()) {
+			// 位置是模型局部坐标，模型整体有 PLAY_MODEL_SIZE 缩放，需要换算回屏幕像素
+			const modelScale = Math.abs(player.model.scale.z) || 1;
+			const localGap = TOP_DOWN_NAME_GAP_PX / (pixelsPerUnit * modelScale);
+
+			for (const child of player.model.children) {
+				if (child.userData.isPlayerName) {
+					const base = this.getPlayerNameBasePosition(child);
+					child.position.set(base.x, base.y, base.z - PLAYER_PORTRAIT_HALF_SIZE - localGap);
+				} else if (child.name === "Shadow") {
+					child.visible = false;
+				}
+			}
+		}
+	}
+
+	/** 离开俯视棋盘时恢复名牌位置与脚下阴影 */
+	private restorePlayerVisuals() {
+		for (const player of this.playerEntities.values()) {
+			for (const child of player.model.children) {
+				if (child.userData.isPlayerName) {
+					child.position.copy(this.getPlayerNameBasePosition(child));
+				} else if (child.name === "Shadow") {
+					child.visible = true;
+				}
+			}
+		}
+	}
+
+	/** 首次移动名牌时缓存它的原始位置，用于切回 3D 时还原 */
+	private getPlayerNameBasePosition(sprite: THREE.Object3D): THREE.Vector3 {
+		const cached = sprite.userData.nameBasePosition as THREE.Vector3 | undefined;
+		if (cached) return cached;
+		const base = sprite.position.clone();
+		sprite.userData.nameBasePosition = base;
+		return base;
+	}
+
+	/** 棋盘边界：直接用整数网格计算，避免装饰模型把范围撑大 */
+	private getBoardBounds(): BoardBounds {
+		const mapItems = this.mapData.mapItems;
+		if (!mapItems.length) return { minX: 0, maxX: 0, minY: 0, maxY: 0 };
+
+		let minX = Infinity;
+		let maxX = -Infinity;
+		let minY = Infinity;
+		let maxY = -Infinity;
+		for (const mapItem of mapItems) {
+			if (mapItem.x < minX) minX = mapItem.x;
+			if (mapItem.x > maxX) maxX = mapItem.x;
+			if (mapItem.y < minY) minY = mapItem.y;
+			if (mapItem.y > maxY) maxY = mapItem.y;
+		}
+		return { minX, maxX, minY, maxY };
+	}
+
 	private resolvePreferredFocusPlayerId(): string | null {
 		const userId = getCurrentClientPlayerId();
 		if (this.playerEntities.has(userId)) {
@@ -2416,7 +2662,14 @@ export class GameRenderer {
 			return;
 		}
 
+		// 俯视棋盘下“回归视角”只平移，不改缩放
+		if (this.cameraRig.isTopDown) {
+			this.cameraRig.recenterTo(playerEntity.model.position.x, playerEntity.model.position.z);
+			return;
+		}
+
 		this.currentFocusModule = playerEntity.model;
+		this.hasInitial3DView = true;
 		this.updateCamera(this.controls, this.currentFocusModule, 8, 30);
 		this.controls.update();
 
@@ -2771,6 +3024,9 @@ export class GameRenderer {
 	}
 
 	private focusPlayerById(id: string) {
+		// 俯视棋盘下镜头不自动移动（回合切换 / 开局聚焦都在此短路）
+		if (this.cameraRig.isTopDown) return;
+
 		const playerEntity = this.playerEntities.get(id);
 		if (!playerEntity) {
 			console.warn(`[相机] 无法聚焦玩家: 找不到 ID 为 ${id} 的玩家实体`);
@@ -2778,6 +3034,7 @@ export class GameRenderer {
 		}
 
 		this.currentFocusModule = playerEntity.model;
+		this.hasInitial3DView = true;
 		this.updateCamera(this.controls, this.currentFocusModule, 8, 30);
 		this.controls.update();
 	}
@@ -2852,8 +3109,7 @@ export class GameRenderer {
 		this.composer.setPixelRatio(newPixelRatio);
 
 		// 更新相机和尺寸
-		this.camera.aspect = this.container.clientWidth / this.container.clientHeight;
-		this.camera.updateProjectionMatrix();
+		this.cameraRig.handleResize(this.container.clientWidth, this.container.clientHeight);
 		this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
 		this.renderPass.setSize(this.container.clientWidth, this.container.clientHeight);
 		this.composer.setSize(this.container.clientWidth, this.container.clientHeight);

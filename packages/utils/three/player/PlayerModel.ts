@@ -24,6 +24,16 @@ export class PlayerModel {
 		// lookAt 只负责旋转，它不会影响 scale，所以翻转后依然能正确盯着相机
 		this.bodyMesh.lookAt(targetPos);
 	}
+
+	/**
+	 * 俯视棋盘模式：立绘固定平铺在地面上。
+	 * 此时相机在正上方，继续 lookAt 会让立绘随相机平移绕 Y 轴转动，
+	 * 因此改为固定朝向——法线朝上（正对相机），贴图上方指向屏幕上方（-Z）。
+	 */
+	public updateTopDown() {
+		if (!this.bodyMesh) return;
+		this.bodyMesh.rotation.set(-Math.PI / 2, 0, 0);
+	}
 }
 
 async function loadRoleModel(url: string, fileType: string): Promise<THREE.Group> {
