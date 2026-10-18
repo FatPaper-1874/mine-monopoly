@@ -580,6 +580,7 @@ export class GameRenderer {
 		const diceModel = (await loadModel("dice.glb")).scene;
 		diceModel.scale.set(0.8, 0.8, 0.8);
 		this.diceManager = new DiceManager(diceModel);
+		this.diceManager.setViewMode(this.cameraRig.mode);
 		this.diceManager.updateAspect(this.container.clientWidth / this.container.clientHeight);
 	}
 
@@ -2577,6 +2578,7 @@ export class GameRenderer {
 		// 切换前放弃选路取景记录，避免退出选路时把新相机拉回旧位姿
 		this.pathChoiceController?.releaseCameraFraming();
 		this.cameraRig.setMode(mode, this.hasInitial3DView);
+		this.diceManager?.setViewMode(mode);
 		this.rebindCameraDependents();
 		if (mode === "3d") {
 			this.restoreTextSpriteScale();
