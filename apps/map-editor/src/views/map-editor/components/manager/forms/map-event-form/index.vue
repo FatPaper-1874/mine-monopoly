@@ -3,7 +3,7 @@ import { MapEvent } from "@mine-monopoly/types/interfaces/game/item";
 import CodeEditor from "@src/components/code-editor/index.vue";
 import libContent from "@src/components/code-editor/editor-lib.d.ts?raw";
 import { MAP_EVENT_TEMPLATE as templateText } from "@src/components/code-editor/code-templates";
-import { h, reactive, ref, watch } from "vue";
+import { computed, h, reactive, ref, watch } from "vue";
 import { useMapDataStore, useResourceStore } from "@src/stores";
 import { message, Modal } from "ant-design-vue";
 import { MapEventType } from "@mine-monopoly/types";
@@ -26,6 +26,17 @@ const resourceStore = useResourceStore();
 
 const mapEventForm = reactive<MapEvent & { tempFilePath?: string }>(getInitForm());
 const submitting = ref(false);
+const mapEventIdSuffix = computed({
+	get: () => mapEventForm.id.replace(/^event-/, ""),
+	set: (value: string) => {
+		mapEventForm.id = value ? "event-" + value : generateShortId("event");
+	},
+});
+
+async function copyId() {
+	await navigator.clipboard.writeText(mapEventForm.id);
+	message.success("已复制");
+}
 
 // 初始化表单
 watch(
@@ -85,7 +96,7 @@ async function handleAddMapEvent(skipCodeValidation: boolean = false) {
 				const newIconId = await addNewImage(mapEventForm.tempFilePath, mapEventForm.name);
 				mapEventForm.iconId = newIconId;
 			}
-			await mapContentService.updateMapEvent(mapEventForm, { skipCodeValidation: skipCodeValidation === true });
+			await mapContentService.updateMapEvent({ ...mapEventForm, originalId: props.mapEvent.id }, { skipCodeValidation: skipCodeValidation === true });
 		} else {
 			// 新增模式
 			if (mapEventForm.tempFilePath) {
@@ -120,7 +131,12 @@ async function handleAddMapEvent(skipCodeValidation: boolean = false) {
 					autocomplete="off"
 				>
 					<a-form-item label="ID">
-						<a-alert style="word-break: break-all" :message="mapEventForm.id" type="info" />
+						<div style="display: flex; gap: 4px">
+							<a-input v-model:value="mapEventIdSuffix" placeholder="自定义后缀（留空自动生成）" allow-clear>
+								<template #prefix><span style="color: #999">event-</span></template>
+							</a-input>
+							<a-button @click="copyId">复制</a-button>
+						</div>
 					</a-form-item>
 					<a-form-item label="事件名称" name="name" :rules="[{ required: true, message: '请输入事件名称' }]">
 						<a-input v-model:value="mapEventForm.name" />

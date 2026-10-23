@@ -10,6 +10,7 @@
 		"dev": "vite",
 		"build": "node ./scripts/extract-changelog.js && vite build && electron-builder",
 		"check": "vue-tsc --noEmit",
+		"test:content-ids": "node --test scripts/tests/content-ids.test.cjs",
 		"electron": "electron .",
 		"preview": "vite preview"
 	},

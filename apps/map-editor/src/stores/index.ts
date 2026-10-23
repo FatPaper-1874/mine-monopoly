@@ -138,12 +138,23 @@ export const useMapDataStore = defineStore("MapData", {
 		addMapEvent(mapEvent: MapEvent) {
 			this.mapEvents.push(mapEvent);
 		},
-		editMapEvent(mapEvent: MapEvent) {
-			const index = this.mapEvents.findIndex((s) => s.id === mapEvent.id);
+		editMapEvent(mapEvent: MapEvent, originalId: string = mapEvent.id) {
+			const index = this.mapEvents.findIndex((s) => s.id === originalId);
 			if (index < 0) throw Error("找不到目标地图事件");
+			if (this.mapEvents.some((s, i) => i !== index && s.id === mapEvent.id)) {
+				throw Error("地图事件 ID 已存在: " + mapEvent.id);
+			}
 			const old = this.mapEvents[index];
 			if (old.iconId !== mapEvent.iconId) useResourceStore().removeImage(old.iconId);
 			Object.assign(this.mapEvents[index], mapEvent);
+			if (originalId !== mapEvent.id) {
+				for (const item of this.mapItems) {
+					if (item.mapEventId === originalId) {
+						item.mapEventId = mapEvent.id;
+						eventBus.emit("map-event-link", item.id);
+					}
+				}
+			}
 		},
 		reomveMapEvent(id: string) {
 			const deleteIndex = this.mapEvents.findIndex((s) => s.id === id);
@@ -170,9 +181,12 @@ export const useMapDataStore = defineStore("MapData", {
 		addChanceCard(chanceCard: ChanceCardInfo) {
 			this.chanceCards.push(chanceCard);
 		},
-		editChanceCard(chanceCard: ChanceCardInfo) {
-			const index = this.chanceCards.findIndex((s) => s.id === chanceCard.id);
+		editChanceCard(chanceCard: ChanceCardInfo, originalId: string = chanceCard.id) {
+			const index = this.chanceCards.findIndex((s) => s.id === originalId);
 			if (index < 0) throw Error("找不到目标机会卡");
+			if (this.chanceCards.some((s, i) => i !== index && s.id === chanceCard.id)) {
+				throw Error("机会卡 ID 已存在: " + chanceCard.id);
+			}
 			const old = this.chanceCards[index];
 			if (old.iconId !== chanceCard.iconId) useResourceStore().removeImage(old.iconId);
 			Object.assign(this.chanceCards[index], chanceCard);
@@ -205,9 +219,12 @@ export const useMapDataStore = defineStore("MapData", {
 		addRole(role: Role) {
 			this.roles.push(role);
 		},
-		editRole(role: Role) {
-			const index = this.roles.findIndex((s) => s.id === role.id);
+		editRole(role: Role, originalRoleId: string = role.id) {
+			const index = this.roles.findIndex((s) => s.id === originalRoleId);
 			if (index < 0) throw Error("找不到目标角色");
+			if (this.roles.some((s, i) => i !== index && s.id === role.id)) {
+				throw Error("角色 ID 已存在: " + role.id);
+			}
 			const old = this.roles[index];
 			if (old.imageId !== role.imageId) useResourceStore().removeImage(old.imageId);
 			Object.assign(this.roles[index], role);
@@ -501,8 +518,12 @@ export const useMapDataStore = defineStore("MapData", {
 		//ModifierTemplate
 
 		/** 保存或更新 Modifier 模板 */
-		saveModifierTemplate(template: ModifierTemplate) {
-			const idx = this.modifierTemplates.findIndex((t) => t.id === template.id);
+		saveModifierTemplate(template: ModifierTemplate, originalId?: string) {
+			const idx = this.modifierTemplates.findIndex((t) => t.id === (originalId ?? template.id));
+			if (originalId !== undefined && idx < 0) throw Error("找不到目标修饰器模板");
+			if (this.modifierTemplates.some((t, i) => i !== idx && t.id === template.id)) {
+				throw Error("修饰器模板 ID 已存在: " + template.id);
+			}
 			if (idx > -1) {
 				this.modifierTemplates.splice(idx, 1, template);
 			} else {
@@ -685,13 +706,13 @@ export const useMapDataStore = defineStore("MapData", {
 			},
 
 		// MapEvent edit
-		updateMapEvent(mapEvent: MapEvent) {
-			this.editMapEvent(mapEvent);
+		updateMapEvent(mapEvent: MapEvent, originalId: string = mapEvent.id) {
+			this.editMapEvent(mapEvent, originalId);
 		},
 
 		// ChanceCard edit
-		updateChanceCard(chanceCard: ChanceCardInfo) {
-			this.editChanceCard(chanceCard);
+		updateChanceCard(chanceCard: ChanceCardInfo, originalId: string = chanceCard.id) {
+			this.editChanceCard(chanceCard, originalId);
 		},
 	},
 });

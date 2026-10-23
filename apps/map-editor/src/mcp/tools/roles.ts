@@ -23,7 +23,8 @@ const AddRoleToolSchema = z.object({
 });
 
 const UpdateRoleToolSchema = z.object({
-	roleId: z.string().describe("角色ID"),
+	roleId: z.string().describe("当前角色ID"),
+	id: z.string().min(1).optional().describe("新的角色ID（可选，用于重命名）"),
 	name: z.string().optional().describe("角色名称"),
 	description: z.string().optional().describe("角色描述"),
 	color: z.string().optional().describe("角色颜色"),
@@ -113,7 +114,7 @@ export const roleTools = [
 	},
 	{
 		name: "update_role",
-		description: "更新角色。参数：roleId（角色ID）, name?, description?, color?, initCode?, imageId?",
+		description: "更新角色。参数：roleId（当前角色ID）, id?（新的角色ID）, name?, description?, color?, initCode?, imageId?",
 		inputSchema: UpdateRoleToolSchema,
 		handler: updateRole
 	},

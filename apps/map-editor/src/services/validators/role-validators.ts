@@ -29,6 +29,7 @@ export const AddRoleSchema = roleSchema;
  */
 export const UpdateRoleSchema = z.object({
 	roleId: z.string().min(1, "Role ID is required"),
+	id: z.string().min(1, "Role ID is required").optional(),
 	name: z.string().optional(),
 	description: z.string().optional(),
 	color: z.string().optional(),

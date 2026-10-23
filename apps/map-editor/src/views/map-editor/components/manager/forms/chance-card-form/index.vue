@@ -103,7 +103,7 @@ async function handleAddChanceCard(skipCodeValidation: boolean = false) {
 				const newIconId = await addNewImage(chanceCardForm.tempFilePath, chanceCardForm.name);
 				chanceCardForm.iconId = newIconId;
 			}
-			await mapContentService.updateChanceCard(chanceCardForm, { skipCodeValidation: skipCodeValidation === true });
+			await mapContentService.updateChanceCard({ ...chanceCardForm, originalId: props.chanceCard.id }, { skipCodeValidation: skipCodeValidation === true });
 		} else {
 			// 新增模式
 			if (chanceCardForm.tempFilePath) {

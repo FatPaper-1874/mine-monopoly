@@ -42,6 +42,7 @@ export const AddChanceCardSchema = chanceCardSchema;
  */
 export const UpdateChanceCardSchema = chanceCardSchema.extend({
 	id: z.string().min(1, "Card ID is required"),
+	originalId: z.string().min(1, "Original card ID is required").optional(),
 });
 
 /**

@@ -74,10 +74,10 @@ export class MapContentService {
 
 	/**
 	 * Add a new chance card
-	 * @param data - Chance card data without id
-	 * @returns The created chance card with generated id
+	 * @param data - Chance card data with an optional custom id
+	 * @returns The created chance card with the provided or generated id
 	 */
-	async addChanceCard(data: Omit<ChanceCard, "id">, options: CodeValidationOptions = {}): Promise<ChanceCard> {
+	async addChanceCard(data: ChanceCard, options: CodeValidationOptions = {}): Promise<ChanceCard> {
 		// 1. Validate input data
 		const validated = AddChanceCardSchema.parse(data);
 		if (!options.skipCodeValidation) {
@@ -96,6 +96,11 @@ export class MapContentService {
 		const mapDataStore = useMapDataStore();
 		const resourceStore = useResourceStore();
 
+		const id = validated.id || generateShortId('card');
+		if (mapDataStore.chanceCards.some(card => card.id === id)) {
+			throw new Error("机会卡 ID 已存在: " + id);
+		}
+
 		// 3. Auto-generate iconId if not provided
 		let iconId = validated.iconId;
 		if (!iconId) {
@@ -108,7 +113,7 @@ export class MapContentService {
 
 		// 4. Construct data object with generated ID
 		const newCard: ChanceCard = {
-			id: generateShortId('card'),
+			id,
 			name: validated.name,
 			type: validated.type,
 			description: validated.description,
@@ -133,10 +138,10 @@ export class MapContentService {
 
 	/**
 	 * Update an existing chance card
-	 * @param data - Chance card data with id
+	 * @param data - Chance card data with id and optional originalId for renaming
 	 * @returns The updated chance card
 	 */
-	async updateChanceCard(data: ChanceCard, options: CodeValidationOptions = {}): Promise<ChanceCard> {
+	async updateChanceCard(data: z.infer<typeof UpdateChanceCardSchema>, options: CodeValidationOptions = {}): Promise<ChanceCard> {
 		// 1. Validate input
 		const validated = UpdateChanceCardSchema.parse(data);
 		if (!options.skipCodeValidation) {
@@ -153,7 +158,7 @@ export class MapContentService {
 
 		// 2. Check if exists
 		const mapDataStore = useMapDataStore();
-		const existing = mapDataStore.chanceCards.find(c => c.id === validated.id);
+		const existing = mapDataStore.chanceCards.find(c => c.id === (validated.originalId ?? validated.id));
 		if (!existing) {
 			throw new Error(`机会卡不存在: ${validated.id}`);
 		}
@@ -177,7 +182,7 @@ export class MapContentService {
 		};
 
 		// 5. Call Store
-		mapDataStore.updateChanceCard(updatedCard as any);
+		mapDataStore.updateChanceCard(updatedCard as any, validated.originalId ?? validated.id);
 
 		// 6. Send event notification
 		eventBus.emit("mcp-operation", {
@@ -223,10 +228,10 @@ export class MapContentService {
 
 	/**
 	 * Add a new role
-	 * @param data - Role data without id
-	 * @returns The created role with generated id
+	 * @param data - Role data with an optional custom id
+	 * @returns The created role with the provided or generated id
 	 */
-	async addRole(data: Omit<Role, "id">, options: CodeValidationOptions = {}): Promise<Role> {
+	async addRole(data: Role, options: CodeValidationOptions = {}): Promise<Role> {
 		// 1. Validate input data
 		const validated = AddRoleSchema.parse(data);
 		if (!options.skipCodeValidation) {
@@ -244,6 +249,11 @@ export class MapContentService {
 		const mapDataStore = useMapDataStore();
 		const resourceStore = useResourceStore();
 
+		const id = validated.id || generateShortId('role');
+		if (mapDataStore.findRoleById(id)) {
+			throw new Error(`角色 ID 已存在: ${id}`);
+		}
+
 		// 3. Auto-generate imageId if not provided
 		let imageId = validated.imageId;
 		if (!imageId) {
@@ -254,9 +264,9 @@ export class MapContentService {
 			imageId = tempImage.id;
 		}
 
-		// 4. Construct data object with generated ID
+		// 4. Construct data object with the provided or generated ID
 		const newRole: Role = {
-			id: generateShortId('role'),
+			id,
 			name: validated.name,
 			description: validated.description || "",
 			color: validated.color || "#000000",
@@ -280,7 +290,7 @@ export class MapContentService {
 
 	/**
 	 * Update an existing role
-	 * @param data - Role data with roleId
+	 * @param data - Role data with the current roleId and optional new id
 	 * @returns The updated role
 	 */
 	async updateRole(data: z.infer<typeof UpdateRoleSchema>, options: CodeValidationOptions = {}): Promise<Role> {
@@ -306,6 +316,7 @@ export class MapContentService {
 
 		// 3. Merge updated fields
 		const updated = { ...role };
+		if (validated.id !== undefined) updated.id = validated.id;
 		if (validated.name !== undefined) updated.name = validated.name;
 		if (validated.description !== undefined) updated.description = validated.description;
 		if (validated.color !== undefined) updated.color = validated.color;
@@ -318,14 +329,14 @@ export class MapContentService {
 		}
 
 		// 4. Call Store
-		mapDataStore.editRole(updated as any);
+		mapDataStore.editRole(updated, validated.roleId);
 
 		// 5. Send event notification
 		eventBus.emit("mcp-operation", {
 			operation: "update_role",
 			success: true,
 			message: `更新角色成功: ${updated.name}`,
-			details: { id: validated.roleId, name: updated.name }
+			details: { id: updated.id, name: updated.name }
 		});
 
 		return updated as Role;
@@ -364,10 +375,10 @@ export class MapContentService {
 
 	/**
 	 * Add a new map event
-	 * @param data - Map event data without id
-	 * @returns The created map event with generated id
+	 * @param data - Map event data with an optional custom id
+	 * @returns The created map event with the provided or generated id
 	 */
-	async addMapEvent(data: Omit<MapEvent, "id">, options: CodeValidationOptions = {}): Promise<MapEvent> {
+	async addMapEvent(data: MapEvent, options: CodeValidationOptions = {}): Promise<MapEvent> {
 		// 1. Validate input data
 		const validated = AddMapEventSchema.parse(data);
 		if (!options.skipCodeValidation) {
@@ -385,6 +396,11 @@ export class MapContentService {
 		const mapDataStore = useMapDataStore();
 		const resourceStore = useResourceStore();
 
+		const id = validated.id || generateShortId('event');
+		if (mapDataStore.findMapEventById(id)) {
+			throw new Error("地图事件 ID 已存在: " + id);
+		}
+
 		// 3. Auto-generate iconId if not provided
 		let iconId = validated.iconId;
 		if (!iconId) {
@@ -397,7 +413,7 @@ export class MapContentService {
 
 		// 4. Construct data object with generated ID
 		const newEvent: MapEvent = {
-			id: generateShortId('event'),
+			id,
 			name: validated.name,
 			type: validated.type,
 			description: validated.description || "",
@@ -421,10 +437,10 @@ export class MapContentService {
 
 	/**
 	 * Update an existing map event
-	 * @param data - Map event data with id
+	 * @param data - Map event data with id and optional originalId for renaming
 	 * @returns The updated map event
 	 */
-	async updateMapEvent(data: MapEvent, options: CodeValidationOptions = {}): Promise<MapEvent> {
+	async updateMapEvent(data: z.infer<typeof UpdateMapEventSchema>, options: CodeValidationOptions = {}): Promise<MapEvent> {
 		// 1. Validate input
 		const validated = UpdateMapEventSchema.parse(data);
 		if (!options.skipCodeValidation) {
@@ -440,7 +456,7 @@ export class MapContentService {
 
 		// 2. Check if exists
 		const mapDataStore = useMapDataStore();
-		const existing = mapDataStore.findMapEventById(validated.id);
+		const existing = mapDataStore.findMapEventById(validated.originalId ?? validated.id);
 		if (!existing) {
 			throw new Error(`地图事件不存在: ${validated.id}`);
 		}
@@ -463,7 +479,7 @@ export class MapContentService {
 		};
 
 		// 5. Call Store
-		mapDataStore.updateMapEvent(updatedEvent as any);
+		mapDataStore.updateMapEvent(updatedEvent as any, validated.originalId ?? validated.id);
 
 		// 6. Send event notification
 		eventBus.emit("mcp-operation", {
