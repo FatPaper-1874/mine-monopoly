@@ -24,11 +24,11 @@ statisticsRouter.get("/users", async (req, res) => {
 		userRepository.createQueryBuilder("user").where("user.create_time >= :today", { today }).getCount(),
 		userRepository
 			.createQueryBuilder("user")
-			.select("DATE(user.create_time)", "date")
+			.select("DATE_FORMAT(user.create_time, '%Y-%m-%d')", "date")
 			.addSelect("COUNT(*)", "count")
 			.where("user.create_time >= :sevenDaysAgo", { sevenDaysAgo })
-			.groupBy("DATE(user.create_time)")
-			.orderBy("DATE(user.create_time)", "ASC")
+			.groupBy("DATE_FORMAT(user.create_time, '%Y-%m-%d')")
+			.orderBy("DATE_FORMAT(user.create_time, '%Y-%m-%d')", "ASC")
 			.getRawMany(),
 	]);
 
@@ -54,11 +54,11 @@ statisticsRouter.get("/games", async (req, res) => {
 		gameRecordRepository.createQueryBuilder("record").select("AVG(record.duration)", "avgDuration").getRawOne(),
 		gameRecordRepository
 			.createQueryBuilder("record")
-			.select("DATE(record.create_time)", "date")
+			.select("DATE_FORMAT(record.create_time, '%Y-%m-%d')", "date")
 			.addSelect("COUNT(*)", "count")
 			.where("record.create_time >= :sevenDaysAgo", { sevenDaysAgo })
-			.groupBy("DATE(record.create_time)")
-			.orderBy("DATE(record.create_time)", "ASC")
+			.groupBy("DATE_FORMAT(record.create_time, '%Y-%m-%d')")
+			.orderBy("DATE_FORMAT(record.create_time, '%Y-%m-%d')", "ASC")
 			.getRawMany(),
 		gameRecordRepository
 			.createQueryBuilder("record")
@@ -97,7 +97,7 @@ function buildTrend(rows: { date: string; count: string }[], startDate: Date) {
 	for (let i = 0; i < 7; i++) {
 		const d = new Date(startDate);
 		d.setDate(d.getDate() + i);
-		const dateStr = d.toISOString().slice(0, 10);
+		const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 		trend.push({ date: dateStr, count: countMap.get(dateStr) || 0 });
 	}
 	return trend;
