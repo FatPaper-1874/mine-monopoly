@@ -78,6 +78,8 @@ import GameProcessTypes from "./editor-lib.d.ts?raw";
 import { generatePropertySchema } from "@src/utils/html";
 import mitt from "mitt";
 import { aiManager } from "./ai";
+import { buildAIEconomySnapshot } from "./ai/AIEconomy";
+import { buildDiceReachability } from "./ai/DiceReachability";
 import type { Emitter } from "mitt";
 import { SaveSnapshot, PlayerSnapshot, PropertySnapshot } from "@src/core/save/types";
 import { applyWorkerSandbox } from "./security";
@@ -115,7 +117,6 @@ const pendingAIDecisionRequests = new Map<
 	{
 		resolve: (selection: AIDecisionSelection) => void;
 		reject: (error: Error) => void;
-		timeoutId: ReturnType<typeof setTimeout>;
 	}
 >();
 
@@ -145,19 +146,12 @@ type AIChainedDecisionState = {
 };
 
 class HostBridgeDecisionProvider implements AIDecisionProvider {
-	constructor(private readonly config: AIDecisionConfig) {}
-
 	async decide(request: AIDecisionRequest): Promise<AIDecisionSelection> {
-		const timeoutMs = this.config.remote.timeoutMs ?? 30000;
 		const requestId = `ai-request-${++aiDecisionRequestSeq}`;
 		try {
 			return await new Promise<AIDecisionSelection>((resolve, reject) => {
-				const timeoutId = setTimeout(() => {
-					pendingAIDecisionRequests.delete(requestId);
-					reject(new Error("AI decision bridge timeout"));
-				}, timeoutMs);
-
-				pendingAIDecisionRequests.set(requestId, { resolve, reject, timeoutId });
+				// 远端请求由房主按该玩家实际使用的控制台配置计时，桥接层不再抢先超时。
+				pendingAIDecisionRequests.set(requestId, { resolve, reject });
 				self.postMessage(<WorkerCommMsg>{
 					type: WorkerCommType.RequestAIDecision,
 					data: {
@@ -169,19 +163,20 @@ class HostBridgeDecisionProvider implements AIDecisionProvider {
 		} catch (error) {
 			console.warn("[AI Remote] bridge request failed", error);
 			return {};
+		} finally {
+			pendingAIDecisionRequests.delete(requestId);
 		}
 	}
 }
 
 function applyAIDecisionConfig(config: AIDecisionConfig): void {
 	aiManager.setContextMemoryLimit(config.contextMemoryLimit ?? 6);
-	aiManager.setProvider(new HostBridgeDecisionProvider(config));
+	aiManager.setProvider(new HostBridgeDecisionProvider());
 }
 
 function resolveAIDecisionResponse(data: { requestId: string; selection?: AIDecisionSelection; error?: string }): void {
 	const pending = pendingAIDecisionRequests.get(data.requestId);
 	if (!pending) return;
-	clearTimeout(pending.timeoutId);
 	pendingAIDecisionRequests.delete(data.requestId);
 	if (data.error) {
 		pending.reject(new Error(data.error));
@@ -558,6 +553,7 @@ export class GameProcess implements IGameProcess {
 	private static readonly WALK_ANIMATION_EXTRA_STEPS = 3; // 额外的安全步数
 
 	private userList: UserInRoomInfo[];
+	private aiInitialMoney: number[] = [];
 	private startTime: number = Date.now();
 
 	private gameRoundPhase: {
@@ -2588,12 +2584,24 @@ export class GameProcess implements IGameProcess {
 		// 如果玩家是AI托管，使用AI决策
 		if (player?.isAI) {
 			if (operationType === OperateType.RollDice || operationType === OperateType.UseChanceCard) {
-				const waitForOperation = operationListener.onceAsyncWithTimeout(playerId, operationType, {
-					timeout: options?.timeout ?? this.defaultTimeoutMs,
-					defaultValue: options?.defaultValue ?? (undefined as any),
+				// AI 的每次思考由远端请求超时控制，不受真人回合/地图脚本的倒计时限制。
+				let listener!: (result: PlayerOperationResult[T]) => void;
+				const waitForOperation = new Promise<PlayerOperationResult[T]>((resolve) => {
+					listener = resolve;
+					operationListener.once(playerId, operationType, listener);
 				});
-				this.ensureAIPreRollOperationBroker(player);
-				return await waitForOperation;
+				try {
+					this.ensureAIPreRollOperationBroker(player);
+					const task = this.aiPreRollOperationTasks.get(playerId)?.task ?? Promise.resolve();
+					// 请求失败或没有可执行动作时仍结束等待，保留原有的默认操作行为。
+					return await Promise.race([
+						waitForOperation,
+						task.then(() => options?.defaultValue as PlayerOperationResult[T]),
+					]);
+				} finally {
+					operationListener.remove(playerId, operationType, listener);
+					this.syncAIPreRollOperationSession(playerId);
+				}
 			}
 			return await this.makeAIDecision(player, operationType, {
 				defaultValue: options?.defaultValue,
@@ -2702,7 +2710,7 @@ export class GameProcess implements IGameProcess {
 			existing!.round === currentRound &&
 			existing!.currentRoundPlayerId === currentRoundPlayerId;
 		const previousDecisions = canContinue
-			? existing!.steps.slice(-2).map((step) => ({
+			? existing!.steps.map((step) => ({
 					title: step.title,
 					chosen: step.chosen,
 					summary: step.summary,
@@ -2776,26 +2784,34 @@ export class GameProcess implements IGameProcess {
 					? fieldSummary || "已提交表单"
 					: "放弃提交"
 				: chosenLabel || fieldSummary;
+		const chainId =
+			typeof (chainContext as Record<string, unknown>).chainId === "string"
+				? ((chainContext as Record<string, unknown>).chainId as string)
+				: `chain-${playerId.slice(0, 6)}-${request.context.currentRound}`;
+		const previousChain = this.aiDecisionChains.get(playerId);
+		const eventName =
+			typeof (chainContext as Record<string, unknown>).eventName === "string"
+				? ((chainContext as Record<string, unknown>).eventName as string)
+				: this.currentEventName;
+		const canContinue =
+			previousChain?.chainId === chainId &&
+			previousChain.eventName === eventName &&
+			previousChain.round === request.context.currentRound &&
+			previousChain.currentRoundPlayerId === currentRoundPlayerId;
 		const state: AIChainedDecisionState = {
-			chainId:
-				typeof (chainContext as Record<string, unknown>).chainId === "string"
-					? ((chainContext as Record<string, unknown>).chainId as string)
-					: `chain-${playerId.slice(0, 6)}-${request.context.currentRound}`,
-			eventName:
-				typeof (chainContext as Record<string, unknown>).eventName === "string"
-					? ((chainContext as Record<string, unknown>).eventName as string)
-					: this.currentEventName,
+			chainId,
+			eventName,
 			round: request.context.currentRound,
 			currentRoundPlayerId,
 			steps: [
-				...(this.aiDecisionChains.get(playerId)?.steps || []).slice(-2),
+				...(canContinue ? previousChain.steps : []),
 				{
 					title: request.title,
 					scene: request.scene,
 					chosen: chosenLabel,
 					summary: stepSummary,
 				},
-			].slice(-3),
+			],
 			lastUpdatedAt: Date.now(),
 		};
 		this.aiDecisionChains.set(playerId, state);
@@ -2849,6 +2865,7 @@ export class GameProcess implements IGameProcess {
 
 	private buildAIDecisionContext(player: Player): AIDecisionContextSnapshot {
 		const gameData = this.getGameData();
+		const propertyById = new Map(gameData.properties.map((property) => [property.id, property]));
 		const playerRoles = gameData.players.map((item) => {
 			const roleId = item.user.roleId;
 			const role = roleId ? this.mapData.roles.find((candidate) => candidate.id === roleId) : undefined;
@@ -2862,7 +2879,9 @@ export class GameProcess implements IGameProcess {
 				roleDescription: role?.description,
 			};
 		});
-		return {
+		const context: AIDecisionContextSnapshot = {
+			gameSetting: this.gameSetting,
+			gameOverRule: this.mapData.phases.gameOverRule[0],
 			player: player.getPlayerInfo(),
 			players: gameData.players,
 			properties: gameData.properties,
@@ -2875,7 +2894,7 @@ export class GameProcess implements IGameProcess {
 				mapEventId: item.mapEventId,
 				linkto: item.linkto,
 				beLinked: item.beLinked,
-				property: item.property,
+				property: item.property ? propertyById.get(item.property.id) : undefined,
 			})),
 			mapIndex: [...this.mapData.mapIndex],
 			mapEvents: this.mapData.mapEvents.map((event) => ({
@@ -2899,6 +2918,22 @@ export class GameProcess implements IGameProcess {
 					description: role.description,
 				})),
 			},
+		};
+		return {
+			...context,
+			economy: buildAIEconomySnapshot(context, this.aiInitialMoney),
+			diceReachability: buildDiceReachability({
+				context,
+				mapPaths: this.mapData.mapPaths,
+				enabledPathIds: this.enabledPathIds,
+				conditionalPathIds: new Set(this.mapPathCanPassConditions.keys()),
+				movementHistory: player.movementHistory,
+				returnFromMapItemId: player.returnFromMapItemId,
+				movementModifiers: player.modifierManager.getModifiersList()
+					.filter((modifier) => modifier.descriptor.remainingTriggers !== 0 &&
+						(modifier.descriptor.commandType === "player.dice.roll" || modifier.descriptor.commandType === "player.walk"))
+					.map((modifier) => modifier.descriptor.meta?.description || modifier.descriptor.meta?.name || "掷骰或移动修饰器"),
+			}),
 		};
 	}
 
@@ -3995,13 +4030,6 @@ export class GameProcess implements IGameProcess {
 		}
 	}
 
-	private abbreviateAIThought(text: string, maxLength: number): string {
-		const normalized = text.replace(/\s+/g, " ").trim();
-		if (!normalized) return "";
-		if (normalized.length <= maxLength) return normalized;
-		return `${normalized.slice(0, Math.max(0, maxLength - 1)).trimEnd()}…`;
-	}
-
 	private stripMessageCardRichText(text: string): string {
 		return text
 			.replace(/<br\s*\/?>/gi, "，")
@@ -4059,23 +4087,23 @@ export class GameProcess implements IGameProcess {
 		return fragments.join("，");
 	}
 
-	private extractAIMessageCardSummary(option: MessageCardOption, maxLength: number = 24): string | undefined {
+	private extractAIMessageCardSummary(option: MessageCardOption): string | undefined {
 		const candidates = [option.title, this.extractMessageCardContentText(option.content)];
 		const genericTitles = new Set(["提示", "消息", "信息", "通知", "提醒"]);
 		for (const candidate of candidates) {
 			const trimmed = candidate?.trim();
 			if (!trimmed) continue;
 			if (genericTitles.has(trimmed)) continue;
-			return this.abbreviateAIThought(trimmed, maxLength);
+			return trimmed;
 		}
 		return undefined;
 	}
 
 	private buildMessageCardAIReactionPrompt(option: MessageCardOption): AIDecisionPrompt<"scripted-action"> {
-		const title = this.abbreviateAIThought(option.title || "提示", 32) || "提示";
+		const title = option.title?.trim() || "提示";
 		const rawContent = this.extractMessageCardContentText(option.content);
-		const contentSummary = this.abbreviateAIThought(rawContent, 160);
-		const humanSummary = this.extractAIMessageCardSummary(option, 36) || title;
+		const contentSummary = rawContent;
+		const humanSummary = this.extractAIMessageCardSummary(option) || title;
 		const summaryParts = [
 			"你刚收到一张 showMessageCard 提示卡，请把它当作游戏内即时信息。",
 			`标题：${title}。`,
@@ -4220,6 +4248,9 @@ export class GameProcess implements IGameProcess {
 
 			// 步骤2: 运行游戏初始化后阶段
 			await this.runInitedPhase();
+
+			// 在恢复存档前记录地图初始化后的资金，避免把中盘余额当成开局规模。
+			this.aiInitialMoney = [...this.players.values()].map((player) => player.getPlayerInfo().money);
 
 			// 步骤2.5: 如果有待注入的存档数据，在发送给客户端之前恢复
 			// 这样客户端首次收到的 GameInit 就是存档后的正确状态

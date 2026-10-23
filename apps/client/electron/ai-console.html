@@ -530,6 +530,20 @@
 					align-items: flex-start;
 				}
 			}
+			.usage-history { max-height: 380px; overflow-y: auto; padding: 2px; }
+			.usage-record { display: grid; gap: 6px; width: 100%; text-align: left; color: var(--text); font: inherit; cursor: pointer; }
+			.usage-record:hover, .usage-record:focus-visible { border-color: var(--accent); background: var(--accent-soft); outline: 2px solid var(--accent-soft); }
+			.usage-record--error { border-color: var(--bad); }
+			.usage-record__hint { font-size: 11px; color: var(--accent); }
+			.usage-dialog { height: min(780px, 92vh); width: min(1120px, 94vw); max-height: 92vh; padding: 22px; border: 1px solid var(--line); border-radius: 18px; background: #fffaf1; color: var(--text); box-shadow: var(--shadow); }
+			.usage-dialog[open] { display: flex; flex-direction: column; }
+			.usage-dialog::backdrop { background: rgba(35, 25, 16, 0.48); }
+			.usage-dialog__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+			.usage-dialog__title { margin: 0; font-size: 18px; overflow-wrap: anywhere; }
+			.usage-dialog__meta { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+			.usage-dialog__tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+			.usage-dialog__tabs .is-active { background: var(--accent); color: #fff8ef; }
+			.usage-dialog__content { margin: 0; padding: 16px; flex: 1; min-height: 120px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; border: 1px solid var(--line); border-radius: 12px; background: #fffdf9; font: 13px/1.65 "Cascadia Code", "Consolas", "Microsoft YaHei UI", monospace; user-select: text; }
 		</style>
 	</head>
 	<body>
@@ -602,6 +616,10 @@
 										<input id="global-model" type="text" placeholder="gpt-4.1-mini" />
 									</div>
 									<div class="field-row">
+										<label for="global-timeout">思考超时（秒）</label>
+										<input id="global-timeout" type="number" min="0.001" max="2147483.647" step="any" placeholder="30" />
+									</div>
+									<div class="field-row">
 										<label for="global-memory-limit">上下文记忆</label>
 										<input id="global-memory-limit" type="number" min="0" max="20" step="1" />
 									</div>
@@ -612,7 +630,7 @@
 							</div>
 							<div class="card card--scroll">
 								<div class="card__title">远端档案库</div>
-								<div class="card__subtle">保存多套不同平台 / 模型配置，AI 玩家可各自绑定不同档案。</div>
+								<div class="card__subtle">AI 思考按实际使用配置的超时时间等待，不受游戏回合倒计时限制。可为不同模型分别设置。</div>
 								<div class="profile-list" id="profile-list"></div>
 								<div class="actions">
 									<button class="btn" id="add-profile-btn">新增远端档案</button>
@@ -643,6 +661,10 @@
 											<label for="profile-model">模型名</label>
 											<input id="profile-model" type="text" placeholder="gpt-4.1-mini" />
 										</div>
+										<div class="field-row">
+											<label for="profile-timeout">思考超时（秒）</label>
+											<input id="profile-timeout" type="number" min="0.001" max="2147483.647" step="any" placeholder="30" />
+										</div>
 									</div>
 									<div class="actions">
 										<button class="btn btn--primary" id="save-profile-btn">保存当前档案</button>
@@ -655,7 +677,7 @@
 								<div class="actions">
 									<button class="btn" id="clear-usage-btn">清空统计</button>
 								</div>
-								<div class="list-stack" id="usage-list"></div>
+								<div class="list-stack usage-history" id="usage-list"></div>
 							</div>
 						</div>
 					</div>
@@ -686,6 +708,25 @@
 				</div>
 			</div>
 		</div>
+		<dialog class="usage-dialog" id="usage-detail-dialog" aria-labelledby="usage-detail-title">
+			<div class="usage-dialog__header">
+				<h2 class="usage-dialog__title" id="usage-detail-title">调用详情</h2>
+				<button class="btn" id="usage-detail-close" type="button" aria-label="关闭调用详情">关闭</button>
+			</div>
+			<div class="info-grid usage-dialog__meta" id="usage-detail-meta"></div>
+			<div class="usage-dialog__tabs" id="usage-detail-tabs" role="tablist" aria-label="调用内容">
+				<button class="btn is-active" type="button" role="tab" data-usage-tab="input" aria-selected="true">输入内容</button>
+				<button class="btn" type="button" role="tab" data-usage-tab="output" aria-selected="false">输出内容</button>
+				<button class="btn" type="button" role="tab" data-usage-tab="request" aria-selected="false">完整输入字段</button>
+				<button class="btn" type="button" role="tab" data-usage-tab="response" aria-selected="false">完整输出字段</button>
+				<button class="btn" type="button" role="tab" data-usage-tab="selection" aria-selected="false">实际采用结果</button>
+			</div>
+			<pre class="usage-dialog__content" id="usage-detail-content" role="tabpanel" aria-label="完整调用内容"></pre>
+			<div class="actions">
+				<button class="btn btn--primary" id="usage-detail-copy" type="button">复制完整记录</button>
+				<span class="card__subtle">内容完整保留；认证请求头中的密钥已隐藏。</span>
+			</div>
+		</dialog>
 		<script src="./ai-console.js"></script>
 	</body>
 </html>

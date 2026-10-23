@@ -502,6 +502,18 @@ ipcMain.handle("ai-console:get-state", async () => {
 	}
 });
 
+ipcMain.handle("ai-console:get-usage-detail", async (_event, recordId: string) => {
+	if (typeof recordId !== "string") return null;
+	try {
+		return await executeAIControlBridge(
+			"bridge.getUsageDetail(" + JSON.stringify(recordId) + ")",
+			"null",
+		);
+	} catch (e: any) {
+		return { __error: e.message };
+	}
+});
+
 ipcMain.handle("ai-console:apply-config", async (_event, config) => {
 	try {
 		return await executeAIControlBridge(

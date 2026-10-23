@@ -5,6 +5,8 @@ import {
 	AIStrategyState,
 } from "@mine-monopoly/types";
 
+import { buildAIEconomySnapshot, getAIReserveCashTarget } from "./AIEconomy";
+
 type AIDecisionFeedback = {
 	playerId: string;
 	request: AIDecisionRequest;
@@ -98,12 +100,12 @@ function normalizeMemoryPatch(patch: AIDecisionMemoryPatch | undefined): AIDecis
 	if (!patch) return undefined;
 	const scope = normalizeMemoryPatchScope(patch.scope);
 	const kind = normalizeMemoryPatchKind(patch.kind);
-	const summary = normalizeText(patch.summary)?.slice(0, 120);
+	const summary = normalizeText(patch.summary);
 	if (!scope || !kind || !summary) {
 		return undefined;
 	}
 	const key = normalizeText(patch.key);
-	const evidence = normalizeText(patch.evidence)?.slice(0, 120);
+	const evidence = normalizeText(patch.evidence);
 	const tags = Array.isArray(patch.tags)
 		? Array.from(
 				new Set(
@@ -434,10 +436,6 @@ function getCurrentRent(property: ContextProperty): number {
 	return property.costList[rentIndex] || 0;
 }
 
-function formatBoardPosition(index: number): string {
-	return `第${index + 1}格`;
-}
-
 function buildMapItemById(request: AIDecisionRequest): Map<string, ContextMapItem> {
 	return new Map(request.context.mapItems.map((item) => [item.id, item]));
 }
@@ -483,25 +481,25 @@ function buildRiskTolerance(
 	return "medium";
 }
 
-function buildWarningFlags(player: ContextPlayer, reserveCashTarget: number): string[] | undefined {
+function buildWarningFlags(player: ContextPlayer, reserveCashTarget: number, baselineCash: number): string[] | undefined {
 	const flags = uniqueTail(
 		[
 			player.money < reserveCashTarget ? "现金低于安全线" : undefined,
 			player.stop > 0 ? `仍需暂停 ${player.stop} 回合` : undefined,
-			player.money < 1500 && player.properties.length === 0 ? "资产薄弱，避免高成本投入" : undefined,
+			player.money < baselineCash * 0.15 && player.properties.length === 0 ? "资产薄弱，避免高成本投入" : undefined,
 		],
 		3,
 	);
 	return flags.length > 0 ? flags : undefined;
 }
 
-function buildThreatReasons(player: ContextPlayer, leadingOpponent: ContextPlayer | undefined): string[] | undefined {
+function buildThreatReasons(player: ContextPlayer, leadingOpponent: ContextPlayer | undefined, baselineCash: number): string[] | undefined {
 	if (!leadingOpponent) return undefined;
 	const reasons = uniqueTail(
 		[
-			leadingOpponent.money - player.money >= 2000 ? "资金明显领先" : undefined,
+			leadingOpponent.money - player.money > baselineCash * 0.2 ? "资金明显领先" : undefined,
 			leadingOpponent.properties.length - player.properties.length >= 2 ? "地产数量领先" : undefined,
-			sortPropertiesByDanger(leadingOpponent.properties).some((property) => getCurrentRent(property) >= 1200)
+			sortPropertiesByDanger(leadingOpponent.properties).some((property) => getCurrentRent(property) > baselineCash * 0.12)
 				? "持有高租金地段"
 				: undefined,
 		],
@@ -607,57 +605,16 @@ function buildPropertyPlan(
 function buildMapUnderstanding(request: AIDecisionRequest): StructuredMemory["mapUnderstanding"] | undefined {
 	const mapItemById = buildMapItemById(request);
 	const mapEventById = buildMapEventById(request);
-	const boardEntries = request.context.mapIndex
-		.map((itemId, index) => {
-			const item = mapItemById.get(itemId);
-			if (!item) return undefined;
-			return { item, index };
-		})
-		.filter((item): item is { item: ContextMapItem; index: number } => Boolean(item));
-
-	const keyZones = boardEntries
-		.filter(({ item }) => item.property)
-		.sort((left, right) => getCurrentRent(right.item.property!) - getCurrentRent(left.item.property!))
-		.slice(0, 3)
-		.map(({ item, index }) => `${formatBoardPosition(index)} ${item.property!.name}（过路费 ${getCurrentRent(item.property!)}）`);
-
-	const specialTileNotes = boardEntries
-		.filter(({ item }) => item.mapEventId)
-		.slice(0, 3)
-		.map(({ item, index }) => {
-			const event = item.mapEventId ? mapEventById.get(item.mapEventId) : undefined;
-			return event ? `${formatBoardPosition(index)} ${event.name}${event.description ? `：${event.description}` : ""}` : undefined;
-		})
-		.filter((item): item is string => Boolean(item));
-
-	const totalTiles = request.context.mapIndex.length;
-	const routeNotes = totalTiles
-		? Array.from({ length: Math.min(4, totalTiles - 1) }, (_, offset) => {
-			const step = offset + 1;
-			const boardIndex = (request.context.player.positionIndex + step) % totalTiles;
-			const itemId = request.context.mapIndex[boardIndex];
-			const item = itemId ? mapItemById.get(itemId) : undefined;
-			if (!item) return undefined;
-			if (item.property) {
-				return `${step} 步后是 ${item.property.name}`;
-			}
-			if (item.mapEventId) {
-				const event = mapEventById.get(item.mapEventId);
-				return event ? `${step} 步后是事件格 ${event.name}` : undefined;
-			}
-			return undefined;
-		}).filter((item): item is string => Boolean(item))
-		: [];
-
-	if (keyZones.length === 0 && specialTileNotes.length === 0 && routeNotes.length === 0) {
-		return undefined;
-	}
-
-	return {
-		keyZones: keyZones.length > 0 ? keyZones : undefined,
-		specialTileNotes: specialTileNotes.length > 0 ? specialTileNotes : undefined,
-		routeNotes: routeNotes.length > 0 ? routeNotes : undefined,
-	};
+	const reachableIds = new Set(request.context.diceReachability?.rolls.flatMap((roll) => roll.landings.map((landing) => landing.mapItemId)) || []);
+	const reachableItems = [...reachableIds].map((id) => mapItemById.get(id)).filter((item): item is ContextMapItem => Boolean(item));
+	const keyZones = reachableItems.filter((item) => item.property)
+		.map((item) => `${item.property!.name}（基础过路费 ${getCurrentRent(item.property!)}）`);
+	const specialTileNotes = reachableItems.filter((item) => item.mapEventId)
+		.map((item) => mapEventById.get(item.mapEventId!))
+		.filter((event): event is ContextMapEvent => Boolean(event))
+		.map((event) => `${event.name}${event.description ? `：${event.description}` : ""}`);
+	if (!keyZones.length && !specialTileNotes.length) return undefined;
+	return { keyZones: keyZones.length ? keyZones : undefined, specialTileNotes: specialTileNotes.length ? specialTileNotes : undefined };
 }
 
 function classifyOutcome(outcome: string | undefined): "success" | "failure" | "neutral" {
@@ -796,16 +753,18 @@ export class StrategyStateManager {
 		const player = request.context.player;
 		const leadingOpponent = getLeadingOpponent(request);
 		const hasStockSystem = !!request.context.systems?.stockMarket;
-		const reserveCashTarget = clamp(Math.round(player.money * 0.2), 1500, 6000);
+		const economy = request.context.economy || buildAIEconomySnapshot(request.context);
+		const { baselineCash } = economy;
+		const reserveCashTarget = getAIReserveCashTarget(player.money, economy);
 
 		let posture: AIStrategyState["posture"] = "balanced";
-		if (player.money < 1200) {
+		if (player.money <= 0 || player.money < baselineCash * 0.12) {
 			posture = "desperate";
-		} else if (player.money < 3500) {
+		} else if (player.money < baselineCash * 0.35 || player.money < reserveCashTarget) {
 			posture = "conservative";
-		} else if (hasStockSystem && player.money > 7000 && player.properties.length <= 1) {
+		} else if (hasStockSystem && player.money > baselineCash * 0.7 && player.properties.length <= 1) {
 			posture = "speculative";
-		} else if (player.money > 9000) {
+		} else if (player.money > baselineCash * 0.9) {
 			posture = "expand";
 		}
 
@@ -834,12 +793,12 @@ export class StrategyStateManager {
 				reserveCashTarget,
 				spendMode: buildSpendMode(posture, player.money, reserveCashTarget),
 				riskTolerance: buildRiskTolerance(posture),
-				warningFlags: buildWarningFlags(player, reserveCashTarget),
+				warningFlags: buildWarningFlags(player, reserveCashTarget, baselineCash),
 			},
 			threatModel: leadingOpponent
 				? {
 					focusPlayerId: leadingOpponent.id,
-					threatReasons: buildThreatReasons(player, leadingOpponent),
+					threatReasons: buildThreatReasons(player, leadingOpponent, baselineCash),
 					dangerousPropertyIds,
 				}
 				: undefined,
@@ -1023,7 +982,10 @@ export class StrategyStateManager {
 				compressedLessons: buildCompressedLessons(
 					current.posture,
 					feedback.request.context.player.money,
-					current.reserveCashTarget || clamp(Math.round(feedback.request.context.player.money * 0.2), 1500, 6000),
+					current.reserveCashTarget ?? getAIReserveCashTarget(
+						feedback.request.context.player.money,
+						feedback.request.context.economy || buildAIEconomySnapshot(feedback.request.context),
+					),
 					nextMemory,
 				),
 			};
