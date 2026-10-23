@@ -16,6 +16,7 @@ import { isFullScreen, isLandscape, setTimeOutAsync } from "@src/utils";
 import { getUserByToken } from "@src/utils/api/user";
 import { getPlatformType } from "@src/utils/platform";
 import { normalizeAIDecisionConfig } from "@src/core/ai/ai-decision-config";
+import type { ViewMode } from "@src/core/renderer/CameraRig";
 import { useGameData } from "./game";
 import { useLocalParty } from "./local-party";
 
@@ -288,7 +289,10 @@ export const useSettig = defineStore("setting", {
 			musicMuted: false,
 			lockRole: true,
 			enableTurnFocus: true,
+			// 视图模式：立体 / 俯视棋盘。纯本地设置，不同步给其他玩家，旁观者同样可用
+			viewMode: "3d" as ViewMode,
 			chatRenderMode: "bubble" as "danmaku" | "bubble",
+			propertyInfoTrigger: "hover" as "hover" | "click",
 			// 画面质量设置：低/中/高三档
 			graphicQuality: "medium" as "low" | "medium" | "high",
 			// 阴影开关

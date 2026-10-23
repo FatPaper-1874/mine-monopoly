@@ -3,6 +3,7 @@ import { bindGameMapCreator, deleteGameMap, setGameMapUse } from "@/utils/api/ga
 import { getUserList } from "@/utils/api/user";
 import { AdminUserListItem } from "@/interfaces/interfaces";
 import { GameMapInDb } from "@mine-monopoly/types";
+import { formatCreator } from "@/utils";
 import { message } from "ant-design-vue";
 import { onMounted, ref } from "vue";
 
@@ -113,7 +114,7 @@ onMounted(() => {
 		<span class="version-text">v{{ props.mapInfo.version }}</span>
 		<img class="cover-image" :src="mapInfo.coverUrl" alt="" />
 		<div v-if="props.mapInfo.creatorName" class="creator-info">
-			<span class="creator-label">创作者：</span>{{ props.mapInfo.creatorName }}<template v-if="props.mapInfo.creatorAccount">（{{ props.mapInfo.creatorAccount }}）</template>
+			<span class="creator-label">创作者：</span>{{ formatCreator(props.mapInfo.creatorName, props.mapInfo.creatorAccount) }}
 		</div>
 	</a-card>
 

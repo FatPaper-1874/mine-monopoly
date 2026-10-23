@@ -1,4 +1,4 @@
-const { ipcRenderer } = require("electron");
+const { ipcRenderer, clipboard } = require("electron");
 
 const providerBaseUrlPlaceholders = {
 	"openai-compatible": "https://api.openai.com/v1",
@@ -20,6 +20,10 @@ const state = {
 	profileFormDirty: false,
 	playerBindingDirty: false,
 	refreshTimer: null,
+	selectedUsageId: null,
+	usageDetail: null,
+	usageDetailTab: "input",
+	usageDetailRequest: 0,
 };
 
 const els = {
@@ -40,6 +44,7 @@ const els = {
 	globalBaseUrl: document.getElementById("global-base-url"),
 	globalApiKey: document.getElementById("global-api-key"),
 	globalModel: document.getElementById("global-model"),
+	globalTimeout: document.getElementById("global-timeout"),
 	globalMemoryLimit: document.getElementById("global-memory-limit"),
 	applyGlobalConfigBtn: document.getElementById("apply-global-config-btn"),
 
@@ -51,11 +56,19 @@ const els = {
 	profileBaseUrl: document.getElementById("profile-base-url"),
 	profileApiKey: document.getElementById("profile-api-key"),
 	profileModel: document.getElementById("profile-model"),
+	profileTimeout: document.getElementById("profile-timeout"),
 	saveProfileBtn: document.getElementById("save-profile-btn"),
 
 	usageMetrics: document.getElementById("usage-metrics"),
 	usageList: document.getElementById("usage-list"),
 	clearUsageBtn: document.getElementById("clear-usage-btn"),
+	usageDialog: document.getElementById("usage-detail-dialog"),
+	usageDetailTitle: document.getElementById("usage-detail-title"),
+	usageDetailMeta: document.getElementById("usage-detail-meta"),
+	usageDetailContent: document.getElementById("usage-detail-content"),
+	usageDetailTabs: document.getElementById("usage-detail-tabs"),
+	usageDetailCopy: document.getElementById("usage-detail-copy"),
+	usageDetailClose: document.getElementById("usage-detail-close"),
 
 	playerList: document.getElementById("player-list"),
 	playerDetailPanel: document.getElementById("player-detail-panel"),
@@ -92,6 +105,15 @@ function clampMemoryLimit(value) {
 	return Math.max(0, Math.min(20, Math.floor(parsed)));
 }
 
+function readTimeoutMs(input) {
+	const seconds = Number(input.value);
+	if (!Number.isFinite(seconds) || seconds < 0.001 || seconds > 2147483.647) {
+		setStatus("请填写有效的超时时间（秒，必须大于 0）", "err");
+		input.focus();
+		return null;
+	}
+	return Math.round(seconds * 1000);
+}
 function deepClone(value) {
 	return JSON.parse(JSON.stringify(value ?? null));
 }
@@ -235,6 +257,7 @@ function populateGlobalForm(config) {
 	els.globalBaseUrl.value = config.remote?.baseUrl || "";
 	els.globalApiKey.value = config.remote?.apiKey || "";
 	els.globalModel.value = config.remote?.model || "";
+	els.globalTimeout.value = (config.remote?.timeoutMs ?? 30000) / 1000;
 	els.globalMemoryLimit.value = clampMemoryLimit(config.contextMemoryLimit ?? 6);
 	updateProviderPlaceholders();
 }
@@ -246,39 +269,140 @@ function populateProfileEditor(profile) {
 	els.profileBaseUrl.value = profile?.baseUrl || "";
 	els.profileApiKey.value = profile?.apiKey || "";
 	els.profileModel.value = profile?.model || "";
+	els.profileTimeout.value = (profile?.timeoutMs ?? 30000) / 1000;
 	updateProviderPlaceholders();
+}
+
+function usageStatus(record) {
+	return record.status === "pending" ? "等待响应" : record.status === "error" ? "调用失败" : "已完成";
+}
+
+function renderUsageRecord(record, includePlayer = false) {
+	const player = (state.snapshot?.aiPlayers || []).find((item) => item.userId === record.playerId);
+	const name = record.playerName || player?.username || record.playerId;
+	const identity = includePlayer ? `${name}${record.roleName ? ` / ${record.roleName}` : ""} · ` : "";
+	const usage = record.status === "pending" ? "请求已发出，等待远端返回"
+		: record.usageAvailable
+			? `输入 ${formatCount(record.inputTokens)} / 输出 ${formatCount(record.outputTokens)} / 总计 ${formatCount(record.totalTokens)}`
+			: `请求 ${formatCount(record.promptChars)} 字符，响应 ${formatCount(record.responseChars)} 字符`;
+	return `
+		<button type="button" class="list-item usage-record${record.status === "error" ? " usage-record--error" : ""}"
+			data-usage-id="${escapeHtml(record.id || "")}" ${record.id ? "" : "disabled"}>
+			<strong>${escapeHtml(record.title || "未命名决策")}</strong>
+			<span>${escapeHtml(identity)}${escapeHtml(record.profileName || "默认远端")} · ${escapeHtml(record.model || "--")} · ${escapeHtml(formatTime(record.timestamp))}</span>
+			<span>${escapeHtml(usageStatus(record))} · ${escapeHtml(usage)}</span>
+			<span class="usage-record__hint">${record.id ? "点击查看完整输入与输出" : "该旧记录未保存调用详情"}</span>
+		</button>
+	`;
 }
 
 function renderGlobalUsage(snapshot) {
 	const summary = snapshot?.remoteUsage?.summary || {};
 	els.usageMetrics.innerHTML = [
-		["请求数", summary.requestCount],
-		["输入 Token", summary.inputTokens],
-		["输出 Token", summary.outputTokens],
-		["总 Token", summary.totalTokens],
+		["请求数", summary.requestCount], ["输入 Token", summary.inputTokens],
+		["输出 Token", summary.outputTokens], ["总 Token", summary.totalTokens],
 	].map(([label, value]) => `
 		<div class="metric">
 			<div class="metric__label">${escapeHtml(label)}</div>
 			<div class="metric__value">${escapeHtml(formatCount(value))}</div>
 		</div>
 	`).join("");
-
 	const records = snapshot?.remoteUsage?.records || [];
-	if (!records.length) {
-		els.usageList.innerHTML = `<div class="empty">当前还没有远程 usage 记录。</div>`;
-		return;
-	}
+	els.usageList.innerHTML = records.length
+		? records.map((record) => renderUsageRecord(record, true)).join("")
+		: `<div class="empty">当前还没有远程 usage 记录。</div>`;
+}
 
-	els.usageList.innerHTML = records.slice(0, 8).map((record) => `
-		<div class="list-item">
-			<div><strong>${escapeHtml(record.title || "未命名决策")}</strong></div>
-			<div>${escapeHtml(record.playerId)} · ${escapeHtml(record.profileName || "默认远端")} · ${escapeHtml(record.model || "--")} · ${escapeHtml(formatTime(record.timestamp))}</div>
-			<div>${record.usageAvailable
-				? `输入 ${escapeHtml(formatCount(record.inputTokens))} / 输出 ${escapeHtml(formatCount(record.outputTokens))} / 总计 ${escapeHtml(formatCount(record.totalTokens))}`
-				: `网关未返回 usage，请求 ${escapeHtml(formatCount(record.promptChars))} 字符，响应 ${escapeHtml(formatCount(record.responseChars))} 字符`
-			}</div>
-		</div>
-	`).join("");
+function parseBody(body) {
+	try { return JSON.parse(body); } catch { return body; }
+}
+
+function readableCallInput(detail) {
+	if (!detail.request) return "本次请求未能生成输入内容。";
+	const body = parseBody(detail.request.body);
+	if (!body || typeof body !== "object") return String(body);
+	const parts = [];
+	if (body.system) parts.push(`系统指令\n${typeof body.system === "string" ? body.system : JSON.stringify(body.system, null, 2)}`);
+	for (const message of Array.isArray(body.messages) ? body.messages : []) {
+		const role = ({ system: "系统指令", user: "用户输入", assistant: "助手消息" })[message.role] || message.role || "消息";
+		parts.push(`${role}\n${typeof message.content === "string" ? message.content : JSON.stringify(message.content, null, 2)}`);
+	}
+	return parts.length ? parts.join("\n\n") : JSON.stringify(body, null, 2);
+}
+
+function renderUsageDetail() {
+	const detail = state.usageDetail;
+	if (!detail) return;
+	const record = detail.record;
+	els.usageDetailTitle.textContent = `${record.playerName || record.playerId}${record.roleName ? ` / ${record.roleName}` : ""} · ${record.title || "调用详情"}`;
+	els.usageDetailMeta.innerHTML = [
+		buildInfoBlock("状态", usageStatus(record)),
+		buildInfoBlock("模型", record.model),
+		buildInfoBlock("调用时间", formatTime(record.timestamp)),
+		buildInfoBlock("耗时", record.durationMs === undefined ? "等待中" : `${record.durationMs} ms`),
+		buildInfoBlock("回合", record.round === undefined ? "--" : String(record.round)),
+		buildInfoBlock("Token", record.usageAvailable ? `${formatCount(record.inputTokens)} 输入 / ${formatCount(record.outputTokens)} 输出` : "未返回用量"),
+	].join("");
+	let content;
+	switch (state.usageDetailTab) {
+		case "request":
+			content = detail.request ? JSON.stringify({ ...detail.request, body: parseBody(detail.request.body) }, null, 2) : "没有生成请求字段。";
+			break;
+		case "response":
+			content = detail.response ? JSON.stringify({ ...detail.response, body: parseBody(detail.response.body) }, null, 2)
+				: record.status === "pending" ? "等待远端响应。" : "没有收到 HTTP 响应。";
+			break;
+		case "output":
+			content = detail.modelOutput || (record.status === "pending" ? "等待模型返回内容。"
+				: "没有可提取的模型正文，请查看完整输出字段中的原始响应。");
+			break;
+		case "selection":
+			content = record.status === "pending" ? "调用尚未完成。" : JSON.stringify(detail.selection ?? {}, null, 2);
+			break;
+		default:
+			content = readableCallInput(detail);
+	}
+	els.usageDetailContent.textContent = `${record.error ? `调用错误：${record.error}\n\n` : ""}${content}`;
+	for (const tab of els.usageDetailTabs.querySelectorAll("[data-usage-tab]")) {
+		const active = tab.dataset.usageTab === state.usageDetailTab;
+		tab.classList.toggle("is-active", active);
+		tab.setAttribute("aria-selected", String(active));
+	}
+	els.usageDetailCopy.disabled = false;
+}
+
+async function loadUsageDetail(recordId) {
+	const revision = ++state.usageDetailRequest;
+	try {
+		const detail = await ipcRenderer.invoke("ai-console:get-usage-detail", recordId);
+		if (revision !== state.usageDetailRequest || state.selectedUsageId !== recordId) return;
+		if (!detail || detail.__error) throw new Error(detail?.__error || "该调用记录已被清空，或由旧版本生成。" );
+		state.usageDetail = detail;
+		renderUsageDetail();
+	} catch (error) {
+		if (revision !== state.usageDetailRequest) return;
+		els.usageDetailContent.textContent = error?.message || "读取调用详情失败。";
+	}
+}
+
+function openUsageDetail(recordId) {
+	if (!recordId) return;
+	state.selectedUsageId = recordId;
+	state.usageDetail = null;
+	state.usageDetailTab = "input";
+	els.usageDetailTitle.textContent = "调用详情";
+	els.usageDetailMeta.innerHTML = "";
+	els.usageDetailContent.textContent = "正在读取完整输入与输出…";
+	els.usageDetailCopy.disabled = true;
+	if (!els.usageDialog.open) els.usageDialog.showModal();
+	void loadUsageDetail(recordId);
+}
+
+function closeUsageDetail() {
+	state.selectedUsageId = null;
+	state.usageDetail = null;
+	state.usageDetailRequest += 1;
+	if (els.usageDialog.open) els.usageDialog.close();
 }
 
 function renderProfiles(snapshot) {
@@ -421,20 +545,9 @@ function renderPlayerDetail() {
 				<button class="btn btn--danger" id="clear-all-memory-btn">清空全部 AI 记忆</button>
 			</div>
 			<div class="section-gap">
-				<div class="card__subtle">这个 AI 玩家最近的远端 usage</div>
-				<div class="list-stack" style="margin-top: 10px;">
-					${usageRecords.length
-						? usageRecords.slice(0, 5).map((record) => `
-							<div class="list-item">
-								<div><strong>${escapeHtml(record.title || "未命名决策")}</strong></div>
-								<div>${escapeHtml(record.profileName || "默认远端")} · ${escapeHtml(record.model || "--")} · ${escapeHtml(formatTime(record.timestamp))}</div>
-								<div>${record.usageAvailable
-									? `输入 ${escapeHtml(formatCount(record.inputTokens))} / 输出 ${escapeHtml(formatCount(record.outputTokens))} / 总计 ${escapeHtml(formatCount(record.totalTokens))}`
-									: `请求 ${escapeHtml(formatCount(record.promptChars))} 字符，响应 ${escapeHtml(formatCount(record.responseChars))} 字符`
-								}</div>
-							</div>
-						`).join("")
-						: `<div class="empty">这个 AI 玩家当前还没有远端 usage 记录。</div>`}
+				<div class="card__subtle">这个 AI 玩家的调用记录（点击查看完整输入与输出）</div>
+				<div class="list-stack usage-history" style="margin-top: 10px;">
+					${usageRecords.length ? usageRecords.map((record) => renderUsageRecord(record)).join("") : `<div class="empty">这个 AI 玩家当前还没有远端 usage 记录。</div>`}
 				</div>
 			</div>
 		</div>
@@ -570,6 +683,11 @@ function renderSnapshot(snapshot) {
 		renderPlayerDetail();
 	}
 	renderMemoryPanel();
+	if (state.selectedUsageId) {
+		const record = snapshot.remoteUsage?.records?.find((item) => item.id === state.selectedUsageId);
+		if (!record) closeUsageDetail();
+		else if (state.usageDetail && state.usageDetail.record.status !== record.status) void loadUsageDetail(record.id);
+	}
 }
 
 async function refreshState({ silent = false } = {}) {
@@ -585,6 +703,8 @@ async function refreshState({ silent = false } = {}) {
 }
 
 async function applyGlobalConfig() {
+	const timeoutMs = readTimeoutMs(els.globalTimeout);
+	if (timeoutMs === null) return;
 	const config = getSnapshotConfig();
 	config.mode = els.globalMode.value;
 	config.defaultRemoteProfileId = els.globalDefaultProfile.value || undefined;
@@ -595,7 +715,7 @@ async function applyGlobalConfig() {
 		baseUrl: els.globalBaseUrl.value.trim(),
 		apiKey: els.globalApiKey.value.trim(),
 		model: els.globalModel.value.trim(),
-		timeoutMs: 30000,
+		timeoutMs,
 	};
 	if (config.mode === "remote" && !config.defaultRemoteProfileId) {
 		const hasProfiles = (config.remoteProfiles && config.remoteProfiles.length > 0);
@@ -628,7 +748,7 @@ async function addProfile() {
 		baseUrl: "",
 		apiKey: "",
 		model: "",
-		timeoutMs: 30000,
+		timeoutMs: config.remote?.timeoutMs ?? 30000,
 	});
 	setStatus("正在新增远端档案...");
 	const result = await ipcRenderer.invoke("ai-console:apply-config", config);
@@ -643,6 +763,8 @@ async function addProfile() {
 }
 
 async function saveProfile() {
+	const timeoutMs = readTimeoutMs(els.profileTimeout);
+	if (timeoutMs === null) return;
 	if (!state.selectedProfileId) {
 		setStatus("请先选择一个远端档案", "err");
 		return;
@@ -663,7 +785,7 @@ async function saveProfile() {
 		baseUrl: els.profileBaseUrl.value.trim(),
 		apiKey: els.profileApiKey.value.trim(),
 		model: els.profileModel.value.trim(),
-		timeoutMs: 30000,
+		timeoutMs,
 	};
 
 	if (!nextProfile.baseUrl || !nextProfile.apiKey || !nextProfile.model) {
@@ -746,6 +868,23 @@ function bindStaticEvents() {
 	els.saveProfileBtn.addEventListener("click", saveProfile);
 	els.deleteProfileBtn.addEventListener("click", deleteProfile);
 	els.clearUsageBtn.addEventListener("click", clearUsage);
+	for (const list of [els.usageList, els.playerDetailPanel]) {
+		list.addEventListener("click", (event) => {
+			const record = event.target.closest("[data-usage-id]");
+			if (record) openUsageDetail(record.dataset.usageId);
+		});
+	}
+	els.usageDetailClose.addEventListener("click", closeUsageDetail);
+	els.usageDialog.addEventListener("close", closeUsageDetail);
+	els.usageDetailTabs.addEventListener("click", (event) => {
+		const tab = event.target.closest("[data-usage-tab]");
+		if (!tab) return;
+		state.usageDetailTab = tab.dataset.usageTab;
+		renderUsageDetail();
+	});
+	els.usageDetailCopy.addEventListener("click", () => {
+		if (state.usageDetail) clipboard.writeText(JSON.stringify(state.usageDetail, null, 2));
+	});
 
 	[
 		els.globalMode,
@@ -754,6 +893,7 @@ function bindStaticEvents() {
 		els.globalBaseUrl,
 		els.globalApiKey,
 		els.globalModel,
+		els.globalTimeout,
 		els.globalMemoryLimit,
 	].forEach((element) => {
 		element.addEventListener("input", markGlobalFormDirty);
@@ -766,6 +906,7 @@ function bindStaticEvents() {
 		els.profileBaseUrl,
 		els.profileApiKey,
 		els.profileModel,
+		els.profileTimeout,
 	].forEach((element) => {
 		element.addEventListener("input", markProfileFormDirty);
 		element.addEventListener("change", markProfileFormDirty);

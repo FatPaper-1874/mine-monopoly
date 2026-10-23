@@ -15,6 +15,7 @@ import type { MapEvent } from "@src/services/validators/map-event-validators";
  * Zod schemas for MCP tool registration
  */
 const AddMapEventToolSchema = z.object({
+	id: z.string().optional().describe("自定义ID（可选，留空自动生成）"),
 	name: z.string().describe("地图事件名称"),
 	type: z.string().describe("地图事件类型"),
 	description: z.string().optional().describe("地图事件描述"),
@@ -24,6 +25,7 @@ const AddMapEventToolSchema = z.object({
 
 const UpdateMapEventToolSchema = z.object({
 	id: z.string().describe("地图事件ID"),
+	originalId: z.string().min(1).optional().describe("重命名前的ID；修改ID时必填"),
 	name: z.string().describe("地图事件名称"),
 	type: z.string().describe("地图事件类型"),
 	description: z.string().optional().describe("地图事件描述"),
@@ -107,13 +109,13 @@ export async function listMapEvents(args: unknown) {
 export const mapEventTools = [
 	{
 		name: "add_map_event",
-		description: "添加新地图事件。参数：name（名称）, type（类型）, description?（描述，可选）, iconId?（图标ID，可选）, effectCode?（效果代码，可选）",
+		description: "添加新地图事件。参数：id?（自定义ID）, name（名称）, type（类型）, description?（描述，可选）, iconId?（图标ID，可选）, effectCode?（效果代码，可选）",
 		inputSchema: AddMapEventToolSchema,
 		handler: addMapEvent
 	},
 	{
 		name: "update_map_event",
-		description: "更新地图事件。参数：id（事件ID）, name, type, description?, iconId?, effectCode?",
+		description: "更新地图事件。参数：id（保存后的ID）, originalId?（重命名前的ID）, name, type, description?, iconId?, effectCode?",
 		inputSchema: UpdateMapEventToolSchema,
 		handler: updateMapEvent
 	},

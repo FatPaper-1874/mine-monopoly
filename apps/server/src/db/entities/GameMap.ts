@@ -70,4 +70,9 @@ export class GameMap implements GameMapInDb {
 
 	@Column({ type: "varchar", length: 20, nullable: true })
 	pendingVersion: string | null;
+
+	/** 最近一次进入审核队列的时间；重新提交会覆盖，审核动作（通过/驳回）不清理 */
+	@Index()
+	@Column({ type: "datetime", nullable: true })
+	reviewSubmittedAt: Date | null;
 }

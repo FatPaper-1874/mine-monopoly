@@ -16,7 +16,17 @@ const gameDataStore = useGameData();
 // 获取基础数据
 const properties = gameDataStore.properties;
 const playerList = gameDataStore.players;
-const indexList = mapDataStore.mapIndex;
+const mapPathNodeIds = computed(() => {
+	const nodeIds = new Set<string>();
+	for (const path of mapDataStore.mapPaths) {
+		nodeIds.add(path.fromMapItemId);
+		nodeIds.add(path.toMapItemId);
+	}
+	if (nodeIds.size === 0) {
+		for (const mapItemId of mapDataStore.mapIndex) nodeIds.add(mapItemId);
+	}
+	return nodeIds;
+});
 
 // 创建 mapItemId -> PropertyInfo 的映射，用于快速查找实时数据
 const propertyMap = computed(() => {
@@ -96,7 +106,8 @@ const processedMapItems = computed<MapItemWithContext[]>(() => {
 
 		// 绑定玩家位置
 		for (const player of playerList) {
-			if (item.id === indexList[player.positionIndex]) {
+			const playerMapItemId = player.positionMapItemId ?? mapDataStore.mapIndex[player.positionIndex];
+			if (item.id === playerMapItemId) {
 				newItem.players.push(player);
 			}
 		}
@@ -123,7 +134,7 @@ function handleMapItemClick(item: MapItemWithContext) {
 					'is-disabled': mapItem.isDisabled,
 					'is-highlight': !mapItem.isDisabled,
 					'is-selected': props.selectedId === mapItem.id,
-					'is-road': indexList.includes(mapItem.id),
+					'is-road': mapPathNodeIds.has(mapItem.id),
 					'has-owner': !!mapItem.property?.owner,
 				}"
 				:style="{
@@ -153,6 +164,7 @@ function handleMapItemClick(item: MapItemWithContext) {
 					v-for="(player, index) in mapItem.players"
 					:key="player.id"
 					class="player-block"
+					@click.stop="handleMapItemClick(mapItem)"
 					:style="{
 						backgroundColor: player.user.color,
 						transform: mapItem.players.length > 1 ? `translate(calc(-50% + ${index * 4 - 2}px), calc(-50% + ${index * 4 - 2}px))` : 'translate(-50%, -50%)',
@@ -192,6 +204,7 @@ function handleMapItemClick(item: MapItemWithContext) {
 
 	.player-block {
 		position: absolute;
+		pointer-events: auto;
 		top: 50%;
 		left: 50%;
 		transform: translate(-50%, -50%);

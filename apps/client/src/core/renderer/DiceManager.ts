@@ -2,6 +2,7 @@ import * as THREE from "three";
 import * as CANNON from "cannon-es";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import { DiceResult } from "@mine-monopoly/types";
+import type { ViewMode } from "./CameraRig";
 
 export interface DiceObject {
 	mesh: THREE.Mesh;
@@ -28,6 +29,7 @@ export class DiceManager {
 
 	private scene: THREE.Scene;
 	private camera: THREE.PerspectiveCamera;
+	private viewMode: ViewMode = "3d";
 
 	private actionPos: THREE.Vector3;
 	private targetCameraPos: THREE.Vector3;
@@ -118,6 +120,31 @@ export class DiceManager {
 	public updateAspect(aspect: number): void {
 		this.camera.aspect = aspect;
 		this.camera.updateProjectionMatrix();
+	}
+
+	public setViewMode(mode: ViewMode): void {
+		if (this.viewMode === mode) return;
+		this.viewMode = mode;
+
+		const isTopDown = mode === "top-down";
+		this.actionPos.set(0, isTopDown ? Math.hypot(15, 15) : 15, isTopDown ? 0 : 15);
+		this.camera.up.set(0, isTopDown ? 0 : 1, isTopDown ? -1 : 0);
+
+		if (this.isArranged) {
+			this._calculateArrangedFocus();
+			this.diceObjects.forEach((obj) => {
+				obj.initialPosition.copy(obj.mesh.position);
+				obj.initialQuaternion.copy(obj.mesh.quaternion);
+			});
+			this.arrangementStartTime = performance.now();
+			this._updateArrangedDiceRotations();
+		} else {
+			this._calculateActionFocus();
+		}
+
+		this.camera.position.copy(this.targetCameraPos);
+		this.currentLookAt.copy(this.targetLookAt);
+		this.camera.lookAt(this.currentLookAt);
 	}
 
 	// --- Core Logic ---
@@ -433,12 +460,6 @@ export class DiceManager {
 		const totalWidth = (diceCount - 1) * spacing;
 		const startX = -totalWidth / 2;
 		const diceHeight = 0.75;
-		const cameraUp = this.camera.up.clone();
-
-		// 计算相机排列视角位置，用于确定每个骰子的朝向
-		const maxDim = Math.max(10, totalWidth);
-		const camHeight = maxDim * 0.8;
-		const finalCamPos = new THREE.Vector3(0, camHeight, camHeight * 0.7);
 
 		this.diceObjects.forEach((obj, i) => {
 			// 切换到 Kinematic 模式，停止物理模拟，开始手动插值
@@ -465,18 +486,25 @@ export class DiceManager {
 			const finalX = startX + i * spacing;
 			const finalPos = new THREE.Vector3(finalX, diceHeight, 0);
 			obj.finalPosition.copy(finalPos);
+		});
 
-			// 计算目标旋转
+		this._updateArrangedDiceRotations();
+	}
+
+	private _updateArrangedDiceRotations(): void {
+		const totalWidth = (this.diceObjects.length - 1) * 2.0;
+		const height = Math.max(10, totalWidth) * 0.8;
+		const finalCamPos = new THREE.Vector3(0, height, this.viewMode === "top-down" ? 0 : height * 0.7);
+		const cameraUp = this.camera.up;
+
+		this.diceObjects.forEach((obj) => {
 			const targetVec = this.faceVectors[obj.targetIndex];
 			const targetUpVec = this.faceUpVectors[obj.targetIndex];
-
-			const viewDir = new THREE.Vector3().subVectors(finalCamPos, finalPos).normalize();
+			const viewDir = new THREE.Vector3().subVectors(finalCamPos, obj.finalPosition).normalize();
 
 			if (targetVec && targetUpVec) {
-				// 1. 面朝向相机
+				// 面朝向相机，并让数字正对屏幕上方。
 				const q1 = new THREE.Quaternion().setFromUnitVectors(targetVec, viewDir);
-
-				// 2. 修正旋转，让数字正对上方
 				const currentWorldUp = targetUpVec.clone().applyQuaternion(q1);
 				const projCameraUp = cameraUp.clone().projectOnPlane(viewDir).normalize();
 				const projCurrentUp = currentWorldUp.clone().projectOnPlane(viewDir).normalize();
@@ -511,7 +539,7 @@ export class DiceManager {
 		const center = new THREE.Vector3(0, 0.75, 0);
 		const maxDim = Math.max(10, totalWidth);
 		const height = maxDim * 0.8;
-		this.targetCameraPos.set(center.x, height, center.z + height * 0.7);
+		this.targetCameraPos.set(center.x, height, center.z + (this.viewMode === "top-down" ? 0 : height * 0.7));
 		this.targetLookAt.copy(center);
 	}
 

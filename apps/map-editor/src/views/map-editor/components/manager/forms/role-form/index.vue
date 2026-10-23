@@ -91,6 +91,7 @@ async function handleEditRole(skipCodeValidation: boolean) {
 	if (!role) return;
 	const _role = {
 		roleId: role.id,
+		id: roleForm.id,
 		name: roleForm.name,
 		description: roleForm.description,
 		color: roleForm.color,
@@ -103,6 +104,7 @@ async function handleEditRole(skipCodeValidation: boolean) {
 
 async function handleCreateRole(skipCodeValidation: boolean) {
 	const newRole = {
+		id: roleForm.id,
 		name: roleForm.name,
 		description: roleForm.description,
 		color: roleForm.color,

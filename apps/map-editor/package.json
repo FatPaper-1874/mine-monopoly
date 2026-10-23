@@ -2,7 +2,7 @@
 	"name": "@mine-monopoly/map-editor",
 	"author": "Fat_Paper",
 	"description": "Mine-Monopoly的地图编辑器",
-	"version": "1.3.3",
+	"version": "1.3.4",
 	"private": true,
 	"type": "module",
 	"main": "dist-electron/main.js",
@@ -10,6 +10,7 @@
 		"dev": "vite",
 		"build": "node ./scripts/extract-changelog.js && vite build && electron-builder",
 		"check": "vue-tsc --noEmit",
+		"test:content-ids": "node --test scripts/tests/content-ids.test.cjs",
 		"electron": "electron .",
 		"preview": "vite preview"
 	},

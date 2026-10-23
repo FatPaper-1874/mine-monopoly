@@ -29,6 +29,7 @@ export const AddMapEventSchema = mapEventSchema;
  */
 export const UpdateMapEventSchema = mapEventSchema.extend({
 	id: z.string().min(1, "Event ID is required"),
+	originalId: z.string().min(1, "Original event ID is required").optional(),
 });
 
 /**

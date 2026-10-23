@@ -15,6 +15,7 @@ import type { ChanceCard } from "@src/services/validators/chance-card-validators
  * Zod schemas for MCP tool registration
  */
 const AddChanceCardToolSchema = z.object({
+	id: z.string().optional().describe("自定义ID（可选，留空自动生成）"),
 	name: z.string().describe("机会卡名称"),
 	type: z.enum(["ToSelf", "ToOtherPlayer", "ToPlayer", "ToProperty", "ToMapItem"]).describe("机会卡类型"),
 	description: z.string().describe("机会卡描述"),
@@ -25,6 +26,7 @@ const AddChanceCardToolSchema = z.object({
 
 const UpdateChanceCardToolSchema = z.object({
 	id: z.string().describe("机会卡ID"),
+	originalId: z.string().min(1).optional().describe("重命名前的ID；修改ID时必填"),
 	name: z.string().describe("机会卡名称"),
 	type: z.enum(["ToSelf", "ToOtherPlayer", "ToPlayer", "ToProperty", "ToMapItem"]).describe("机会卡类型"),
 	description: z.string().describe("机会卡描述"),
@@ -109,13 +111,13 @@ export async function listChanceCards(args: unknown) {
 export const chanceCardTools = [
 	{
 		name: "add_chance_card",
-		description: "添加新的机会卡。参数：name（名称）, type（类型：attack/defense/buff/debuff/special）, description（描述）, color（颜色，如#FF0000）, iconId?（图标ID，可选）, effectCode（效果代码）",
+		description: "添加新的机会卡。参数：id?（自定义ID）, name（名称）, type（类型：attack/defense/buff/debuff/special）, description（描述）, color（颜色，如#FF0000）, iconId?（图标ID，可选）, effectCode（效果代码）",
 		inputSchema: AddChanceCardToolSchema,
 		handler: addChanceCard
 	},
 	{
 		name: "update_chance_card",
-		description: "更新机会卡。参数：id（机会卡ID）, name, type, description, color, iconId?, effectCode",
+		description: "更新机会卡。参数：id（保存后的ID）, originalId?（重命名前的ID）, name, type, description, color, iconId?, effectCode",
 		inputSchema: UpdateChanceCardToolSchema,
 		handler: updateChanceCard
 	},

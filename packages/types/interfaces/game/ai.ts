@@ -1,6 +1,8 @@
 import { OperateType } from "../../enums/game/game-process";
 import { MapEvent, MapItem } from "./item";
 import { PlayerInfo, PropertyInfo } from "./game-process/infos";
+import type { GameSetting } from "./game-process/core";
+import type { GamePhaseInfo } from "./game-process/events";
 
 /**
  * AI 决策场景
@@ -390,10 +392,48 @@ export interface AIDecisionRoleDefinition {
 	description?: string;
 }
 
-/**
- * 提供给 AI 的游戏快照
- */
+/** 本局经济规模与风险快照。 */
+export interface AIDecisionEconomySnapshot {
+	/** 本局经济规模基准，不随当前玩家现金下降而缩小。 */
+	baselineCash: number;
+	baselineSource: "initial-money" | "game-setting" | "property-price" | "player-cash" | "unavailable";
+	medianPropertyPrice: number;
+	/** 其他未破产玩家地产的最高当前租金，包含当前倍率。 */
+	maxOpponentRent: number;
+}
+
+export interface AIDiceReachabilitySnapshot {
+	status: "ready" | "unavailable" | "stopped" | "bankrupted";
+	originMapItemId?: string;
+	diceCount: number;
+	/** 点数概率只针对骰子本身，不表示脚本或通行条件的发生概率。 */
+	rolls: Array<{
+		total: number;
+		probability: number;
+		landings: Array<{
+			mapItemId: string;
+			movedSteps: number;
+			conditional: boolean;
+			stoppedEarly: boolean;
+		}>;
+	}>;
+	notes: string[];
+}
+
+/** 提供给 AI 的游戏快照。 */
 export interface AIDecisionContextSnapshot {
+	/** 本房间实际生效的配置，保留参数名称、原值与展示值。 */
+	gameSetting?: GameSetting;
+
+	/** 当前实际使用的结束规则；代码用于理解条件，不由模型执行。 */
+	gameOverRule?: Pick<GamePhaseInfo, "id" | "name" | "description" | "initEventCode">;
+
+	/** 本局经济尺度与当前租金风险。 */
+	economy?: AIDecisionEconomySnapshot;
+
+	/** 本地按当前骰子、地形与导航历史算出的基础落点，不传原始路径。 */
+	diceReachability?: AIDiceReachabilitySnapshot;
+
 	/** 当前正在决策的玩家 */
 	player: PlayerInfo;
 
@@ -406,7 +446,7 @@ export interface AIDecisionContextSnapshot {
 	/** 地图格子精简快照 */
 	mapItems: Pick<MapItem, "id" | "type" | "x" | "y" | "rotation" | "mapEventId" | "linkto" | "beLinked" | "property">[];
 
-	/** 棋盘路径顺序（仅供 AI 摘要层解析使用） */
+	/** 旧版位置索引（仅用于本地兼容解析，不写入提示词） */
 	mapIndex: string[];
 
 	/** 地图事件精简快照 */
@@ -546,6 +586,14 @@ export interface AIRemoteLLMProfile extends AIRemoteLLMConfig {
 }
 
 export interface AIRemoteUsageRecord {
+	/** 每次远端调用的唯一标识，与游戏决策 ID 分开。 */
+	id?: string;
+	status?: "pending" | "success" | "error";
+	playerName?: string;
+	roleName?: string;
+	round?: number;
+	durationMs?: number;
+	error?: string;
 	traceId: string;
 	playerId: string;
 	title: string;
@@ -561,6 +609,27 @@ export interface AIRemoteUsageRecord {
 	responseChars: number;
 	timestamp: number;
 	usageAvailable: boolean;
+}
+
+/** 仅在查看单次调用时读取，避免定时快照重复传输完整提示词。 */
+export interface AIRemoteCallDetail {
+	record: AIRemoteUsageRecord;
+	request?: {
+		url: string;
+		method: string;
+		/** 保留所有请求头名称，认证值隐藏。 */
+		headers: Record<string, string>;
+		body: string;
+	};
+	response?: {
+		status: number;
+		statusText: string;
+		headers: Record<string, string>;
+		/** 原始响应正文，保留无法解析的内容和错误响应。 */
+		body: string;
+	};
+	modelOutput?: string;
+	selection?: AIDecisionSelection;
 }
 
 export interface AIRemoteUsageSummary {
@@ -641,6 +710,7 @@ export interface AIControlMutationResult {
 
 export interface AIControlBridge {
 	getSnapshot: () => Promise<AIControlSnapshot>;
+	getUsageDetail: (recordId: string) => AIRemoteCallDetail | null | Promise<AIRemoteCallDetail | null>;
 	applyConfig: (config: AIDecisionConfig) => Promise<AIControlApplyConfigResult> | AIControlApplyConfigResult;
 	clearUsage: () => Promise<AIControlMutationResult> | AIControlMutationResult;
 	clearMemory: (playerId?: string) => Promise<AIControlMutationResult> | AIControlMutationResult;

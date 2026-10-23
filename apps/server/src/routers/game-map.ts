@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { env } from "@mine-monopoly/env";
-import type { GameMapStatus } from "@mine-monopoly/types";
+import type { GameMapStatus, MapReviewNotifySettingInput } from "@mine-monopoly/types";
 import {
 	bindGameMapCreator,
 	countGameMapsByCreator,
@@ -18,13 +18,22 @@ import {
 	updateGameMap,
 	updatePendingGameMap,
 } from "#src/db/api/game-map";
+import { createAdminAuditLog } from "#src/db/api/admin-audit-log";
+import {
+	diffNotifySettingFields,
+	getNotifySetting,
+	saveNotifySetting,
+} from "#src/db/api/map-review-notify-setting";
 import { getUserById } from "#src/db/api/user";
 import { getTodayUploadCount, incrementTodayUploadCount } from "#src/db/api/map-upload-counter";
 import { ResInterface } from "#src/interfaces/res";
 import { getStorage, createMulter, gameMapMulter, withFileCleanup, cleanupTempFiles } from "#src/utils/storage";
 import { getFileNameInPath, randomString } from "#src/utils";
 import { serverLog } from "#src/utils/logger";
-import { apiKeyAuth, getApiKeyInfo, getApiKeyUser } from "#src/utils/api-key";
+import { apiKeyAuth, getApiKeyInfo, getApiKeyUser, getUserIdFromToken } from "#src/utils/api-key";
+import { notifyPendingMapSubmitted, sendTestNotification } from "#src/utils/map-review-notify";
+import type { PendingMapNotice } from "#src/utils/map-review-webhook";
+import { badRequest, resolveEffectiveNotifyConfig, validateNotifyConfigInput } from "#src/utils/notify-config";
 import { DEFAULT_MAP_UPLOAD_SIZE_LIMIT_MB, DEFAULT_MAP_UPLOAD_DAILY_LIMIT, resolveUploadSizeLimitBytes } from "#src/utils/map-upload-limit";
 
 export const gameMapRouter = Router();
@@ -34,6 +43,26 @@ interface FileArray {
 }
 
 type ReviewAction = "approve" | "reject" | "offline" | "online" | "delete";
+
+/** 记录审核动作审计日志；日志失败不影响审核结果，仅告警 */
+async function writeReviewAuditLog(
+	req: { headers: { authorization?: string } },
+	gameMap: { id: string; name: string; creatorId: string | null },
+	action: ReviewAction,
+	reason?: string,
+) {
+	try {
+		const trimmedReason = reason?.trim();
+		await createAdminAuditLog({
+			adminId: getUserIdFromToken(req.headers.authorization) ?? null,
+			targetUserId: gameMap.creatorId ?? null,
+			action: `map_review_${action}`,
+			detail: `地图 ${gameMap.name}(${gameMap.id})${trimmedReason ? `；原因：${trimmedReason}` : ""}`,
+		});
+	} catch (e: any) {
+		serverLog(`写地图审核审计日志失败: ${e?.message || e}`, "warn");
+	}
+}
 
 function getFiles(req: { files?: unknown }) {
 	return (req.files || {}) as FileArray;
@@ -229,6 +258,8 @@ gameMapRouter.post(
 				}
 			}
 
+			// 区分「首次上传」与「已存在地图的重新提交」，供通知 webhook 使用
+			const isResubmit = Boolean(gameMap);
 			const oldPendingUrl = gameMap?.pendingUrl || null;
 			const oldPendingSourceUrl = gameMap?.pendingSourceUrl || null;
 			const oldCoverUrl = gameMap?.coverUrl || null;
@@ -269,6 +300,27 @@ gameMapRouter.post(
 				serverLog(`Increment today upload count failed (${user.userId}): ${e.message}`, "warn");
 			}
 
+			// 通知渠道（各自独立、未配置则静默跳过；fire-and-forget，失败仅告警，不阻塞上传响应）
+			const notice: PendingMapNotice = {
+				mapId: gameMap.id,
+				name: gameMap.name,
+				author: gameMap.author,
+				description: gameMap.description,
+				version: gameMap.version,
+				creatorId: user.userId,
+				creatorName: user.username,
+				creatorAccount: user.user.useraccount,
+				pendingVersion: gameMap.pendingVersion,
+				pendingChangelog: gameMap.pendingChangelog,
+				reviewSubmittedAt: gameMap.reviewSubmittedAt,
+				coverUrl: gameMap.coverUrl,
+				pendingUrl: gameMap.pendingUrl,
+				pendingSourceUrl: gameMap.pendingSourceUrl,
+				isResubmit,
+			};
+			// 配置与待审计数在编排层只解析/查询一次，两个通道共用
+			void notifyPendingMapSubmitted(notice);
+
 			const resContent: ResInterface = { status: 200, msg: "地图已提交审核", data: { serverMapId: gameMap.id } };
 			res.status(200).json(resContent);
 		} catch (e: any) {
@@ -299,6 +351,7 @@ gameMapRouter.post("/review", async (req, res) => {
 			const deleted = await deleteGameMap(mapId);
 			if (!deleted) throw new Error("地图不存在");
 			await deleteMapUrls([deleted.coverUrl, deleted.mapUrl, deleted.pendingUrl, deleted.sourceUrl, deleted.pendingSourceUrl]);
+			await writeReviewAuditLog(req, gameMap, action, reason);
 			const resContent: ResInterface = { status: 200, msg: "删除成功", data: deleted };
 			res.status(200).json(resContent);
 			return;
@@ -317,6 +370,7 @@ gameMapRouter.post("/review", async (req, res) => {
 		if (action === "approve") {
 			await deleteMapUrls(oldPublishedUrls);
 		}
+		await writeReviewAuditLog(req, gameMap, action, reason);
 		const resContent: ResInterface = { status: 200, msg: "审核操作成功", data: reviewed };
 		res.status(200).json(resContent);
 	} catch (e: any) {
@@ -348,8 +402,10 @@ gameMapRouter.post("/bind-creator", async (req, res) => {
 });
 
 gameMapRouter.get("/admin-list", async (req, res) => {
-	const { page = 1, size = 8, creatorId, status } = req.query;
+	const { page = 1, size = 8, creatorId, status, sort, cursor } = req.query;
 	try {
+		// 游标非法（缺省/解析失败）时按「不限制」处理，保持与旧行为一致
+		const cursorTime = cursor ? new Date(cursor.toString()) : null;
 		const { gameMapList, total } = await getAdminGameMapList({
 			page: parseInt(page.toString()),
 			size: parseInt(size.toString()),
@@ -357,6 +413,9 @@ gameMapRouter.get("/admin-list", async (req, res) => {
 			status: ["reviewing", "published", "rejected", "offline"].includes(status?.toString() || "")
 				? status?.toString() as GameMapStatus
 				: undefined,
+			// 仅识别 "newest"（待审队列按最近入队时间倒序），其他值保持历史默认排序
+			sort: sort?.toString() === "newest" ? "newest" : undefined,
+			cursor: cursorTime && !isNaN(cursorTime.getTime()) ? cursorTime : undefined,
 		});
 		const resMsg: ResInterface = {
 			status: 200,
@@ -366,6 +425,88 @@ gameMapRouter.get("/admin-list", async (req, res) => {
 	} catch {
 		const resMsg: ResInterface = { status: 500, msg: "获取地图列表失败" };
 		res.status(500).json(resMsg);
+	}
+});
+
+/** 通知设置（仅 admin）：读取当前配置 */
+gameMapRouter.get("/notify-setting", async (_req, res) => {
+	try {
+		const setting = await getNotifySetting();
+		const resContent: ResInterface = {
+			status: 200,
+			data: {
+				saved: Boolean(setting),
+				setting,
+				config: resolveEffectiveNotifyConfig(setting),
+				updatedAt: setting?.updatedAt ?? null,
+				updatedBy: setting?.updatedBy ?? null,
+			},
+		};
+		res.status(200).json(resContent);
+	} catch (e: any) {
+		const resContent: ResInterface = { status: 500, msg: e.message || "获取通知设置失败" };
+		res.status(500).json(resContent);
+	}
+});
+
+/** 通知设置（仅 admin）：保存；配置只存库，不走 .env */
+gameMapRouter.post("/notify-setting", async (req, res) => {
+	const input = (req.body ?? {}) as MapReviewNotifySettingInput;
+	try {
+		validateNotifyConfigInput(input);
+
+		const adminId = getUserIdFromToken(req.headers.authorization) ?? null;
+		const before = await getNotifySetting();
+		const saved = await saveNotifySetting(input, adminId);
+
+		// 审计只记录变化的字段名，绝不写入密钥值
+		try {
+			await createAdminAuditLog({
+				adminId,
+				targetUserId: null,
+				action: "map_review_notify_setting_update",
+				detail: `变更字段：${diffNotifySettingFields(before, saved).join(", ") || "无"}`,
+			});
+		} catch (e: any) {
+			serverLog(`写通知设置审计日志失败: ${e?.message || e}`, "warn");
+		}
+
+		const resContent: ResInterface = {
+			status: 200,
+			msg: "通知设置已保存",
+			data: {
+				saved: true,
+				config: resolveEffectiveNotifyConfig(saved),
+				updatedAt: saved.updatedAt,
+				updatedBy: saved.updatedBy,
+			},
+		};
+		res.status(200).json(resContent);
+	} catch (e: any) {
+		const status = e?.statusCode ?? 500;
+		const resContent: ResInterface = { status, msg: e.message || "保存通知设置失败" };
+		res.status(status).json(resContent);
+	}
+});
+
+/** 通知设置（仅 admin）：用当前表单内容发一条测试通知（不落库、单次尝试，便于立刻看到失败原因） */
+gameMapRouter.post("/notify-setting/test", async (req, res) => {
+	const { channel, config: input } = (req.body ?? {}) as {
+		channel?: "webhook" | "feishu";
+		config?: MapReviewNotifySettingInput;
+	};
+	try {
+		if (channel !== "webhook" && channel !== "feishu") throw badRequest("channel 参数错误");
+		const draft = input ?? {};
+		validateNotifyConfigInput(draft);
+
+		const result = await sendTestNotification(channel, draft);
+		const resContent: ResInterface = { status: 200, data: result };
+		res.status(200).json(resContent);
+	} catch (e: any) {
+		const status = e?.statusCode ?? 500;
+		const resContent: ResInterface = { status, msg: e.message || "发送测试通知失败" };
+		res.status(status).json(resContent);
 	}
 });
 

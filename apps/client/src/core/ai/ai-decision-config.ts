@@ -31,8 +31,8 @@ export function normalizeRemoteLLMConfig(config: Partial<AIRemoteLLMConfig> | un
 		apiKey: typeof config?.apiKey === "string" ? config.apiKey.trim() : fallback.apiKey,
 		model: typeof config?.model === "string" ? config.model.trim() : fallback.model,
 		timeoutMs:
-			typeof config?.timeoutMs === "number" && Number.isFinite(config.timeoutMs)
-				? config.timeoutMs
+			typeof config?.timeoutMs === "number" && Number.isFinite(config.timeoutMs) && config.timeoutMs > 0
+				? Math.max(1, Math.min(2147483647, Math.floor(config.timeoutMs)))
 				: fallback.timeoutMs,
 	};
 }

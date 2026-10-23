@@ -9,7 +9,7 @@ import type {
 import { useRoomInfo, useSettig } from "@src/store";
 import { useMapData } from "@src/store/game";
 import { normalizeAIDecisionConfig } from "./ai-decision-config";
-import { clearAIRemoteUsageStats, getAIRemoteUsageSnapshot } from "./remote-usage-stats";
+import { clearAIRemoteUsageStats, getAIRemoteUsageSnapshot, getAIRemoteCallDetail } from "./remote-usage-stats";
 
 type AIRoomControlTarget = {
 	updateAIDecisionConfig?: (config: AIDecisionConfig) => void;
@@ -120,6 +120,7 @@ export async function clearAIControlStrategyMemory(playerId?: string): Promise<A
 
 export const aiControlBridge: AIControlBridge = {
 	getSnapshot: getAIControlSnapshot,
+	getUsageDetail: getAIRemoteCallDetail,
 	applyConfig: applyAIControlConfig,
 	clearUsage: clearAIControlRemoteUsageStats,
 	clearMemory: clearAIControlStrategyMemory,

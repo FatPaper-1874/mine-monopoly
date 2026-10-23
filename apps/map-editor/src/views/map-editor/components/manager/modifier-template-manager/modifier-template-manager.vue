@@ -219,9 +219,17 @@ function handleDelete(id: string) {
  * 保存修饰器模板
  */
 function handleSave(template: ModifierTemplate) {
-	mapStore.saveModifierTemplate(template);
-	message.success("修饰器模板保存成功");
-	closeEditor();
+	try {
+		const originalId = isEditing.value ? currentTemplate.value?.id : undefined;
+		if (originalId === undefined && mapStore.modifierTemplates.some(t => t.id === template.id)) {
+			throw new Error("修饰器模板 ID 已存在: " + template.id);
+		}
+		mapStore.saveModifierTemplate(template, originalId);
+		message.success("修饰器模板保存成功");
+		closeEditor();
+	} catch (error) {
+		message.error(error instanceof Error ? error.message : "保存修饰器模板失败");
+	}
 }
 
 /**

@@ -35,6 +35,8 @@ export class TextSprite {
 			side: DoubleSide,
 		});
 		this.sprite = new Sprite(material);
+		// 标记文字精灵，便于渲染层在俯视棋盘下按屏幕字号统一校正
+		this.sprite.userData.isTextSprite = true;
 
 		// 初始化文字
 		this.updateText(text);
@@ -73,6 +75,10 @@ export class TextSprite {
 
 		context.restore();
 
+		// 记录文字宽度占画布的比例：渲染层据此把俯视下的标签限制在一格地皮以内
+		const textWidth = Math.max(0, ...lines.map((line) => context.measureText(line).width));
+		this.sprite.userData.textWidthRatio = (textWidth + strokeWidth * 2) / canvas.width;
+
 		// 更新纹理
 		this.texture.needsUpdate = true;
 	}
@@ -83,7 +89,7 @@ export class TextSprite {
 	 */
 	public getTextBoundsInCanvas(text: string): { width: number; height: number } {
 		this.context.font = `bold ${this.fontSize}px ContentFont`;
-		const lines = text.split("\\n");
+		const lines = text.split("\n");
 		const textWidth = Math.max(0, ...lines.map((line) => this.context.measureText(line).width));
 		const textHeight = this.lineHight * lines.length;
 		return {
