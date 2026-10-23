@@ -2289,6 +2289,9 @@ export class GameProcess implements IGameProcess {
 					if (!targetMapItemId) throw new Error("目标地图项不存在");
 					const targetMapItem = this.mapItems.get(targetMapItemId);
 					if (!targetMapItem) throw new Error("目标地图项不存在");
+					if (!this.getMapPathNodeIds().has(targetMapItemId)) {
+						throw new Error("目标地图项不是地图路径节点");
+					}
 					await this.executeChanceCardWithAnimation(sourcePlayer, chanceCard, targetMapItemId, [targetMapItem.id]);
 					this.msgNotifyBroadcast(
 						"info",
@@ -2960,6 +2963,17 @@ export class GameProcess implements IGameProcess {
 		};
 	}
 
+	private getMapPathNodeIds(): Set<string> {
+		const nodeIds = new Set<string>();
+		for (const path of this.mapData.mapPaths) {
+			nodeIds.add(path.fromMapItemId);
+			nodeIds.add(path.toMapItemId);
+		}
+		if (nodeIds.size === 0) {
+			for (const mapItemId of this.mapData.mapIndex) nodeIds.add(mapItemId);
+		}
+		return nodeIds;
+	}
 	private buildTargetDecisionOptions(player: Player, type: TargetSelectType | undefined): AIDecisionOption[] {
 		switch (type) {
 			case TargetSelectType.ToSelf:
@@ -3008,8 +3022,9 @@ export class GameProcess implements IGameProcess {
 						},
 					};
 				});
-			case TargetSelectType.ToMapItem:
-				return this.mapData.mapItems.map((item) => ({
+			case TargetSelectType.ToMapItem: {
+				const mapPathNodeIds = this.getMapPathNodeIds();
+				return this.mapData.mapItems.filter((item) => mapPathNodeIds.has(item.id)).map((item) => ({
 					id: item.id,
 					label: item.property?.name || item.type.name || item.id,
 					actionType: "target",
@@ -3025,6 +3040,7 @@ export class GameProcess implements IGameProcess {
 						hasProperty: !!item.property,
 					},
 				}));
+			}
 			default:
 				return [];
 		}
